@@ -69,15 +69,6 @@ cp .env.local.example .env.local
 
 Fill in the values collected in steps 1–2. Then `pnpm install && pnpm dev`.
 
-### 4. Deploy to Vercel
-
-1. Push to GitHub.
-2. In Vercel, **Add New → Project → Import** the repo. It auto-detects Next.js.
-3. Under **Project Settings → Environment Variables**, add every variable from `.env.local.example`. Set `NEXT_PUBLIC_SITE_URL` to the production URL (e.g., `https://biztech-partnerships.vercel.app`). You can scope variables to Production / Preview / Development separately if you want Preview deploys to point at a separate Supabase project.
-4. In Supabase, go to **Authentication → URL Configuration**. Add the Vercel URL to both **Site URL** and **Redirect URLs**.
-5. In Google Cloud, add `https://<your-vercel-domain>/auth/callback` to the authorized redirect URIs on the OAuth client.
-6. Deploy.
-
 ## Common commands
 
 ```bash
