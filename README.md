@@ -73,8 +73,9 @@ Fill in the values collected in steps 1–2. Then `pnpm install && pnpm dev`.
 
 ```bash
 pnpm dev        # local dev server on :3000
-pnpm build      # production build
+pnpm build      # run tests, then production build — fails fast if tests fail
 pnpm start      # run the built app
+pnpm test       # run the Vitest suite once (watch mode: pnpm exec vitest)
 pnpm lint       # eslint
 pnpm typecheck  # tsc --noEmit, no emit
 ```

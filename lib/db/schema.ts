@@ -220,6 +220,22 @@ export const meetingNoteAttendees = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// google_oauth_tokens
+// One row per user who has connected their Workspace Google account.
+// The refresh token is encrypted at rest; see lib/google/tokens.ts.
+// ---------------------------------------------------------------------------
+export const googleOauthTokens = pgTable("google_oauth_tokens", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  accessToken: text("access_token").notNull(),
+  refreshTokenEncrypted: text("refresh_token_encrypted").notNull(),
+  scopes: text("scopes").array().notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ---------------------------------------------------------------------------
 // inferred types — import these instead of writing types by hand
 // ---------------------------------------------------------------------------
 export type User = typeof users.$inferSelect;
@@ -251,3 +267,6 @@ export type NewInteraction = typeof interactions.$inferInsert;
 
 export type InKindSponsor = typeof inKindSponsors.$inferSelect;
 export type NewInKindSponsor = typeof inKindSponsors.$inferInsert;
+
+export type GoogleOauthToken = typeof googleOauthTokens.$inferSelect;
+export type NewGoogleOauthToken = typeof googleOauthTokens.$inferInsert;
