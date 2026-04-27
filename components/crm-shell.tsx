@@ -35,27 +35,6 @@ type CrmShellProps = {
   data?: CrmShellData;
 };
 
-const primaryNavItems = [
-  { label: "Inbox", active: true, count: "3" },
-  { label: "My partners" },
-];
-
-const workspaceNavItems = ["Partners", "Events", "Pipeline", "Documents", "Email Ops"];
-const teamNavItems = ["Accounts", "Contacts", "Sponsorships"];
-const utilityNavItems = ["Import / export", "Gmail sync"];
-
-function SidebarIcon({ active = false }: { active?: boolean }) {
-  return (
-    <span
-      className={`size-4 shrink-0 rounded-[4px] border ${
-        active
-          ? "border-zinc-100 bg-zinc-100/10"
-          : "border-zinc-500/70 bg-transparent"
-      }`}
-    />
-  );
-}
-
 export function CrmShell({ displayName, email }: CrmShellProps) {
   const initials = displayName
     .split(" ")
@@ -77,108 +56,10 @@ export function CrmShell({ displayName, email }: CrmShellProps) {
                 UBC BizTech
               </p>
             </div>
-            <button
-              type="button"
-              aria-label="Search"
-              className="grid size-7 place-items-center rounded-md text-zinc-500 transition hover:bg-white/[0.06] hover:text-zinc-200"
-            >
-              <span className="size-3.5 rounded-full border border-current" />
-            </button>
-            <button
-              type="button"
-              aria-label="New"
-              className="grid size-7 place-items-center rounded-md bg-white/[0.08] text-sm text-zinc-100 transition hover:bg-white/[0.12]"
-            >
-              +
-            </button>
           </div>
 
-          <nav className="mt-5 space-y-0.5">
-            {primaryNavItems.map((item) => (
-              <a
-                href="#"
-                key={item.label}
-                className={`flex h-8 items-center gap-2 rounded-md px-2 text-[14px] font-medium transition ${
-                  item.active
-                    ? "bg-white/[0.105] text-zinc-50"
-                    : "text-zinc-500 hover:bg-white/[0.055] hover:text-zinc-200"
-                }`}
-              >
-                <SidebarIcon active={item.active} />
-                <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                {item.count ? (
-                  <span className="text-xs font-medium text-zinc-500">{item.count}</span>
-                ) : null}
-              </a>
-            ))}
-          </nav>
-
-          <nav className="mt-7">
-            <div className="mb-1 flex h-7 items-center px-2 text-[13px] font-semibold text-zinc-500">
-              Workspace
-            </div>
-            <div className="space-y-0.5">
-              {workspaceNavItems.map((item) => (
-                <a
-                  href="#"
-                  key={item}
-                  className="flex h-8 items-center gap-2 rounded-md px-2 text-[14px] font-medium text-zinc-500 transition hover:bg-white/[0.055] hover:text-zinc-200"
-                >
-                  <SidebarIcon />
-                  <span className="truncate">{item}</span>
-                </a>
-              ))}
-            </div>
-          </nav>
-
-          <nav className="mt-7">
-            <div className="mb-1 flex h-7 items-center px-2 text-[13px] font-semibold text-zinc-500">
-              Your team
-            </div>
-            <a
-              href="#"
-              className="flex h-8 items-center gap-2 rounded-md px-2 text-[14px] font-semibold text-zinc-400 transition hover:bg-white/[0.055] hover:text-zinc-200"
-            >
-              <span className="size-4 rounded-[4px] border border-rose-400" />
-              <span className="min-w-0 flex-1 truncate">UBC BizTech</span>
-            </a>
-            <div className="mt-1 space-y-0.5 pl-6">
-              {teamNavItems.map((item) => (
-                <a
-                  href="#"
-                  key={item}
-                  className="flex h-8 items-center gap-2 rounded-md px-2 text-[14px] font-medium text-zinc-500 transition hover:bg-white/[0.055] hover:text-zinc-200"
-                >
-                  <SidebarIcon />
-                  <span className="truncate">{item}</span>
-                </a>
-              ))}
-            </div>
-          </nav>
-
-          <nav className="mt-7">
-            <div className="mb-1 flex h-7 items-center px-2 text-[13px] font-semibold text-zinc-500">
-              Try
-            </div>
-            <div className="space-y-0.5">
-              {utilityNavItems.map((item) => (
-                <a
-                  href="#"
-                  key={item}
-                  className="flex h-8 items-center gap-2 rounded-md px-2 text-[14px] font-medium text-zinc-500 transition hover:bg-white/[0.055] hover:text-zinc-200"
-                >
-                  <SidebarIcon />
-                  <span className="truncate">{item}</span>
-                </a>
-              ))}
-            </div>
-          </nav>
-
-          <div className="mt-auto rounded-lg bg-white/[0.055] px-3 py-3">
-            <p className="text-[13px] font-medium text-zinc-500">Next up</p>
-            <p className="mt-1 truncate text-sm font-medium text-zinc-200">
-              Gmail send workflow
-            </p>
+          <div className="mt-8 px-2 text-[13px] font-medium text-zinc-500">
+            Partnerships CRM
           </div>
         </aside>
 
