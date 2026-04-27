@@ -4,7 +4,7 @@
 
 A centralized tool for the BizTech partnerships team to manage sponsor relationships across events, track revenue, share meeting insights, and organize documents throughout the year. Built custom to stay on a $0/month budget and to integrate cleanly with the Google Workspace and Slack tooling the team already uses.
 
-The long-term product covers partner management, event/sponsorship tracking, dashboards, mass email, document management, and MOU/invoice generation. V1 is deliberately narrower: a shared meeting-notes hub on top of a lightweight partners/events/users foundation.
+The long-term product covers partner management, event/sponsorship tracking, dashboards, mass email, document management, and MOU/invoice generation. V1 now starts from the Partnerships CRM prototype that landed in `bt-web-v2` and ports it onto this repo's Supabase/Drizzle foundation. The confirmed source feature inventory lives in [docs/partnerships-crm-migration.md](./docs/partnerships-crm-migration.md).
 
 ## Non-functional requirements
 
@@ -25,7 +25,7 @@ The long-term product covers partner management, event/sponsorship tracking, das
 | ORM | Drizzle | Typed SQL, Supabase-friendly, zero runtime overhead. |
 | UI | shadcn/ui + Tailwind | Free, copy-paste components, Next.js native. |
 | File storage | Google Drive API | Files live in the shared BizTech Drive; DB stores Drive IDs + metadata. |
-| Email sending | Gmail API per user (OAuth) | Free within Workspace limits (2,000/day per user). Personal From address. |
+| Email sending | Gmail API per signed-in user (OAuth) | Free within Workspace limits (2,000/day per user). Sends from the user's own Gmail account. |
 | Document generation | Google Docs API | Copy template, `batchUpdate` to replace `{{placeholders}}`, export PDF, save Drive ID. |
 | Slack | Incoming webhook + bot token | Channel updates and DM reminders to the assigned POC. |
 | Meeting notes | Manual ingestion — TXT file upload or copy-paste | No API dependency. Users export or copy notes from any tool and submit them directly. |
@@ -46,31 +46,64 @@ Supabase Postgres with row-level security. All tables enforce that the caller is
 - `role` text, enum (`admin`, `member`), default `member` — present as a forward-compatibility hook; admins have no additional privileges in v1
 - `created_at`, `updated_at` timestamps
 
-**partners** (companies)
+**companies** (sponsor accounts)
 - `id` uuid, PK
-- `name` text, required
-- `primary_contact_name` text, nullable in v1
-- `primary_contact_email` text, nullable in v1
-- `phone` text, nullable
-- `tier` text, nullable
-- `notes` text
+- `name` text, required, unique
+- `website`, `linkedin`, `tier`, `notes`
+- `tags` text array
+- `is_alumni` boolean, default `false`
+- `archived` boolean, default `false`
+- `created_at`, `updated_at`
+
+**partners** (people/contacts at companies)
+- `id` uuid, PK
+- `company_id` uuid, FK to `companies.id`
+- `first_name`, `last_name`
+- `role`, `email`, `linkedin`, `phone`, `notes`
+- `is_primary` boolean, default `false` — marks the primary contact for a company
 - `archived` boolean, default `false`
 - `created_at`, `updated_at`
 
 **events**
 - `id` uuid, PK
 - `name` text, required
+- `year` integer
 - `start_date` date
 - `end_date` date, nullable
+- `outreach_start_date` date, nullable
+- `sponsorship_goal` integer, nullable — stored in cents
+- `tier_configs` jsonb — event package presets with label + default amount
 - `description` text
+- `notes` text
 - `archived` boolean, default `false`
 - `created_at`, `updated_at`
+
+**sponsors** (cash sponsorship pipeline records)
+- `id` uuid, PK
+- `company_id` uuid, FK to `companies.id`
+- `event_id` uuid, FK to `events.id`
+- `primary_contact_id` uuid, nullable FK to `partners.id`
+- `owner_user_id` uuid, nullable FK to `users.id`
+- `amount` integer, nullable — stored in cents
+- `tier`, `status`, `role`, `follow_up_date`, `notes`
+- `archived` boolean, default `false`
+- `created_at`, `updated_at`
+
+**sponsorship_contacts**
+- (`sponsor_id`, `partner_id`) composite PK
+- Links additional company contacts to a sponsorship. This is what lets one sponsorship attach to both the company and multiple people without duplicating the deal.
+
+**partner_documents**
+- Link-only document metadata for v1.
+- `company_id` required, with optional `partner_id`, `event_id`, and `sponsor_id`
+- `title`, `type`, `status`, `url`, `file_name`, `notes`
 
 **meeting_notes**
 - `id` uuid, PK
 - `title` text
 - `meeting_date` timestamp
-- `source` text, enum (`upload`, `paste`) — distinguishes TXT file uploads from direct copy-paste submissions
+- `source` text, enum (`manual`, `upload`, `granola`, `google_doc`, `other`)
+- `source_url` text, nullable
 - `original_filename` text, nullable — original filename when the note was submitted as a TXT upload
 - `content` text — full note body (markdown)
 - `summary` text, nullable — short blurb for list views
@@ -79,17 +112,16 @@ Supabase Postgres with row-level security. All tables enforce that the caller is
 
 ### Join tables (v1)
 
-- **meeting_note_partners** — (`meeting_note_id`, `partner_id`). Tags a note to one or more companies.
+- **meeting_note_companies** — (`meeting_note_id`, `company_id`). Tags a note to one or more companies.
+- **meeting_note_partners** — (`meeting_note_id`, `partner_id`). Tags a note to one or more contacts.
 - **meeting_note_events** — (`meeting_note_id`, `event_id`). Tags a note to one or more events.
 - **meeting_note_attendees** — (`meeting_note_id`, `user_id`). Tags BizTech members/executives as POCs or attendees for that conversation.
 
-### Deferred tables (v2+)
+### Email ops tables
 
-- **sponsorships** — (`partner_id`, `event_id`, `amount`, `package_tier`, `status`). Captures pipeline state.
-- **documents** — metadata wrapper around Drive files, linked to partner and/or event, typed (MOU, deck, invoice, package), status (draft, sent, signed).
-- **email_sends** — per-partner log of emails sent through the Gmail integration.
-- **email_templates** — reusable bodies with merge fields.
-- **follow_ups** — scheduled reminders surfaced on the dashboard.
+- **email_templates** — reusable subject/body templates with merge fields.
+- **email_campaigns** — a send batch with rendered subject/body, sender, event, and status.
+- **email_sends** — per-recipient send result, linked to company/contact when available.
 
 ### Row-level security (starter policy)
 
@@ -129,39 +161,37 @@ Either path lands in the same `meeting_notes` table row; the `source` column rec
 
 Slash commands and two-way sync are explicitly out of scope.
 
-## V1 scope — meeting notes hub
+## V1 scope — partnerships CRM migration
 
-The v1 goal is to make BizTech meetings visible to the whole team and attach them to the right company, event, and people.
+The v1 goal is to make the Partnerships team able to manage partner accounts, event sponsorship relationships, documents, communications, and dashboard reporting in this standalone app.
 
 **In scope:**
 
 - Google login restricted to `@ubcbiztech.com`.
-- Minimal CRUD for partners (companies): name, notes, archive.
-- Minimal CRUD for events: name, dates, description.
-- Meeting notes list view with filters by partner, event, attendee, and date range.
-- Meeting note detail view showing content, linked company/event/attendee chips, and source method (upload vs. paste).
-- Create/edit meeting note form with tag pickers for partner, event, and attendee.
-- TXT file upload ingestion path — file content read client-side, previewed, then saved.
-- Copy-paste ingestion path — plain text area on the same form.
-- `users.role` column in place, every user defaulted to `member`; no role-gated actions yet.
+- Partner directory with search, filters, tags, alumni flag, archive/restore, and CSV export.
+- CRM events with dates, outreach start date, sponsorship goals, tier presets, and archive/restore.
+- Partner-event sponsorship pipeline with status, package tier, role, amount, follow-up date, and notes.
+- Dashboard metrics for revenue secured, open pipeline, goal progress, event pace, and action items.
+- Partner documents as metadata/link records.
+- Partner communications as manual log records, with source fields ready for synced email.
+- Email Ops data model and UI path for templates, merge fields, mass email, Gmail sync status, and Gmail sync setup.
+- Meeting notes remain a later first-party note workflow, but they should be integrated with the same partner/event/contact model.
+- `users.role` column in place, every user defaulted to `member`; role-gated actions added only when needed.
 
 **Out of scope for v1, lined up for v2+:**
 
-- Sponsorship pipeline and dollar tracking.
-- Dashboard and reporting.
-- Mass email and templates.
-- Document management and MOU/invoice generation.
+- Fully automated MOU/invoice generation.
 - Slack notifications and DMs.
-- Follow-up reminders and weekly digest.
-- Admin-only privileges (delete, user management, template ownership, POC reassignment, financial visibility gating).
+- Weekly digest/background jobs.
+- Rich Google Drive file picker/upload.
+- Admin-only privilege model beyond the starter `role` column.
 
 ## Roadmap
 
-- **V1** — meeting notes hub (this doc's focus).
-- **V2** — sponsorship pipeline: add `sponsorships` table, per-partner detail view with sponsorship history, pipeline kanban, basic revenue dashboard.
-- **V3** — communication: Gmail OAuth scope, 1:1 send from the partner detail view, per-partner email log, Slack channel webhook on pipeline state changes.
-- **V4** — documents: Drive-backed `documents` table, document hub with type/status filters, MOU and invoice generation from Google Docs templates.
-- **V5** — automation: background jobs for scheduled reminders, weekly digest, mass email chunking, Slack DMs to assigned POCs.
+- **V1** — CRM migration foundation: schema, CRUD, partner-event pipeline, dashboard aggregations, documents, communications.
+- **V2** — email ops: templates, merge fields, Gmail send, Gmail sync ingest, campaign/send logs.
+- **V3** — imports/exports and documents: Google Sheets/CSV import-export, Drive-backed documents, MOU and invoice generation from Google Docs templates.
+- **V4** — automation: background jobs for scheduled reminders, weekly digest, mass email chunking, Slack DMs to assigned POCs.
 - **Ongoing** — admin role privileges added as specific gated actions emerge.
 
 ## Open items and risks

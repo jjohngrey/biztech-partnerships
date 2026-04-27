@@ -4,9 +4,9 @@ Internal CRM for the BizTech partnerships team. One central place to manage spon
 
 Built in-house to stay on a $0/month budget and to integrate cleanly with the tooling the team already uses (Google Workspace, Slack, Granola). The long-term product covers partner management, event/sponsorship tracking, dashboards, mass email, document storage, and MOU/invoice generation — see [Architecture.md](./Architecture.md) for the full plan and roadmap.
 
-**V1 scope** — a shared meeting-notes hub on top of a lightweight partners/events/users foundation. Everything else is sequenced into v2–v5.
+**V1 scope** — migrate the Partnerships CRM slice that was prototyped in `bt-web-v2`: partner directory, event sponsorship pipeline, dashboard, document/communication logs, and email ops. Meeting notes stay in scope, but they are no longer the only first product milestone.
 
-**Current status.** This repo is at the very first milestone: the auth slice. Next.js app boots, a user signs in with their `@ubcbiztech.com` Google account, and a protected page greets them by name. Nothing more — and that's the point. This milestone proves the stack hangs together (Next.js + Supabase + Google Workspace OAuth + Vercel env vars) before any product code gets layered on. Every feature after this assumes it works.
+**Current status.** The repo has the foundation in place: Next.js app, Supabase Google sign-in, Drizzle schema/migrations, RLS starter policies, and Google OAuth token storage helpers. The CRM migration inventory is captured in [docs/partnerships-crm-migration.md](./docs/partnerships-crm-migration.md).
 
 ## Tech stack
 
@@ -155,10 +155,18 @@ When adding a new page that should be behind auth: nothing special. The root mid
 
 When adding a new *public* page: extend the `isPublic` check in `lib/supabase/middleware.ts`.
 
+## Migration Pointers
+
+- **Source CRM slice** — `bt-web-v2` commit `c16215ca0d4fb8db1845421455addc9ab5355fcf`, merged into `origin/dev` by PR #432.
+- **Feature inventory** — see [docs/partnerships-crm-migration.md](./docs/partnerships-crm-migration.md).
+- **Next implementation pass** — align the Drizzle schema with the confirmed CRM entities, then rebuild the old external backend surface as local App Router handlers/server actions.
+
 ## Roadmap pointers
 
-- **v1** *(next)* — Drizzle schema for `users` / `partners` / `events` / `meeting_notes` + join tables, RLS policies, minimal CRUD, and the meeting-notes hub UI.
-- **v2+** — sponsorship pipeline, Gmail and Slack integrations, document management and MOU/invoice generation, background jobs.
+- **V1** *(next)* — CRM data model, partners/events CRUD, partner-event pipeline, dashboard aggregations, document/communication logs, and migration-safe UI shell.
+- **V2** — email templates, mail merge, Gmail send, Gmail sync ingest, and campaign/send logs.
+- **V3** — Google Sheets/CSV import-export, Drive-backed documents, MOU/invoice generation.
+- **V4+** — Slack reminders, scheduled follow-ups, weekly digest, and background jobs.
 
 Full plan with rationale in [Architecture.md](./Architecture.md).
 

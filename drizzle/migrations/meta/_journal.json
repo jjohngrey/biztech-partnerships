@@ -8,6 +8,34 @@
       "when": 1777091828301,
       "tag": "0000_material_princess_powerful",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1777091828302,
+      "tag": "0001_rls_policies",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1777091828303,
+      "tag": "0002_google_oauth_tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1777310410000,
+      "tag": "0003_partnerships_crm_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1777311120000,
+      "tag": "0004_relax_legacy_sponsor_dates",
+      "breakpoints": true
     }
   ]
 }
