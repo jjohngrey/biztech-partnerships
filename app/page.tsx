@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { CrmShell } from "@/components/crm-shell";
-import { getCrmShellData } from "@/lib/partnerships/view-model";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -28,13 +27,10 @@ export default async function HomePage() {
     user.email ??
     "there";
 
-  const crmData = await getCrmShellData();
-
   return (
     <CrmShell
       displayName={displayName}
       email={user.email ?? undefined}
-      data={crmData}
     />
   );
 }
