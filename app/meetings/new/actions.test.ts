@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createMeetingNoteSchema } from "./actions";
+import { createMeetingNoteSchema } from "@/lib/validation/meeting-notes";
 
 // Zod v4 requires proper UUID format: version bits [1-8] and variant bits [89ab]
 const PARTNER_UUID = "00000000-0000-4000-8000-000000000001";

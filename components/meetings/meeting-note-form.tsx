@@ -10,7 +10,7 @@ import { PartnerPicker, type PartnerOption } from "@/components/meetings/partner
 import { AttendeePicker, type UserOption } from "@/components/meetings/attendee-picker";
 import { EventPicker, type EventOption } from "@/components/meetings/event-picker";
 import Link from "next/link";
-import type { ActionState } from "@/app/meetings/new/actions";
+import type { ActionState } from "@/lib/validation/meeting-notes";
 
 interface MeetingNoteFormProps {
   partners: PartnerOption[];

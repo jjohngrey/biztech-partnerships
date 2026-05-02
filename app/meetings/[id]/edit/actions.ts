@@ -11,7 +11,7 @@ import {
   meetingNoteEvents,
 } from "@/lib/db/schema";
 import { createClient } from "@/lib/supabase/server";
-import { createMeetingNoteSchema, type ActionState } from "@/app/meetings/new/actions";
+import { createMeetingNoteSchema, type ActionState } from "@/lib/validation/meeting-notes";
 
 const updateMeetingNoteSchema = createMeetingNoteSchema.extend({
   id: z.string().uuid(),
@@ -43,7 +43,7 @@ export async function updateMeetingNote(
 
   const parsed = updateMeetingNoteSchema.safeParse(raw);
   if (!parsed.success) {
-    return { errors: parsed.error.flatten().fieldErrors as ActionState["errors"] };
+    return { errors: parsed.error.flatten().fieldErrors as NonNullable<ActionState>["errors"] };
   }
 
   const { id, title, meetingDate, summary, content, source, originalFilename, partnerIds, biztechAttendeeIds, eventIds } =
