@@ -1194,7 +1194,7 @@ export async function logEventPartnerResponse(input: LogEventPartnerResponseInpu
     partnerId = contact.id;
   }
 
-  await createPartnerEventRole({
+  await addPartnerEventRole({
     partnerId,
     eventId: input.eventId,
     eventRole: input.eventRole,
