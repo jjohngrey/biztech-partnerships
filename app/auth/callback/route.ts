@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { resolveCrmUserForAuthUser } from "@/lib/auth/crm-user";
 import { createClient } from "@/lib/supabase/server";
 import { storeTokens, type GoogleTokenResponse } from "@/lib/google/tokens";
 
@@ -63,6 +64,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/login?error=${reason}`);
   }
 
+  let crmUser;
+  try {
+    crmUser = await resolveCrmUserForAuthUser(data.user);
+  } catch (err) {
+    console.error("[auth/callback] failed to sync CRM user", {
+      message: err instanceof Error ? err.message : "Unknown CRM user sync error",
+    });
+    await supabase.auth.signOut();
+    return NextResponse.redirect(`${origin}/login?error=profile-sync`);
+  }
+
   // Store Google API tokens so the Google module can make API calls on
   // behalf of this user. provider_token and provider_refresh_token come from
   // Supabase's OAuth exchange; they're only present because we requested
@@ -78,7 +90,7 @@ export async function GET(request: NextRequest) {
         expiry_date: Date.now() + 3600 * 1000,
       };
       await storeTokens(
-        data.user.id,
+        crmUser.id,
         googleTokens,
         // Initial scopes — the basic set Supabase requests from Google.
         // Features that need more scopes will trigger incremental consent.
@@ -88,7 +100,9 @@ export async function GET(request: NextRequest) {
       // Log but don't block sign-in — token storage is best-effort here.
       // The user is authenticated; they'll get a consent prompt when they
       // first use a Google-connected feature.
-      console.error('[auth/callback] failed to store Google tokens', err);
+      console.error("[auth/callback] failed to store Google tokens", {
+        message: err instanceof Error ? err.message : "Unknown token storage error",
+      });
     }
   }
 

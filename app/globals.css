@@ -6,26 +6,46 @@
  */
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
+  --background: oklch(0.08 0.003 260);
+  --foreground: oklch(0.94 0.005 255);
+  --card: oklch(0.13 0.004 260);
+  --card-foreground: oklch(0.94 0.005 255);
+  --popover: oklch(0.13 0.004 260);
+  --popover-foreground: oklch(0.94 0.005 255);
+  --primary: oklch(0.72 0.015 260);
+  --primary-foreground: oklch(0.1 0.01 255);
+  --secondary: oklch(0.18 0.004 260);
+  --secondary-foreground: oklch(0.9 0.005 255);
+  --muted: oklch(0.18 0.004 260);
+  --muted-foreground: oklch(0.62 0.006 255);
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --radius: 0.625rem;
+  --border: oklch(0.24 0.004 260);
+  --input: oklch(0.24 0.004 260);
+  --ring: oklch(0.72 0.015 260);
+  --radius: 0.5rem;
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --background: oklch(0.985 0.002 260);
+  --foreground: oklch(0.18 0.006 260);
+  --card: oklch(0.965 0.003 260);
+  --card-foreground: oklch(0.18 0.006 260);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.006 260);
+  --primary: oklch(0.42 0.015 260);
+  --primary-foreground: oklch(0.98 0.002 260);
+  --secondary: oklch(0.935 0.004 260);
+  --secondary-foreground: oklch(0.24 0.006 260);
+  --muted: oklch(0.93 0.004 260);
+  --muted-foreground: oklch(0.48 0.006 260);
+  --border: oklch(0.84 0.004 260);
+  --input: oklch(0.84 0.004 260);
+  --ring: oklch(0.54 0.012 260);
+  color-scheme: light;
 }
 
 @theme inline {
@@ -57,6 +77,16 @@
 html,
 body {
   height: 100%;
+  min-height: 100%;
+  background: var(--background);
+  overflow-x: hidden;
+  overscroll-behavior: none;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 body {
@@ -67,4 +97,229 @@ body {
     Roboto, "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M4 6L8 10L12 6' stroke='%2371777f' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-position: right 0.75rem center;
+  background-repeat: no-repeat;
+  background-size: 16px 16px;
+  padding-right: 2.25rem !important;
+}
+
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"] {
+  color-scheme: dark;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+  max-width: 100%;
+}
+
+input,
+select,
+textarea {
+  min-width: 0;
+}
+
+code {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+button,
+a {
+  touch-action: manipulation;
+}
+
+button:focus,
+a:focus {
+  outline: none;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 1px solid rgba(212, 212, 216, 0.45);
+  outline-offset: 2px;
+}
+
+body > * {
+  background: var(--background);
+}
+
+:root[data-theme="light"] select {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M4 6L8 10L12 6' stroke='%236b7280' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+:root[data-theme="light"] input[type="date"],
+:root[data-theme="light"] input[type="datetime-local"],
+:root[data-theme="light"] input[type="time"] {
+  color-scheme: light;
+}
+
+/* Compatibility layer for the existing hard-coded dark CRM classes. */
+:root[data-theme="light"] [class*="bg-[#09090b]"],
+:root[data-theme="light"] [class*="bg-[#0d0d0f]"],
+:root[data-theme="light"] [class*="bg-\\[\\#09090b\\]"],
+:root[data-theme="light"] [class*="bg-\\[\\#0d0d0f\\]"] {
+  background-color: #f7f7f8 !important;
+}
+
+:root[data-theme="light"] [class*="bg-[#0d0e11]"],
+:root[data-theme="light"] [class*="bg-[#101114]"],
+:root[data-theme="light"] [class*="bg-[#111113]"],
+:root[data-theme="light"] [class*="bg-[#15161a]"],
+:root[data-theme="light"] [class*="bg-\\[\\#0d0e11\\]"],
+:root[data-theme="light"] [class*="bg-\\[\\#101114\\]"],
+:root[data-theme="light"] [class*="bg-\\[\\#111113\\]"],
+:root[data-theme="light"] [class*="bg-\\[\\#15161a\\]"] {
+  background-color: #ffffff !important;
+}
+
+:root[data-theme="light"] [class*="bg-white/["],
+:root[data-theme="light"] [class*="bg-white\\/\\["] {
+  background-color: rgba(24, 24, 27, 0.045) !important;
+}
+
+:root[data-theme="light"] [class~="bg-zinc-700"],
+:root[data-theme="light"] [class~="hover:bg-zinc-600"]:hover {
+  background-color: #3f3f46 !important;
+}
+
+:root[data-theme="light"] [class~="text-white"],
+:root[data-theme="light"] [class~="text-zinc-100"],
+:root[data-theme="light"] [class~="text-zinc-200"],
+:root[data-theme="light"] [class~="text-zinc-300"] {
+  color: #18181b !important;
+}
+
+:root[data-theme="light"] [class~="text-zinc-400"],
+:root[data-theme="light"] [class~="text-zinc-500"],
+:root[data-theme="light"] [class~="placeholder:text-zinc-600"]::placeholder {
+  color: #71717a !important;
+}
+
+:root[data-theme="light"] [class~="text-amber-100"],
+:root[data-theme="light"] [class~="text-amber-200"] {
+  color: #92400e !important;
+}
+
+:root[data-theme="light"] [class~="text-emerald-100"],
+:root[data-theme="light"] [class~="text-emerald-200"] {
+  color: #047857 !important;
+}
+
+:root[data-theme="light"] [class~="text-red-100"],
+:root[data-theme="light"] [class~="text-red-200"] {
+  color: #b91c1c !important;
+}
+
+:root[data-theme="light"] [class~="bg-zinc-700"],
+:root[data-theme="light"] [class~="bg-zinc-700"] *,
+:root[data-theme="light"] [class~="bg-zinc-700"] [class~="text-white"],
+:root[data-theme="light"] [class~="bg-zinc-700"] [class~="text-zinc-100"],
+:root[data-theme="light"] [class~="bg-zinc-700"] [class~="text-zinc-200"] {
+  color: #ffffff !important;
+}
+
+:root[data-theme="light"] [class*="border-white/"],
+:root[data-theme="light"] [class*="border-white\\/"] {
+  border-color: rgba(24, 24, 27, 0.12) !important;
+}
+
+:root[data-theme="light"] input,
+:root[data-theme="light"] select,
+:root[data-theme="light"] textarea {
+  background-color: #ffffff !important;
+  border-color: rgba(24, 24, 27, 0.14) !important;
+  color: #18181b !important;
+}
+
+:root[data-theme="light"] .shadow-black\/40,
+:root[data-theme="light"] .shadow-black\/50 {
+  --tw-shadow-color: rgb(24 24 27 / 0.12) !important;
+}
+
+:root[data-theme="light"] input[class],
+:root[data-theme="light"] select[class],
+:root[data-theme="light"] textarea[class] {
+  background-color: #ffffff !important;
+  border-color: rgba(24, 24, 27, 0.14) !important;
+  color: #18181b !important;
+}
+
+/* Explicit arbitrary-class selectors for Tailwind's escaped runtime class names. */
+:root[data-theme="light"] .bg-\[\#09090b\],
+:root[data-theme="light"] .bg-\[\#0d0d0f\] {
+  background-color: #f7f7f8 !important;
+}
+
+:root[data-theme="light"] .bg-\[\#0d0e11\],
+:root[data-theme="light"] .bg-\[\#101114\],
+:root[data-theme="light"] .bg-\[\#111113\],
+:root[data-theme="light"] .bg-\[\#15161a\] {
+  background-color: #ffffff !important;
+}
+
+:root[data-theme="light"] .text-zinc-100,
+:root[data-theme="light"] .text-zinc-200,
+:root[data-theme="light"] .text-zinc-300 {
+  color: #18181b !important;
+}
+
+:root[data-theme="light"] input[class]::placeholder,
+:root[data-theme="light"] textarea[class]::placeholder {
+  color: #71717a !important;
+}
+
+:root[data-theme="light"] [class*="bg-zinc-700"] input,
+:root[data-theme="light"] [class*="bg-zinc-700"] select,
+:root[data-theme="light"] [class*="bg-zinc-700"] textarea {
+  color: #18181b !important;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(113, 113, 122, 0.55) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(113, 113, 122, 0.42);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(161, 161, 170, 0.55);
+  background-clip: content-box;
+}
+
+::selection {
+  background: rgba(212, 212, 216, 0.24);
+  color: white;
+}
+
+:root[data-theme="light"] ::selection {
+  background: rgba(24, 24, 27, 0.12);
+  color: #18181b;
 }

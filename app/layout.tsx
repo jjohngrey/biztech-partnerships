@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type React from "react";
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
 
@@ -11,10 +12,8 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
-      <body>
-        <AppShell>{children}</AppShell>
-      </body>
+    <html lang="en" suppressHydrationWarning>
+      <body>{children}</body>
     </html>
   );
 }

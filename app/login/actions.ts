@@ -15,8 +15,9 @@ import { createClient } from "@/lib/supabase/server";
  */
 export async function signInWithGoogle() {
   const supabase = await createClient();
-  const origin =
-    process.env.NEXT_PUBLIC_SITE_URL ?? (await headers()).get("origin") ?? "";
+  const requestOrigin = (await headers()).get("origin");
+  const configuredOrigin = process.env.NEXT_PUBLIC_SITE_URL;
+  const origin = (requestOrigin ?? configuredOrigin ?? "").replace(/\/$/, "");
   const allowedDomain = process.env.ALLOWED_WORKSPACE_DOMAIN ?? "ubcbiztech.com";
 
   const { data, error } = await supabase.auth.signInWithOAuth({
