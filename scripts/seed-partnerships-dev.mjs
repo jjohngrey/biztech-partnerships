@@ -2,7 +2,7 @@
 
 import dotenv from "dotenv";
 import pg from "pg";
-import { assertValidFixtureSet, demoFixtures } from "./partnerships-dev-fixtures.mjs";
+import { assertValidFixtureSet, localFixtures } from "./partnerships-dev-fixtures.mjs";
 
 dotenv.config({ path: ".env.local" });
 dotenv.config();
@@ -12,7 +12,7 @@ const { Pool } = pg;
 function requireDatabaseUrl() {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
-    throw new Error("DATABASE_URL is required to seed partnerships CRM demo data.");
+    throw new Error("DATABASE_URL is required to seed partnerships CRM local data.");
   }
   return databaseUrl;
 }
@@ -24,7 +24,8 @@ async function upsertUsers(client, users) {
       `
         INSERT INTO users (id, email, first_name, last_name, role, team, updated_at)
         VALUES ($1, $2, $3, $4, $5, $6, now())
-        ON CONFLICT (email) DO UPDATE SET
+        ON CONFLICT (id) DO UPDATE SET
+          email = EXCLUDED.email,
           first_name = EXCLUDED.first_name,
           last_name = EXCLUDED.last_name,
           role = EXCLUDED.role,
@@ -119,9 +120,10 @@ async function upsertEvents(client, events) {
       `
         INSERT INTO events (
           id, name, year, start_date, end_date, outreach_start_date, sponsorship_goal,
+          confirmed_partner_goal,
           tier_configs, description, notes, updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, now())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, now())
         ON CONFLICT (id) DO UPDATE SET
           name = EXCLUDED.name,
           year = EXCLUDED.year,
@@ -129,6 +131,7 @@ async function upsertEvents(client, events) {
           end_date = EXCLUDED.end_date,
           outreach_start_date = EXCLUDED.outreach_start_date,
           sponsorship_goal = EXCLUDED.sponsorship_goal,
+          confirmed_partner_goal = EXCLUDED.confirmed_partner_goal,
           tier_configs = EXCLUDED.tier_configs,
           description = EXCLUDED.description,
           notes = EXCLUDED.notes,
@@ -144,6 +147,7 @@ async function upsertEvents(client, events) {
         event.endDate,
         event.outreachStartDate,
         event.sponsorshipGoal,
+        event.confirmedPartnerGoal,
         JSON.stringify(event.tierConfigs),
         event.description,
         event.notes,
@@ -217,11 +221,35 @@ async function upsertCompanyEventRoles(client, sponsorships, refs) {
   for (const sponsorship of sponsorships) {
     await client.query(
       `
-        INSERT INTO company_events (company_id, event_id, event_role)
-        VALUES ($1, $2, 'sponsor')
-        ON CONFLICT (company_id, event_id, event_role) DO NOTHING
+        INSERT INTO company_events (company_id, event_id, event_role, event_status)
+        VALUES ($1, $2, 'sponsor', $3)
+        ON CONFLICT (company_id, event_id, event_role) DO UPDATE SET
+          event_status = EXCLUDED.event_status
       `,
-      [refs.companyIdsByName.get(sponsorship.companyName), refs.eventIdsByName.get(sponsorship.eventName)],
+      [
+        refs.companyIdsByName.get(sponsorship.companyName),
+        refs.eventIdsByName.get(sponsorship.eventName),
+        sponsorship.status === "confirmed" || sponsorship.status === "paid" ? "confirmed" : "asked",
+      ],
+    );
+  }
+}
+
+async function upsertPartnerEventRoles(client, partnerEventRoles, refs) {
+  for (const role of partnerEventRoles) {
+    await client.query(
+      `
+        INSERT INTO partners_events (partner_id, event_id, event_role, event_status)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (partner_id, event_id, event_role) DO UPDATE SET
+          event_status = EXCLUDED.event_status
+      `,
+      [
+        refs.contactIdsByEmail.get(role.partnerEmail),
+        refs.eventIdsByName.get(role.eventName),
+        role.eventRole,
+        role.eventStatus ?? "asked",
+      ],
     );
   }
 }
@@ -310,6 +338,79 @@ async function upsertInteractions(client, interactions, refs) {
   }
 }
 
+async function upsertMeetingLogs(client, meetings, refs) {
+  for (const meeting of meetings) {
+    await client.query(
+      `
+        INSERT INTO meeting_notes (
+          id, title, meeting_date, source, content, summary, created_by, updated_at
+        )
+        VALUES ($1, $2, $3, 'manual', $4, $5, $6, now())
+        ON CONFLICT (id) DO UPDATE SET
+          title = EXCLUDED.title,
+          meeting_date = EXCLUDED.meeting_date,
+          source = EXCLUDED.source,
+          content = EXCLUDED.content,
+          summary = EXCLUDED.summary,
+          created_by = EXCLUDED.created_by,
+          updated_at = now()
+      `,
+      [
+        meeting.id,
+        meeting.title,
+        meeting.meetingDate,
+        meeting.content,
+        meeting.summary,
+        refs.userIdsByEmail.get(meeting.attendeeEmails[0]),
+      ],
+    );
+
+    await client.query("DELETE FROM meeting_note_companies WHERE meeting_note_id = $1", [meeting.id]);
+    await client.query("DELETE FROM meeting_note_partners WHERE meeting_note_id = $1", [meeting.id]);
+    await client.query("DELETE FROM meeting_note_events WHERE meeting_note_id = $1", [meeting.id]);
+    await client.query("DELETE FROM meeting_note_attendees WHERE meeting_note_id = $1", [meeting.id]);
+
+    await client.query(
+      `
+        INSERT INTO meeting_note_companies (meeting_note_id, company_id)
+        VALUES ($1, $2)
+        ON CONFLICT DO NOTHING
+      `,
+      [meeting.id, refs.companyIdsByName.get(meeting.companyName)],
+    );
+    await client.query(
+      `
+        INSERT INTO meeting_note_events (meeting_note_id, event_id)
+        VALUES ($1, $2)
+        ON CONFLICT DO NOTHING
+      `,
+      [meeting.id, refs.eventIdsByName.get(meeting.eventName)],
+    );
+
+    for (const email of meeting.partnerEmails) {
+      await client.query(
+        `
+          INSERT INTO meeting_note_partners (meeting_note_id, partner_id)
+          VALUES ($1, $2)
+          ON CONFLICT DO NOTHING
+        `,
+        [meeting.id, refs.contactIdsByEmail.get(email)],
+      );
+    }
+
+    for (const email of meeting.attendeeEmails) {
+      await client.query(
+        `
+          INSERT INTO meeting_note_attendees (meeting_note_id, user_id)
+          VALUES ($1, $2)
+          ON CONFLICT DO NOTHING
+        `,
+        [meeting.id, refs.userIdsByEmail.get(email)],
+      );
+    }
+  }
+}
+
 async function upsertEmailTemplates(client, templates, userIdsByEmail) {
   for (const template of templates) {
     await client.query(
@@ -340,7 +441,7 @@ async function upsertEmailTemplates(client, templates, userIdsByEmail) {
 }
 
 async function seed() {
-  assertValidFixtureSet(demoFixtures);
+  assertValidFixtureSet(localFixtures);
 
   const pool = new Pool({
     connectionString: requireDatabaseUrl(),
@@ -350,10 +451,10 @@ async function seed() {
   try {
     await client.query("BEGIN");
 
-    const userIdsByEmail = await upsertUsers(client, demoFixtures.users);
-    const companyIdsByName = await upsertCompanies(client, demoFixtures.companies);
-    const contactIdsByEmail = await upsertContacts(client, demoFixtures.contacts, companyIdsByName);
-    const eventIdsByName = await upsertEvents(client, demoFixtures.events);
+    const userIdsByEmail = await upsertUsers(client, localFixtures.users);
+    const companyIdsByName = await upsertCompanies(client, localFixtures.companies);
+    const contactIdsByEmail = await upsertContacts(client, localFixtures.contacts, companyIdsByName);
+    const eventIdsByName = await upsertEvents(client, localFixtures.events);
 
     const refs = {
       userIdsByEmail,
@@ -362,23 +463,27 @@ async function seed() {
       eventIdsByName,
     };
 
-    await upsertSponsorships(client, demoFixtures.sponsorships, refs);
-    await upsertCompanyEventRoles(client, demoFixtures.sponsorships, refs);
-    await upsertDocuments(client, demoFixtures.documents, refs);
-    await upsertInteractions(client, demoFixtures.interactions, refs);
-    await upsertEmailTemplates(client, demoFixtures.emailTemplates, userIdsByEmail);
+    await upsertSponsorships(client, localFixtures.sponsorships, refs);
+    await upsertCompanyEventRoles(client, localFixtures.sponsorships, refs);
+    await upsertPartnerEventRoles(client, localFixtures.partnerEventRoles, refs);
+    await upsertDocuments(client, localFixtures.documents, refs);
+    await upsertInteractions(client, localFixtures.interactions, refs);
+    await upsertMeetingLogs(client, localFixtures.meetings, refs);
+    await upsertEmailTemplates(client, localFixtures.emailTemplates, userIdsByEmail);
 
     await client.query("COMMIT");
 
-    console.log("Seeded partnerships CRM demo data:");
-    console.log(`- users: ${demoFixtures.users.length}`);
-    console.log(`- companies: ${demoFixtures.companies.length}`);
-    console.log(`- contacts: ${demoFixtures.contacts.length}`);
-    console.log(`- events: ${demoFixtures.events.length}`);
-    console.log(`- sponsorships: ${demoFixtures.sponsorships.length}`);
-    console.log(`- documents: ${demoFixtures.documents.length}`);
-    console.log(`- interactions: ${demoFixtures.interactions.length}`);
-    console.log(`- email templates: ${demoFixtures.emailTemplates.length}`);
+    console.log("Seeded partnerships CRM local data:");
+    console.log(`- users: ${localFixtures.users.length}`);
+    console.log(`- companies: ${localFixtures.companies.length}`);
+    console.log(`- contacts: ${localFixtures.contacts.length}`);
+    console.log(`- events: ${localFixtures.events.length}`);
+    console.log(`- sponsorships: ${localFixtures.sponsorships.length}`);
+    console.log(`- partner event roles: ${localFixtures.partnerEventRoles.length}`);
+    console.log(`- documents: ${localFixtures.documents.length}`);
+    console.log(`- interactions: ${localFixtures.interactions.length}`);
+    console.log(`- meetings: ${localFixtures.meetings.length}`);
+    console.log(`- email templates: ${localFixtures.emailTemplates.length}`);
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;

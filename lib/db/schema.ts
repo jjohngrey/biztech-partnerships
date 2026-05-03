@@ -75,6 +75,7 @@ export const events = pgTable("events", {
   endDate: date("end_date"),
   outreachStartDate: date("outreach_start_date"),
   sponsorshipGoal: integer("sponsorship_goal"), // in cents
+  confirmedPartnerGoal: integer("confirmed_partner_goal"),
   tierConfigs: jsonb("tier_configs")
     .$type<Array<{ id: string; label: string; amount: number | null }>>()
     .notNull()
@@ -96,9 +97,7 @@ export const sponsors = pgTable("sponsors", {
   companyId: uuid("company_id")
     .notNull()
     .references(() => companies.id, { onDelete: "cascade" }),
-  eventId: uuid("event_id")
-    .notNull()
-    .references(() => events.id, { onDelete: "cascade" }),
+  eventId: uuid("event_id").references(() => events.id, { onDelete: "set null" }),
   primaryContactId: uuid("primary_contact_id").references(() => partners.id, {
     onDelete: "set null",
   }),
@@ -196,6 +195,9 @@ export const partnersEvents = pgTable(
       .notNull()
       .references(() => events.id, { onDelete: "cascade" }),
     eventRole: text("event_role", { enum: ["booth", "speaker", "workshop", "sponsor", "judge", "mentor", "student"] }).notNull(),
+    eventStatus: text("event_status", {
+      enum: ["asked", "interested", "form_sent", "form_submitted", "confirmed", "declined", "attended"],
+    }).notNull().default("asked"),
   },
   (t) => [primaryKey({ columns: [t.partnerId, t.eventId, t.eventRole] })],
 );
@@ -210,6 +212,9 @@ export const companyEvents = pgTable(
       .notNull()
       .references(() => events.id, { onDelete: "cascade" }),
     eventRole: text("event_role", { enum: ["booth", "speaker", "workshop", "sponsor", "judge", "mentor", "student"] }).notNull(),
+    eventStatus: text("event_status", {
+      enum: ["asked", "interested", "form_sent", "form_submitted", "confirmed", "declined", "attended"],
+    }).notNull().default("asked"),
   },
   (t) => [primaryKey({ columns: [t.companyId, t.eventId, t.eventRole] })],
 );
@@ -271,7 +276,7 @@ export const interactions = pgTable("interactions", {
   sponsorId: uuid("sponsor_id").references(() => sponsors.id, {
     onDelete: "set null",
   }),
-  type: text("type", { enum: ["call", "email", "linkedin", "in_person", "other"] }).notNull(),
+  type: text("type", { enum: ["meeting", "call", "email", "linkedin", "in_person", "other"] }).notNull(),
   direction: text("direction", { enum: ["inbound", "outbound"] }),
   subject: text("subject"),
   notes: text("notes"),

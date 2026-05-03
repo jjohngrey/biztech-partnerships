@@ -1,12 +1,12 @@
-export const DEMO_SEED_LABEL = "partnerships-crm-demo-v1";
+export const LOCAL_SEED_LABEL = "partnerships-crm-local-v1";
 
-export const demoFixtures = {
+export const localFixtures = {
   users: [
     {
       id: "11111111-1111-4111-8111-111111111111",
-      email: "partnerships.demo@ubcbiztech.com",
-      firstName: "Partnerships",
-      lastName: "Demo",
+      email: "alex@ubcbiztech.com",
+      firstName: "Alex",
+      lastName: "Vega",
       role: "admin",
       team: "partnerships",
     },
@@ -17,9 +17,9 @@ export const demoFixtures = {
       name: "Linear",
       website: "https://linear.app",
       linkedin: "https://www.linkedin.com/company/linear-app",
-      tier: "target",
-      tags: ["saas", "devtools", DEMO_SEED_LABEL],
-      notes: "Design-forward dev tooling company; strong fit for technical recruiting and product talks.",
+      tier: "platinum",
+      tags: [],
+      notes: "Confirm recruiting goals before pitching a package. Likely fit for developer-focused programming.",
       isAlumni: false,
     },
     {
@@ -27,9 +27,9 @@ export const demoFixtures = {
       name: "Vercel",
       website: "https://vercel.com",
       linkedin: "https://www.linkedin.com/company/vercel",
-      tier: "warm",
-      tags: ["cloud", "frontend", DEMO_SEED_LABEL],
-      notes: "Good fit for web infrastructure, AI app deployment, and startup engineering content.",
+      tier: "gold",
+      tags: [],
+      notes: "Workshop angle is strongest. Keep the ask tied to a build-and-deploy student session.",
       isAlumni: false,
     },
     {
@@ -37,9 +37,9 @@ export const demoFixtures = {
       name: "Northstar Product Studio",
       website: "https://example.com/northstar",
       linkedin: "https://www.linkedin.com/company/northstar-product-studio",
-      tier: "alumni",
-      tags: ["alumni", "product", DEMO_SEED_LABEL],
-      notes: "Fictional alumni-led product studio for local demo flows.",
+      tier: "silver",
+      tags: [],
+      notes: "Alumni-led studio. Track founder, mentor, and product case-night asks separately.",
       isAlumni: true,
     },
   ],
@@ -51,7 +51,7 @@ export const demoFixtures = {
       lastName: "Chen",
       role: "University Recruiting",
       email: "maya.chen@example.linear.app",
-      linkedin: "https://www.linkedin.com/in/maya-chen-demo",
+      linkedin: "https://www.linkedin.com/in/maya-chen",
       notes: "Primary contact for student event sponsorship.",
       isPrimary: true,
     },
@@ -62,7 +62,7 @@ export const demoFixtures = {
       lastName: "Kapoor",
       role: "Engineering Manager",
       email: "theo.kapoor@example.linear.app",
-      linkedin: "https://www.linkedin.com/in/theo-kapoor-demo",
+      linkedin: "https://www.linkedin.com/in/theo-kapoor",
       notes: "Potential speaker for a product engineering fireside chat.",
       isPrimary: false,
     },
@@ -73,7 +73,7 @@ export const demoFixtures = {
       lastName: "Tran",
       role: "Developer Relations",
       email: "amelia.tran@example.vercel.com",
-      linkedin: "https://www.linkedin.com/in/amelia-tran-demo",
+      linkedin: "https://www.linkedin.com/in/amelia-tran",
       notes: "Interested in workshops with a deployable student project.",
       isPrimary: true,
     },
@@ -84,7 +84,7 @@ export const demoFixtures = {
       lastName: "Singh",
       role: "Founder",
       email: "noah.singh@example.northstar.test",
-      linkedin: "https://www.linkedin.com/in/noah-singh-demo",
+      linkedin: "https://www.linkedin.com/in/noah-singh",
       notes: "BizTech alum; can route intros to local product leaders.",
       isPrimary: true,
     },
@@ -98,13 +98,14 @@ export const demoFixtures = {
       endDate: "2026-09-20",
       outreachStartDate: "2026-05-15",
       sponsorshipGoal: 1200000,
+      confirmedPartnerGoal: 30,
       tierConfigs: [
-        { id: "startup", label: "Startup", amount: 150000 },
-        { id: "growth", label: "Growth", amount: 300000 },
-        { id: "title", label: "Title", amount: 600000 },
+        { id: "silver", label: "Silver", amount: 150000 },
+        { id: "gold", label: "Gold", amount: 300000 },
+        { id: "platinum", label: "Platinum", amount: 600000 },
       ],
-      description: "BizTech's product and technology conference demo record.",
-      notes: `Seeded by ${DEMO_SEED_LABEL}.`,
+      description: "BizTech's product and technology conference.",
+      notes: "Priority sponsor track for product, engineering, and recruiting partners.",
     },
     {
       id: "44444444-4444-4444-8444-444444444402",
@@ -114,12 +115,13 @@ export const demoFixtures = {
       endDate: "2026-11-05",
       outreachStartDate: "2026-08-01",
       sponsorshipGoal: 300000,
+      confirmedPartnerGoal: 12,
       tierConfigs: [
         { id: "partner", label: "Partner", amount: 100000 },
         { id: "presenting", label: "Presenting", amount: 250000 },
       ],
-      description: "Small-format product case night for sponsor demos.",
-      notes: `Seeded by ${DEMO_SEED_LABEL}.`,
+      description: "Small-format product case night.",
+      notes: "Use this event for product leaders, mentors, and workshop asks.",
     },
   ],
   sponsorships: [
@@ -128,11 +130,11 @@ export const demoFixtures = {
       companyName: "Linear",
       eventName: "Blueprint 2026",
       primaryContactEmail: "maya.chen@example.linear.app",
-      ownerEmail: "partnerships.demo@ubcbiztech.com",
+      ownerEmail: "alex@ubcbiztech.com",
       amount: 600000,
-      tier: "Title",
+      tier: "Platinum",
       status: "in_conversation",
-      role: "Title sponsor",
+      role: "Platinum sponsor",
       followUpDate: "2026-05-22",
       startDate: "2026-09-19",
       endDate: "2026-09-20",
@@ -143,9 +145,9 @@ export const demoFixtures = {
       companyName: "Vercel",
       eventName: "Blueprint 2026",
       primaryContactEmail: "amelia.tran@example.vercel.com",
-      ownerEmail: "partnerships.demo@ubcbiztech.com",
+      ownerEmail: "alex@ubcbiztech.com",
       amount: 300000,
-      tier: "Growth",
+      tier: "Gold",
       status: "pitched",
       role: "Workshop sponsor",
       followUpDate: "2026-05-29",
@@ -158,7 +160,7 @@ export const demoFixtures = {
       companyName: "Northstar Product Studio",
       eventName: "Product Studio Night 2026",
       primaryContactEmail: "noah.singh@example.northstar.test",
-      ownerEmail: "partnerships.demo@ubcbiztech.com",
+      ownerEmail: "alex@ubcbiztech.com",
       amount: 100000,
       tier: "Partner",
       status: "confirmed",
@@ -167,6 +169,32 @@ export const demoFixtures = {
       startDate: "2026-11-05",
       endDate: "2026-11-05",
       notes: "Confirmed alumni support; needs invoice once budget is final.",
+    },
+  ],
+  partnerEventRoles: [
+    {
+      partnerEmail: "maya.chen@example.linear.app",
+      eventName: "Blueprint 2026",
+      eventRole: "judge",
+      eventStatus: "form_sent",
+    },
+    {
+      partnerEmail: "theo.kapoor@example.linear.app",
+      eventName: "Blueprint 2026",
+      eventRole: "speaker",
+      eventStatus: "interested",
+    },
+    {
+      partnerEmail: "amelia.tran@example.vercel.com",
+      eventName: "Blueprint 2026",
+      eventRole: "workshop",
+      eventStatus: "confirmed",
+    },
+    {
+      partnerEmail: "noah.singh@example.northstar.test",
+      eventName: "Product Studio Night 2026",
+      eventRole: "mentor",
+      eventStatus: "attended",
     },
   ],
   documents: [
@@ -181,7 +209,7 @@ export const demoFixtures = {
       status: "sent",
       url: "https://drive.google.com/example/linear-blueprint-proposal",
       fileName: "linear-blueprint-2026-proposal.pdf",
-      notes: `Demo link seeded by ${DEMO_SEED_LABEL}.`,
+      notes: "Proposal shared after the first sponsorship conversation.",
     },
     {
       id: "66666666-6666-4666-8666-666666666602",
@@ -194,13 +222,13 @@ export const demoFixtures = {
       status: "draft",
       url: "https://drive.google.com/example/northstar-case-night-agreement",
       fileName: "northstar-case-night-agreement.docx",
-      notes: `Demo link seeded by ${DEMO_SEED_LABEL}.`,
+      notes: "Agreement draft for the product case night package.",
     },
   ],
   interactions: [
     {
       id: "77777777-7777-4777-8777-777777777701",
-      userEmail: "partnerships.demo@ubcbiztech.com",
+      userEmail: "alex@ubcbiztech.com",
       companyName: "Linear",
       partnerEmail: "maya.chen@example.linear.app",
       sponsorshipId: "55555555-5555-4555-8555-555555555501",
@@ -211,12 +239,12 @@ export const demoFixtures = {
       contactedAt: "2026-05-16T17:30:00.000Z",
       followUpDate: "2026-05-22",
       source: "gmail",
-      externalMessageId: "demo-linear-msg-1",
-      externalThreadId: "demo-linear-thread-1",
+      externalMessageId: "linear-msg-1",
+      externalThreadId: "linear-thread-1",
     },
     {
       id: "77777777-7777-4777-8777-777777777702",
-      userEmail: "partnerships.demo@ubcbiztech.com",
+      userEmail: "alex@ubcbiztech.com",
       companyName: "Linear",
       partnerEmail: "maya.chen@example.linear.app",
       sponsorshipId: "55555555-5555-4555-8555-555555555501",
@@ -232,7 +260,7 @@ export const demoFixtures = {
     },
     {
       id: "77777777-7777-4777-8777-777777777703",
-      userEmail: "partnerships.demo@ubcbiztech.com",
+      userEmail: "alex@ubcbiztech.com",
       companyName: "Vercel",
       partnerEmail: "amelia.tran@example.vercel.com",
       sponsorshipId: "55555555-5555-4555-8555-555555555502",
@@ -247,24 +275,50 @@ export const demoFixtures = {
       externalThreadId: null,
     },
   ],
+  meetings: [
+    {
+      id: "99999999-9999-4999-8999-999999999901",
+      title: "Linear sponsor discovery",
+      meetingDate: "2026-05-19T20:00:00.000Z",
+      companyName: "Linear",
+      partnerEmails: ["maya.chen@example.linear.app"],
+      eventName: "Blueprint 2026",
+      attendeeEmails: ["alex@ubcbiztech.com"],
+      summary: "Maya asked for attendee breakdown, recruiting fit, and sponsor activation examples.",
+      content:
+        "Maya is comparing Blueprint against other fall recruiting channels. Send last year's attendance numbers, sample sponsor touchpoints, and a clearer Platinum package. Follow up before May 22.",
+    },
+    {
+      id: "99999999-9999-4999-8999-999999999902",
+      title: "Vercel workshop pitch",
+      meetingDate: "2026-05-17T18:45:00.000Z",
+      companyName: "Vercel",
+      partnerEmails: ["amelia.tran@example.vercel.com"],
+      eventName: "Blueprint 2026",
+      attendeeEmails: ["alex@ubcbiztech.com"],
+      summary: "Workshop sponsorship is the clearest path; Amelia wants a student build session.",
+      content:
+        "Position the ask around a practical deployable workshop instead of a broad sponsor package. Amelia wants a concrete student takeaway and a tighter audience profile before routing internally.",
+    },
+  ],
   emailTemplates: [
     {
       id: "88888888-8888-4888-8888-888888888801",
-      name: "Blueprint sponsor warm intro",
-      description: "Warm outbound template for companies with some prior BizTech context.",
-      subjectTemplate: "{{eventName}} x {{companyName}}",
+      name: "Blueprint first touch",
+      description: "First-touch template for routed sponsor and partnership asks.",
+      subjectTemplate: "{{event_name}} x {{company_name}}",
       bodyTemplate:
-        "Hi {{firstName}},\n\nI'm reaching out from UBC BizTech about {{eventName}}. Given {{companyName}}'s work with product-minded technical teams, I thought there could be a strong fit for a sponsorship or workshop partnership.\n\nWould you be open to a quick call next week?",
-      createdByEmail: "partnerships.demo@ubcbiztech.com",
+        "Hi {{recipient_first_name}},\n\nI'm reaching out from UBC BizTech about {{event_name}}. We are looking for companies that students would be excited to learn from, and {{company_name}} felt worth reaching out to for a sponsorship, workshop, or student-facing session.\n\nWould you be the right person to chat with, or is there someone else you would point me to?",
+      createdByEmail: "alex@ubcbiztech.com",
     },
     {
       id: "88888888-8888-4888-8888-888888888802",
       name: "Follow-up after sponsor call",
       description: "Short follow-up after a discovery call.",
-      subjectTemplate: "Following up on {{eventName}}",
+      subjectTemplate: "Following up on {{event_name}}",
       bodyTemplate:
-        "Hi {{firstName}},\n\nThanks again for chatting about {{eventName}}. I attached the sponsor package and highlighted the options we discussed.\n\nHappy to adjust the package around {{companyName}}'s hiring and developer community goals.",
-      createdByEmail: "partnerships.demo@ubcbiztech.com",
+        "Hi {{recipient_first_name}},\n\nThanks again for chatting about {{event_name}}. I attached the sponsor package and highlighted the options we discussed.\n\nHappy to adjust the package around {{company_name}}'s hiring and developer community goals.",
+      createdByEmail: "alex@ubcbiztech.com",
     },
   ],
 };
@@ -294,6 +348,16 @@ export function keyBy(items, getKey, label) {
   return keyed;
 }
 
+const validEventStatuses = new Set([
+  "asked",
+  "interested",
+  "form_sent",
+  "form_submitted",
+  "confirmed",
+  "declined",
+  "attended",
+]);
+
 export function assertValidFixtureSet(fixtures) {
   const companiesByName = keyBy(fixtures.companies, (company) => company.name, "company");
   const usersByEmail = keyBy(fixtures.users, (user) => user.email, "user");
@@ -319,6 +383,18 @@ export function assertValidFixtureSet(fixtures) {
     }
     if (!usersByEmail.has(sponsorship.ownerEmail)) {
       throw new Error(`Sponsorship ${sponsorship.id} references unknown owner: ${sponsorship.ownerEmail}`);
+    }
+  }
+
+  for (const role of fixtures.partnerEventRoles ?? []) {
+    if (!contactsByEmail.has(role.partnerEmail)) {
+      throw new Error(`Partner event role references unknown contact: ${role.partnerEmail}`);
+    }
+    if (!eventsByName.has(role.eventName)) {
+      throw new Error(`Partner event role references unknown event: ${role.eventName}`);
+    }
+    if (role.eventStatus && !validEventStatuses.has(role.eventStatus)) {
+      throw new Error(`Partner event role has invalid status: ${role.eventStatus}`);
     }
   }
 
@@ -349,6 +425,25 @@ export function assertValidFixtureSet(fixtures) {
     }
     if (!sponsorshipsById.has(interaction.sponsorshipId)) {
       throw new Error(`Interaction ${interaction.id} references unknown sponsorship: ${interaction.sponsorshipId}`);
+    }
+  }
+
+  for (const meeting of fixtures.meetings) {
+    if (!companiesByName.has(meeting.companyName)) {
+      throw new Error(`Meeting ${meeting.id} references unknown company: ${meeting.companyName}`);
+    }
+    if (!eventsByName.has(meeting.eventName)) {
+      throw new Error(`Meeting ${meeting.id} references unknown event: ${meeting.eventName}`);
+    }
+    for (const email of meeting.partnerEmails) {
+      if (!contactsByEmail.has(email)) {
+        throw new Error(`Meeting ${meeting.id} references unknown contact: ${email}`);
+      }
+    }
+    for (const email of meeting.attendeeEmails) {
+      if (!usersByEmail.has(email)) {
+        throw new Error(`Meeting ${meeting.id} references unknown attendee: ${email}`);
+      }
     }
   }
 
