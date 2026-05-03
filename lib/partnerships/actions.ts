@@ -25,6 +25,7 @@ import {
   createPartnerDocument,
   createSponsorship,
   deleteCompanyInteraction,
+  deleteMeetingLog,
   deletePartnerDocument,
   listEmailCampaigns,
   listEmailRecipients,
@@ -162,6 +163,11 @@ export async function createCompanyInteractionAction(input: CreateCompanyInterac
 
 export async function deleteCompanyInteractionAction(interactionId: string) {
   await deleteCompanyInteraction(interactionId);
+  revalidateCrmData();
+}
+
+export async function deleteMeetingLogAction(meetingLogId: string) {
+  await deleteMeetingLog(meetingLogId);
   revalidateCrmData();
 }
 

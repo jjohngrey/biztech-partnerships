@@ -1548,6 +1548,10 @@ export async function deleteCompanyInteraction(interactionId: string) {
   await db.delete(interactions).where(eq(interactions.id, interactionId));
 }
 
+export async function deleteMeetingLog(meetingLogId: string) {
+  await db.delete(meetingNotes).where(eq(meetingNotes.id, meetingLogId));
+}
+
 export async function listEmailTemplates(options?: { includeArchived?: boolean }): Promise<EmailTemplateRecord[]> {
   const rows = await db
     .select()
