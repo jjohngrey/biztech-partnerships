@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
-  getAllPartners,
-  getAllUsers,
-  getAllEvents,
-} from "@/lib/db/queries/meeting-notes";
+  listEvents,
+  listMeetingNotePartners,
+  listUsers,
+} from "@/lib/partnerships/repository";
 import { MeetingNoteForm } from "@/components/meetings/meeting-note-form";
 import { createMeetingNote } from "./actions";
 
@@ -17,17 +17,17 @@ export default async function NewMeetingNotePage() {
   if (!user) redirect("/login");
 
   const [allPartners, allUsers, allEvents] = await Promise.all([
-    getAllPartners(),
-    getAllUsers(),
-    getAllEvents(),
+    listMeetingNotePartners(),
+    listUsers(),
+    listEvents({ includeArchived: true }),
   ]);
 
   const partners = allPartners.map((p) => ({
     id: p.id,
     firstName: p.firstName,
-    lastName: p.lastName,
-    companyId: p.companyId ?? null,
-    companyName: p.companyName ?? null,
+    lastName: p.lastName ?? "",
+    companyId: p.companyId,
+    companyName: p.companyName,
   }));
 
   const users = allUsers.map((u) => ({

@@ -246,7 +246,7 @@ function CompanyCombo({
                 onChange(company.name);
                 setOpen(false);
               }}
-              className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-white/[0.05]"
+              className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-white/[0.05] cursor-pointer"
             >
               <span className="truncate text-[13px] font-medium text-zinc-100">{company.name}</span>
               <span className="shrink-0 text-[12px] text-zinc-500">{company.activeContactsCount} partners</span>
@@ -257,7 +257,7 @@ function CompanyCombo({
               type="button"
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => setOpen(false)}
-              className="block w-full border-t border-white/[0.08] px-3 py-2.5 text-left text-[13px] text-zinc-300 transition hover:bg-white/[0.05]"
+              className="block w-full border-t border-white/[0.08] px-3 py-2.5 text-left text-[13px] text-zinc-300 transition hover:bg-white/[0.05] cursor-pointer"
             >
               Create company &quot;{value.trim()}&quot;
             </button>
@@ -313,7 +313,7 @@ function EventCombo({
                 onChange(event.name);
                 setOpen(false);
               }}
-              className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-white/[0.05]"
+              className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-white/[0.05] cursor-pointer"
             >
               <span className="truncate text-[13px] font-medium text-zinc-100">{event.name}</span>
               <span className="shrink-0 text-[12px] text-zinc-500">{event.year ?? ""}</span>
@@ -626,8 +626,7 @@ export function PipelineDirectory({
                   key={key}
                   type="button"
                   onClick={() => setView(key as PipelineView)}
-                  className={[
-                    "h-7 rounded px-2.5 text-[12px] font-medium transition",
+                  className={["h-7 rounded px-2.5 text-[12px] font-medium transition cursor-pointer",
                     view === key ? "bg-white/[0.08] text-zinc-100" : "text-zinc-500 hover:text-zinc-200",
                   ].join(" ")}
                 >
@@ -647,7 +646,7 @@ export function PipelineDirectory({
                 setError(null);
                 window.history.replaceState(null, "", "/pipeline");
               }}
-              className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-md bg-zinc-700 px-3.5 text-[13px] font-medium text-white transition hover:bg-zinc-600"
+              className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-md bg-zinc-700 px-3.5 text-[13px] font-medium text-white transition hover:bg-zinc-600 cursor-pointer"
             >
               <Plus className="size-4" strokeWidth={1.8} />
               New conversation
@@ -718,7 +717,7 @@ export function PipelineDirectory({
                               setPanelMode("edit");
                               window.history.replaceState(null, "", `/pipeline?conversationId=${record.id}`);
                             }}
-                            className="block w-full text-left"
+                            className="block w-full text-left cursor-pointer"
                           >
                             <span className="flex items-start justify-between gap-2">
                               <span className="min-w-0">
@@ -757,7 +756,7 @@ export function PipelineDirectory({
                               {amount && <span className="rounded bg-white/[0.045] px-1.5 py-0.5">{amount}</span>}
                             </span>
                             <span className="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-zinc-500">
-                              <span className="truncate">{saving ? "Saving..." : record.ownerName ?? "No BizTech director"}</span>
+                              <span className="truncate">{saving ? "Saving..." : record.ownerName ?? "No BizTech Director"}</span>
                               <span className={["truncate", state === "overdue" ? "text-red-300" : state === "today" ? "text-amber-200" : ""].join(" ")}>
                                 {dueLabel ?? "No next outreach"}
                               </span>
@@ -800,8 +799,7 @@ export function PipelineDirectory({
               type="button"
               aria-label="Close conversation panel"
               onClick={closePanel}
-              className="grid size-7 shrink-0 place-items-center rounded-md border border-white/[0.12] bg-white/[0.055] text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:hidden"
-            >
+              className="grid size-7 shrink-0 place-items-center rounded-md border border-white/[0.12] bg-white/[0.055] text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:hidden cursor-pointer">
               <X className="size-4" strokeWidth={1.8} />
             </button>
             <h3 className="min-w-0 flex-1 truncate text-[16px] font-medium text-zinc-100">
@@ -811,8 +809,7 @@ export function PipelineDirectory({
               type="button"
               aria-label="Close conversation panel"
               onClick={closePanel}
-              className="hidden size-8 shrink-0 place-items-center rounded-md border border-white/[0.12] bg-white/[0.055] text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:grid"
-            >
+              className="hidden size-8 shrink-0 place-items-center rounded-md border border-white/[0.12] bg-white/[0.055] text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:grid cursor-pointer">
               <X className="size-5" strokeWidth={1.8} />
             </button>
           </div>
@@ -873,10 +870,10 @@ export function PipelineDirectory({
                 </SelectShell>
               </label>
               <label className="grid gap-1.5 text-[12px] font-medium text-zinc-400">
-                BizTech director
+                BizTech Director
                 <SelectShell>
                   <select name="ownerUserId" defaultValue={selected?.ownerUserId ?? ""} className={selectClass("w-full")}>
-                    <option value="">No BizTech director</option>
+                    <option value="">No BizTech Director</option>
                     {users.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}
                   </select>
                 </SelectShell>
@@ -892,7 +889,7 @@ export function PipelineDirectory({
               {error && <p className="rounded-md border border-red-400/20 bg-red-400/10 px-3 py-2 text-[13px] text-red-200">{error}</p>}
             </div>
             <div className="shrink-0 border-t border-white/[0.08] bg-[#0d0e11] px-5 py-4">
-              <button disabled={isPending} className="h-9 rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60">
+              <button disabled={isPending} className="h-9 rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer">
                 {panelMode === "create" ? "Create conversation" : "Save conversation"}
               </button>
             </div>

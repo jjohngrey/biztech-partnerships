@@ -75,11 +75,11 @@ export function SettingsDirectory({ directors }: { directors: CrmUserSummary[] }
 
       <section className="mt-4 rounded-md border border-white/[0.09] bg-[#111113]">
         <div className="grid gap-2 border-b border-white/[0.08] px-4 py-3 lg:flex lg:items-center lg:justify-between lg:gap-3">
-          <p className="text-[13px] font-medium text-zinc-200">BizTech directors</p>
+          <p className="text-[13px] font-medium text-zinc-200">BizTech Directors</p>
           <button
             type="button"
             onClick={() => setShowCreate((current) => !current)}
-            className="inline-flex h-8 w-fit shrink-0 items-center gap-1.5 rounded-md border border-white/[0.09] px-2.5 text-[12px] font-medium text-zinc-300 transition hover:bg-white/[0.055] hover:text-white"
+            className="inline-flex h-8 w-fit shrink-0 items-center gap-1.5 rounded-md border border-white/[0.09] px-2.5 text-[12px] font-medium text-zinc-300 transition hover:bg-white/[0.055] hover:text-white cursor-pointer"
           >
             {showCreate ? <X className="size-3.5" strokeWidth={1.8} /> : <Plus className="size-3.5" strokeWidth={1.8} />}
             {showCreate ? "Cancel" : "Add director"}
@@ -118,8 +118,7 @@ export function SettingsDirectory({ directors }: { directors: CrmUserSummary[] }
             </label>
             <button
               disabled={isPending}
-              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-zinc-700 px-3 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60"
-            >
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-zinc-700 px-3 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer">
               <Plus className="size-4" strokeWidth={1.8} />
               Add director
             </button>
@@ -164,15 +163,14 @@ export function SettingsDirectory({ directors }: { directors: CrmUserSummary[] }
                 </label>
                 <button
                   disabled={isPending}
-                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-zinc-700 px-3 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60"
-                >
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-zinc-700 px-3 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer">
                   <Check className="size-4" strokeWidth={1.8} />
                   Save
                 </button>
                 <button
                   type="button"
                   onClick={() => setEditingDirectorId(null)}
-                  className="h-9 rounded-md border border-white/[0.09] px-3 text-[13px] font-medium text-zinc-400 transition hover:bg-white/[0.045] hover:text-zinc-100"
+                  className="h-9 rounded-md border border-white/[0.09] px-3 text-[13px] font-medium text-zinc-400 transition hover:bg-white/[0.045] hover:text-zinc-100 cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -191,7 +189,7 @@ export function SettingsDirectory({ directors }: { directors: CrmUserSummary[] }
                     type="button"
                     onClick={() => setEditingDirectorId(director.id)}
                     aria-label={`Edit ${director.name}`}
-                    className="order-first grid size-8 shrink-0 place-items-center rounded-md border border-white/[0.09] text-zinc-400 transition hover:bg-white/[0.045] hover:text-zinc-100 md:order-none"
+                    className="order-first grid size-8 shrink-0 place-items-center rounded-md border border-white/[0.09] text-zinc-400 transition hover:bg-white/[0.045] hover:text-zinc-100 md:order-none cursor-pointer"
                   >
                     <Pencil className="size-3.5" strokeWidth={1.8} />
                   </button>
@@ -206,7 +204,7 @@ export function SettingsDirectory({ directors }: { directors: CrmUserSummary[] }
             )
           ))}
           {!directors.length && (
-            <p className="px-4 py-4 text-[13px] text-zinc-500">No BizTech directors yet.</p>
+            <p className="px-4 py-4 text-[13px] text-zinc-500">No BizTech Directors yet.</p>
           )}
         </div>
       </section>

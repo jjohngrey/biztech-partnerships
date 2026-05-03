@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getMeetingNoteById } from "@/lib/db/queries/meeting-notes";
+import { getMeetingNoteById } from "@/lib/partnerships/repository";
 import { createClient } from "@/lib/supabase/server";
 import { DeleteNoteButton } from "@/components/meetings/delete-note-button";
 import { Badge } from "@/components/ui/badge";
@@ -167,7 +167,7 @@ export default async function MeetingNoteDetailPage({
       {isCreator && (
         <div className="mt-10 flex gap-3">
           <Link href={`/meetings/${note.id}/edit`}>
-            <button className="inline-flex items-center justify-center rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-900 hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900 focus-visible:ring-offset-2">
+            <button className="inline-flex items-center justify-center rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-900 hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900 focus-visible:ring-offset-2 cursor-pointer">
               Edit
             </button>
           </Link>

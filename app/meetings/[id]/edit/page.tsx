@@ -2,10 +2,10 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
   getMeetingNoteForEdit,
-  getAllPartners,
-  getAllUsers,
-  getAllEvents,
-} from "@/lib/db/queries/meeting-notes";
+  listEvents,
+  listMeetingNotePartners,
+  listUsers,
+} from "@/lib/partnerships/repository";
 import { MeetingNoteForm } from "@/components/meetings/meeting-note-form";
 import { updateMeetingNote } from "./actions";
 
@@ -25,9 +25,9 @@ export default async function EditMeetingNotePage({
 
   const [note, allPartners, allUsers, allEvents] = await Promise.all([
     getMeetingNoteForEdit(id, user.id),
-    getAllPartners(),
-    getAllUsers(),
-    getAllEvents(),
+    listMeetingNotePartners(),
+    listUsers(),
+    listEvents({ includeArchived: true }),
   ]);
 
   if (!note) notFound();
@@ -35,9 +35,9 @@ export default async function EditMeetingNotePage({
   const partners = allPartners.map((p) => ({
     id: p.id,
     firstName: p.firstName,
-    lastName: p.lastName,
-    companyId: p.companyId ?? null,
-    companyName: p.companyName ?? null,
+    lastName: p.lastName ?? "",
+    companyId: p.companyId,
+    companyName: p.companyName,
   }));
 
   const users = allUsers.map((u) => ({

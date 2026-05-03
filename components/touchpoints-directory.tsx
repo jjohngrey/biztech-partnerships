@@ -173,8 +173,7 @@ function SortHeader({
     <button
       type="button"
       onClick={() => onSort(sortKey)}
-      className={[
-        "-ml-2 w-fit rounded-full px-2 py-1 text-left transition hover:bg-white/[0.055] hover:text-zinc-300",
+      className={["-ml-2 w-fit rounded-full px-2 py-1 text-left transition hover:bg-white/[0.055] hover:text-zinc-300 cursor-pointer",
         active ? "bg-white/[0.055] text-zinc-200" : "",
       ].join(" ")}
     >
@@ -226,7 +225,7 @@ function CompanyCombo({
                 onChange(company.name);
                 setOpen(false);
               }}
-              className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-white/[0.05]"
+              className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-white/[0.05] cursor-pointer"
             >
               <span className="truncate text-[13px] font-medium text-zinc-100">{company.name}</span>
               <span className="shrink-0 text-[12px] text-zinc-500">{company.activeContactsCount} partners</span>
@@ -237,7 +236,7 @@ function CompanyCombo({
               type="button"
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => setOpen(false)}
-              className="block w-full border-t border-white/[0.08] px-3 py-2.5 text-left text-[13px] text-zinc-300 transition hover:bg-white/[0.05]"
+              className="block w-full border-t border-white/[0.08] px-3 py-2.5 text-left text-[13px] text-zinc-300 transition hover:bg-white/[0.05] cursor-pointer"
             >
               Create company &quot;{value.trim()}&quot;
             </button>
@@ -297,7 +296,7 @@ function EventCombo({
                 onChange(event.name);
                 setOpen(false);
               }}
-              className="flex w-full items-center justify-between gap-3 border-b border-white/[0.06] px-3 py-2.5 text-left transition last:border-b-0 hover:bg-white/[0.05]"
+              className="flex w-full items-center justify-between gap-3 border-b border-white/[0.06] px-3 py-2.5 text-left transition last:border-b-0 hover:bg-white/[0.05] cursor-pointer"
             >
               <span className="min-w-0">
                 <span className="block truncate text-[13px] font-medium text-zinc-100">{event.name}</span>
@@ -374,7 +373,7 @@ function PersonCombo({
               onChange("");
               setOpen(false);
             }}
-            className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-white/[0.05]"
+            className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-white/[0.05] cursor-pointer"
           >
             <span className="truncate text-[13px] font-medium text-zinc-100">Company-level contact</span>
             <span className="shrink-0 text-[12px] text-zinc-500">No person</span>
@@ -389,7 +388,7 @@ function PersonCombo({
                 onChange(partner.name);
                 setOpen(false);
               }}
-              className="flex w-full items-center justify-between gap-3 border-t border-white/[0.06] px-3 py-2.5 text-left transition hover:bg-white/[0.05]"
+              className="flex w-full items-center justify-between gap-3 border-t border-white/[0.06] px-3 py-2.5 text-left transition hover:bg-white/[0.05] cursor-pointer"
             >
               <span className="min-w-0">
                 <span className="block truncate text-[13px] font-medium text-zinc-100">{partner.name}</span>
@@ -635,7 +634,7 @@ export function TouchpointsDirectory({
               setMode("create");
               resetActivityUrl();
             }}
-            className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-md bg-zinc-700 px-3.5 text-[13px] font-medium text-white transition hover:bg-zinc-600 md:w-auto"
+            className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-md bg-zinc-700 px-3.5 text-[13px] font-medium text-white transition hover:bg-zinc-600 md:w-auto cursor-pointer"
           >
             <Plus className="size-4" strokeWidth={1.8} />
             Log contact
@@ -653,7 +652,7 @@ export function TouchpointsDirectory({
             <SortHeader label="Date" sortKey="date" activeKey={sortKey} direction={sortDirection} onSort={sortActivities} />
             <SortHeader label="Company" sortKey="company" activeKey={sortKey} direction={sortDirection} onSort={sortActivities} />
             <SortHeader label="Contact" sortKey="contact" activeKey={sortKey} direction={sortDirection} onSort={sortActivities} />
-            <span className={panelOpen ? "hidden 2xl:block" : "hidden xl:block"}>BizTech director</span>
+            <span className={panelOpen ? "hidden 2xl:block" : "hidden xl:block"}>BizTech Director</span>
             <span className={panelOpen ? "hidden 2xl:block" : "hidden xl:block"}>Next outreach</span>
           </div>
           <div className="max-h-[68vh] overflow-x-hidden overflow-y-auto">
@@ -667,8 +666,7 @@ export function TouchpointsDirectory({
                   setMode("view");
                   window.history.replaceState(null, "", activityUrl(activity.key));
                 }}
-                className={[
-                  "grid w-full grid-cols-1 gap-1 border-b border-white/[0.06] px-4 py-3.5 text-left text-[13px] text-zinc-300 transition hover:bg-white/[0.035] md:items-center md:gap-0",
+                className={["grid w-full grid-cols-1 gap-1 border-b border-white/[0.06] px-4 py-3.5 text-left text-[13px] text-zinc-300 transition hover:bg-white/[0.035] md:items-center md:gap-0 cursor-pointer",
                   activityGridColumns,
                   selectedKey === activity.key ? "bg-white/[0.055]" : "",
                 ].join(" ")}
@@ -682,7 +680,7 @@ export function TouchpointsDirectory({
                     </span>
                     <span className="block min-w-0 max-w-full truncate">
                       {activity.partnerNames.join(", ") || "Company-level contact"} ·{" "}
-                      {activity.userNames.join(", ") || "No BizTech director"}
+                      {activity.userNames.join(", ") || "No BizTech Director"}
                       {activity.followUpDate ? ` · Next outreach ${activity.followUpDate}` : ""}
                     </span>
                   </span>
@@ -690,7 +688,7 @@ export function TouchpointsDirectory({
                 <span className="hidden truncate text-zinc-400 md:block">{formatDateTime(activity.dateIso)}</span>
                 <span className="hidden truncate md:block">{activity.companyNames.join(", ") || "No company"}</span>
                 <span className="hidden truncate text-zinc-400 md:block">{activity.partnerNames.join(", ") || "Company-level contact"}</span>
-                <span className={panelOnlySecondaryColumnClass}>{activity.userNames.join(", ") || "No BizTech director"}</span>
+                <span className={panelOnlySecondaryColumnClass}>{activity.userNames.join(", ") || "No BizTech Director"}</span>
                 <span className={panelOnlySecondaryColumnClass}>{activity.followUpDate ?? ""}</span>
               </button>
             ))}
@@ -719,7 +717,7 @@ export function TouchpointsDirectory({
                 setSelectedPartnerId("");
                 resetActivityUrl();
               }}
-              className="grid size-7 shrink-0 place-items-center rounded-md border border-white/[0.12] bg-white/[0.055] text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:hidden"
+              className="grid size-7 shrink-0 place-items-center rounded-md border border-white/[0.12] bg-white/[0.055] text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:hidden cursor-pointer"
             >
               <X className="size-4" strokeWidth={1.8} />
             </button>
@@ -740,7 +738,7 @@ export function TouchpointsDirectory({
                 setSelectedPartnerId("");
                 resetActivityUrl();
               }}
-              className="hidden size-8 shrink-0 place-items-center rounded-md border border-white/[0.12] bg-white/[0.055] text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:grid"
+              className="hidden size-8 shrink-0 place-items-center rounded-md border border-white/[0.12] bg-white/[0.055] text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:grid cursor-pointer"
             >
               <X className="size-5" strokeWidth={1.8} />
             </button>
@@ -823,9 +821,9 @@ export function TouchpointsDirectory({
                     </select>
                   </Field>
                 </div>
-                <Field label="BizTech director">
+                <Field label="BizTech Director">
                   <select name="userId" required className={inputClass()}>
-                    <option value="">Select BizTech director</option>
+                    <option value="">Select BizTech Director</option>
                     {users.map((user) => (
                       <option key={user.id} value={user.id}>{user.name}</option>
                     ))}
@@ -862,7 +860,7 @@ export function TouchpointsDirectory({
                 {error ? <p className="rounded-md border border-red-400/20 bg-red-400/10 px-3 py-2 text-[13px] text-red-200">{error}</p> : null}
               </div>
               <div className="shrink-0 border-t border-white/[0.08] bg-[#0d0e11] px-5 py-4">
-                <button disabled={isPending} className="inline-flex h-9 items-center gap-1.5 rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60">
+                <button disabled={isPending} className="inline-flex h-9 items-center gap-1.5 rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer">
                   <MessageSquarePlus className="size-4" strokeWidth={1.8} />
                   Save contact
                 </button>
@@ -890,8 +888,8 @@ export function TouchpointsDirectory({
                       <p className="mt-1 text-zinc-300">{selected.partnerNames.join(", ") || "Company-level contact"}</p>
                     </div>
                     <div>
-                      <p className="text-[12px] text-zinc-500">BizTech director</p>
-                      <p className="mt-1 text-zinc-300">{selected.userNames.join(", ") || "No BizTech director"}</p>
+                      <p className="text-[12px] text-zinc-500">BizTech Director</p>
+                      <p className="mt-1 text-zinc-300">{selected.userNames.join(", ") || "No BizTech Director"}</p>
                     </div>
                     {selected.followUpDate ? (
                       <div>
@@ -923,7 +921,7 @@ export function TouchpointsDirectory({
                         router.refresh();
                       });
                     }}
-                    className="inline-flex h-9 w-fit items-center gap-1.5 rounded-md border border-red-400/20 px-3 text-[13px] font-medium text-red-200 transition hover:bg-red-400/10 disabled:opacity-60"
+                    className="inline-flex h-9 w-fit items-center gap-1.5 rounded-md border border-red-400/20 px-3 text-[13px] font-medium text-red-200 transition hover:bg-red-400/10 disabled:opacity-60 cursor-pointer"
                   >
                     <Trash2 className="size-4" strokeWidth={1.8} />
                     Remove contact record

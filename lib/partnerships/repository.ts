@@ -52,6 +52,8 @@ import type {
   EventAttendanceStatus,
   LogEventPartnerResponseInput,
   MeetingLogRecord,
+  MeetingNoteDetail,
+  MeetingNotePartnerOption,
   PartnerAccount,
   PartnerContact,
   PartnerDirectoryRecord,
@@ -222,7 +224,7 @@ export async function updateDirector(input: UpdateDirectorInput) {
     .set(normalizeDirectorInput(input))
     .where(eq(users.id, input.id))
     .returning();
-  if (!director) throw new Error("BizTech director was not found.");
+  if (!director) throw new Error("BizTech Director was not found.");
   return toUserSummary(director);
 }
 
@@ -553,6 +555,128 @@ export async function listMeetingLogs(): Promise<MeetingLogRecord[]> {
     attendees: attendeeLinks
       .filter((link) => link.meetingNoteId === note.id)
       .map((link) => toUserSummary(link.user)),
+  }));
+}
+
+export async function getMeetingNoteById(id: string): Promise<MeetingNoteDetail | null> {
+  const [note] = await db
+    .select({
+      id: meetingNotes.id,
+      title: meetingNotes.title,
+      meetingDate: meetingNotes.meetingDate,
+      source: meetingNotes.source,
+      originalFilename: meetingNotes.originalFilename,
+      content: meetingNotes.content,
+      summary: meetingNotes.summary,
+      createdBy: meetingNotes.createdBy,
+      createdAt: meetingNotes.createdAt,
+      updatedAt: meetingNotes.updatedAt,
+    })
+    .from(meetingNotes)
+    .where(eq(meetingNotes.id, id));
+
+  if (!note) return null;
+
+  const [partnerRows, attendeeRows, eventRows, creatorRows] = await Promise.all([
+    db
+      .select({
+        partnerId: partners.id,
+        partnerFirstName: partners.firstName,
+        partnerLastName: partners.lastName,
+        companyId: companies.id,
+        companyName: companies.name,
+      })
+      .from(meetingNotePartners)
+      .innerJoin(partners, eq(meetingNotePartners.partnerId, partners.id))
+      .leftJoin(companies, eq(partners.companyId, companies.id))
+      .where(eq(meetingNotePartners.meetingNoteId, id)),
+    db
+      .select({
+        userId: users.id,
+        firstName: users.first_name,
+        lastName: users.last_name,
+      })
+      .from(meetingNoteAttendees)
+      .innerJoin(users, eq(meetingNoteAttendees.userId, users.id))
+      .where(eq(meetingNoteAttendees.meetingNoteId, id)),
+    db
+      .select({
+        eventId: events.id,
+        eventName: events.name,
+      })
+      .from(meetingNoteEvents)
+      .innerJoin(events, eq(meetingNoteEvents.eventId, events.id))
+      .where(eq(meetingNoteEvents.meetingNoteId, id)),
+    note.createdBy
+      ? db
+          .select({ firstName: users.first_name, lastName: users.last_name })
+          .from(users)
+          .where(eq(users.id, note.createdBy))
+      : Promise.resolve([] as Array<{ firstName: string; lastName: string }>),
+  ]);
+
+  const companyMap = new Map<
+    string,
+    { id: string; name: string; partners: Array<{ id: string; firstName: string; lastName: string | null }> }
+  >();
+  const noCompanyPartners: Array<{ id: string; firstName: string; lastName: string | null }> = [];
+
+  for (const row of partnerRows) {
+    const partnerEntry = {
+      id: row.partnerId,
+      firstName: row.partnerFirstName,
+      lastName: row.partnerLastName,
+    };
+    if (row.companyId && row.companyName) {
+      if (!companyMap.has(row.companyId)) {
+        companyMap.set(row.companyId, { id: row.companyId, name: row.companyName, partners: [] });
+      }
+      companyMap.get(row.companyId)!.partners.push(partnerEntry);
+    } else {
+      noCompanyPartners.push(partnerEntry);
+    }
+  }
+
+  return {
+    ...note,
+    source: note.source as "upload" | "paste",
+    partnersByCompany: Array.from(companyMap.values()),
+    noCompanyPartners,
+    attendees: attendeeRows,
+    events: eventRows,
+    creator: creatorRows[0] ?? null,
+  };
+}
+
+export async function getMeetingNoteForEdit(
+  id: string,
+  userId: string,
+): Promise<MeetingNoteDetail | null> {
+  const note = await getMeetingNoteById(id);
+  if (!note) return null;
+  if (note.createdBy !== userId) return null;
+  return note;
+}
+
+export async function listMeetingNotePartners(): Promise<MeetingNotePartnerOption[]> {
+  const rows = await db
+    .select({
+      id: partners.id,
+      firstName: partners.firstName,
+      lastName: partners.lastName,
+      companyId: companies.id,
+      companyName: companies.name,
+    })
+    .from(partners)
+    .leftJoin(companies, eq(partners.companyId, companies.id))
+    .orderBy(asc(companies.name), asc(partners.lastName));
+
+  return rows.map((row) => ({
+    id: row.id,
+    firstName: row.firstName,
+    lastName: row.lastName,
+    companyId: row.companyId,
+    companyName: row.companyName,
   }));
 }
 
@@ -1070,7 +1194,7 @@ export async function logEventPartnerResponse(input: LogEventPartnerResponseInpu
     partnerId = contact.id;
   }
 
-  await addPartnerEventRole({
+  await createPartnerEventRole({
     partnerId,
     eventId: input.eventId,
     eventRole: input.eventRole,
@@ -1256,7 +1380,7 @@ export async function createMeetingLog(input: CreateMeetingLogInput) {
       .values({
         title,
         meetingDate: new Date(`${meetingDate}T12:00:00`),
-        source: "manual",
+        source: "paste",
         content,
         summary: input.summary?.trim() || null,
       })
@@ -1509,7 +1633,7 @@ export async function deletePartnerDocument(documentId: string) {
 export async function createCompanyInteraction(input: CreateCompanyInteractionInput) {
   const companyId = input.companyId || (input.companyName ? (await findOrCreateCompanyByName(input.companyName)).id : null);
   if (!companyId) throw new Error("Company is required.");
-  if (!input.userId) throw new Error("BizTech director is required.");
+  if (!input.userId) throw new Error("BizTech Director is required.");
   const contactedAt = input.contactedAt.trim();
   if (!contactedAt) throw new Error("Contact date is required.");
   let partnerId = input.partnerId || null;

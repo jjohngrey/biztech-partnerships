@@ -14,7 +14,7 @@ const ERROR_MESSAGES: Record<string, string> = {
     "You're signed in with an @ubcbiztech.com address, but Google didn't report it as part of the BizTech Workspace. This usually means the account is a Gmail with a custom address rather than a real Workspace user. Check the server log for details.",
   oauth: "Something went wrong completing sign-in. Please try again.",
   "profile-sync":
-    "You signed in, but we couldn't link your account to the CRM user directory. Ask an admin to check the BizTech directors list.",
+    "You signed in, but we couldn't link your account to the CRM user directory. Ask an admin to check the BizTech Directors list.",
   unknown: "Something went wrong. Please try again.",
 };
 
@@ -43,8 +43,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         <form action={signInWithGoogle} className="mt-5">
           <button
             type="submit"
-            className="inline-flex h-9 w-full items-center justify-center rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
-          >
+            className="inline-flex h-9 w-full items-center justify-center rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 cursor-pointer">
             Continue with Google
           </button>
         </form>

@@ -156,6 +156,36 @@ export type MeetingLogRecord = {
   attendees: CrmUserSummary[];
 };
 
+export type MeetingNotePartnerOption = {
+  id: string;
+  firstName: string;
+  lastName: string | null;
+  companyId: string | null;
+  companyName: string | null;
+};
+
+export type MeetingNoteDetail = {
+  id: string;
+  title: string;
+  meetingDate: Date;
+  source: "upload" | "paste";
+  originalFilename: string | null;
+  content: string;
+  summary: string | null;
+  createdBy: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  partnersByCompany: Array<{
+    id: string;
+    name: string;
+    partners: Array<{ id: string; firstName: string; lastName: string | null }>;
+  }>;
+  noCompanyPartners: Array<{ id: string; firstName: string; lastName: string | null }>;
+  attendees: Array<{ userId: string; firstName: string; lastName: string }>;
+  events: Array<{ eventId: string; eventName: string }>;
+  creator: { firstName: string; lastName: string } | null;
+};
+
 export type PartnerDocumentRecord = {
   id: string;
   companyId: string;

@@ -135,7 +135,7 @@ export function AttendeePicker({
               <button
                 type="button"
                 onClick={() => toggle(u.id)}
-                className="ml-1 rounded-full hover:bg-neutral-300"
+                className="ml-1 rounded-full hover:bg-neutral-300 cursor-pointer"
               >
                 <X className="h-3 w-3" />
               </button>

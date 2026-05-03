@@ -191,8 +191,7 @@ export function FilterBar({ companies, partners, users, events }: FilterBarProps
       {isActive && (
         <button
           onClick={clearAll}
-          className="h-8 self-end text-sm text-neutral-500 underline underline-offset-2 hover:text-neutral-900"
-        >
+          className="h-8 self-end text-sm text-neutral-500 underline underline-offset-2 hover:text-neutral-900 cursor-pointer">
           Clear all
         </button>
       )}

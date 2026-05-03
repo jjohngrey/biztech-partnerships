@@ -526,8 +526,7 @@ function syncPartnershipEmails() {
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={[
-                "inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[12px] font-medium transition sm:gap-2 sm:px-3",
+              className={["inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[12px] font-medium transition sm:gap-2 sm:px-3 cursor-pointer",
                 activeTab === tab.id
                   ? "bg-white/[0.09] text-zinc-100"
                   : "text-zinc-500 hover:bg-white/[0.045] hover:text-zinc-200",
@@ -584,9 +583,9 @@ function syncPartnershipEmails() {
                   </select>
                 </label>
                 <label className={labelClass()}>
-                  BizTech director
+                  BizTech Director
                   <select value={senderUserId} onChange={(event) => setSenderUserId(event.target.value)} className={inputClass()}>
-                    <option value="">No BizTech director</option>
+                    <option value="">No BizTech Director</option>
                     {users.map((user) => (
                       <option key={user.id} value={user.id}>{user.name}</option>
                     ))}
@@ -598,10 +597,10 @@ function syncPartnershipEmails() {
                   <span className="font-medium text-zinc-300">{selectedRecipientIds.length}</span> recipients selected
                 </p>
                 <div className="grid min-w-0 grid-cols-2 gap-1.5 sm:flex sm:w-auto sm:items-center">
-                  <button type="button" onClick={selectFilteredRecipients} className="h-7 min-w-0 truncate rounded-md border border-white/[0.08] px-2 text-[12px] text-zinc-500 transition hover:bg-white/[0.055] hover:text-zinc-200 sm:border-0">
+                  <button type="button" onClick={selectFilteredRecipients} className="h-7 min-w-0 truncate rounded-md border border-white/[0.08] px-2 text-[12px] text-zinc-500 transition hover:bg-white/[0.055] hover:text-zinc-200 sm:border-0 cursor-pointer">
                     Select visible
                   </button>
-                  <button type="button" onClick={clearSelectedRecipients} className="h-7 min-w-0 truncate rounded-md border border-white/[0.08] px-2 text-[12px] text-zinc-500 transition hover:bg-white/[0.055] hover:text-zinc-200 sm:border-0">
+                  <button type="button" onClick={clearSelectedRecipients} className="h-7 min-w-0 truncate rounded-md border border-white/[0.08] px-2 text-[12px] text-zinc-500 transition hover:bg-white/[0.055] hover:text-zinc-200 sm:border-0 cursor-pointer">
                     Clear
                   </button>
                 </div>
@@ -616,16 +615,14 @@ function syncPartnershipEmails() {
                     <div className="mt-2 grid grid-cols-2 gap-1.5">
                       <button
                         disabled={isPending || !canCreateDraft}
-                        className="h-8 rounded-md bg-zinc-700 px-2 text-[12px] font-medium text-white transition hover:bg-zinc-600 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
+                        className="h-8 rounded-md bg-zinc-700 px-2 text-[12px] font-medium text-white transition hover:bg-zinc-600 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer">
                         Save draft
                       </button>
                       <button
                         type="button"
                         disabled={!canCreateDraft}
                         onClick={exportPreview}
-                        className="h-8 rounded-md border border-white/[0.09] px-2 text-[12px] font-medium text-zinc-400 transition hover:bg-white/[0.045] hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-40"
-                      >
+                        className="h-8 rounded-md border border-white/[0.09] px-2 text-[12px] font-medium text-zinc-400 transition hover:bg-white/[0.045] hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer">
                         Export CSV
                       </button>
                     </div>
@@ -659,8 +656,7 @@ function syncPartnershipEmails() {
                 <button
                   disabled={isPending || !canCreateDraft}
                   title={mergeIssueTokens.length ? "Resolve missing merge values before creating a draft." : undefined}
-                  className="h-9 rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:cursor-not-allowed disabled:opacity-50"
-                >
+                  className="h-9 rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer">
                   Save outreach draft
                 </button>
                 <button
@@ -668,8 +664,7 @@ function syncPartnershipEmails() {
                   disabled={!canCreateDraft}
                   title={mergeIssueTokens.length ? "Resolve missing merge values before exporting." : undefined}
                   onClick={exportPreview}
-                  className="h-9 rounded-md border border-white/[0.09] px-3 text-[13px] font-medium text-zinc-400 transition hover:bg-white/[0.045] hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-40"
-                >
+                  className="h-9 rounded-md border border-white/[0.09] px-3 text-[13px] font-medium text-zinc-400 transition hover:bg-white/[0.045] hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer">
                   Export preview CSV
                 </button>
               </div>
@@ -683,10 +678,10 @@ function syncPartnershipEmails() {
                 <p className="mt-0.5 text-[12px] text-zinc-500">{selectedRecipientIds.length} selected</p>
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
-                <button type="button" onClick={selectFilteredRecipients} className="h-7 rounded-md px-2 text-[12px] text-zinc-500 transition hover:bg-white/[0.055] hover:text-zinc-200">
+                <button type="button" onClick={selectFilteredRecipients} className="h-7 rounded-md px-2 text-[12px] text-zinc-500 transition hover:bg-white/[0.055] hover:text-zinc-200 cursor-pointer">
                   Select visible
                 </button>
-                <button type="button" onClick={clearSelectedRecipients} className="h-7 rounded-md px-2 text-[12px] text-zinc-500 transition hover:bg-white/[0.055] hover:text-zinc-200">
+                <button type="button" onClick={clearSelectedRecipients} className="h-7 rounded-md px-2 text-[12px] text-zinc-500 transition hover:bg-white/[0.055] hover:text-zinc-200 cursor-pointer">
                   Clear
                 </button>
               </div>
@@ -728,7 +723,7 @@ function syncPartnershipEmails() {
               <button
                 type="button"
                 onClick={() => setTemplateForm(blankTemplate())}
-                className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-[12px] text-zinc-400 transition hover:bg-white/[0.055] hover:text-zinc-100"
+                className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-[12px] text-zinc-400 transition hover:bg-white/[0.055] hover:text-zinc-100 cursor-pointer"
               >
                 <Plus className="size-3.5" strokeWidth={1.8} />
                 New
@@ -748,8 +743,7 @@ function syncPartnershipEmails() {
                   key={template.id}
                   type="button"
                   onClick={() => loadTemplate(template)}
-                  className={[
-                    "block w-full border-b border-white/[0.06] px-4 py-3 text-left transition hover:bg-white/[0.035]",
+                  className={["block w-full border-b border-white/[0.06] px-4 py-3 text-left transition hover:bg-white/[0.035] cursor-pointer",
                     templateForm.id === template.id ? "bg-white/[0.055]" : "",
                   ].join(" ")}
                 >
@@ -821,8 +815,7 @@ function syncPartnershipEmails() {
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 <button
                   disabled={isPending}
-                  className="h-8 rounded-md bg-zinc-700 px-3 text-[12px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60"
-                >
+                  className="h-8 rounded-md bg-zinc-700 px-3 text-[12px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer">
                   {templateForm.id ? "Save template" : "Create template"}
                 </button>
                 {templateForm.id && (
@@ -836,7 +829,7 @@ function syncPartnershipEmails() {
                         bodyTemplate: templateForm.bodyTemplate,
                       });
                     }}
-                    className="h-8 rounded-md border border-white/[0.09] px-3 text-[12px] font-medium text-zinc-400 transition hover:bg-white/[0.045] hover:text-zinc-100"
+                    className="h-8 rounded-md border border-white/[0.09] px-3 text-[12px] font-medium text-zinc-400 transition hover:bg-white/[0.045] hover:text-zinc-100 cursor-pointer"
                   >
                     Use in draft
                   </button>
@@ -845,8 +838,7 @@ function syncPartnershipEmails() {
                   <button
                     type="button"
                     onClick={archiveTemplate}
-                    className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[12px] text-zinc-500 transition hover:bg-red-500/10 hover:text-red-200"
-                  >
+                    className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[12px] text-zinc-500 transition hover:bg-red-500/10 hover:text-red-200 cursor-pointer">
                     <Archive className="size-3.5" strokeWidth={1.8} />
                     Archive
                   </button>
@@ -867,7 +859,7 @@ function syncPartnershipEmails() {
               <div key={campaign.id} className="grid gap-3 px-4 py-3 text-[13px] text-zinc-400 md:grid-cols-[minmax(0,1fr)_120px_110px_90px_80px] md:items-center">
                 <span className="min-w-0">
                   <span className="block truncate font-medium text-zinc-100">{campaign.subject}</span>
-                  <span className="block truncate text-[12px] text-zinc-500">{campaign.eventName ?? "No event"} · {campaign.senderName ?? "No BizTech director"}</span>
+                  <span className="block truncate text-[12px] text-zinc-500">{campaign.eventName ?? "No event"} · {campaign.senderName ?? "No BizTech Director"}</span>
                 </span>
                 <span>{campaign.sends.length} recipients</span>
                 <span>{new Date(campaign.createdAtIso).toLocaleDateString("en-CA")}</span>
@@ -880,7 +872,7 @@ function syncPartnershipEmails() {
                     if (!window.confirm(`Send this outreach draft to ${queued} recipient${queued === 1 ? "" : "s"} now?`)) return;
                     sendCampaign(campaign.id);
                   }}
-                  className="h-8 rounded-md border border-white/[0.09] px-2.5 text-[12px] font-medium text-zinc-400 transition hover:bg-white/[0.045] hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="h-8 rounded-md border border-white/[0.09] px-2.5 text-[12px] font-medium text-zinc-400 transition hover:bg-white/[0.045] hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
                 >
                   Send now
                 </button>
@@ -900,7 +892,7 @@ function syncPartnershipEmails() {
             <button
               type="button"
               onClick={() => setSyncHelpOpen(true)}
-              className="inline-flex h-8 w-fit items-center justify-center gap-1.5 rounded-md border border-white/[0.09] px-3 text-[12px] font-medium text-zinc-400 transition hover:bg-white/[0.045] hover:text-zinc-100"
+              className="inline-flex h-8 w-fit items-center justify-center gap-1.5 rounded-md border border-white/[0.09] px-3 text-[12px] font-medium text-zinc-400 transition hover:bg-white/[0.045] hover:text-zinc-100 cursor-pointer"
             >
               <HelpCircle className="size-3.5" strokeWidth={1.8} />
               How to sync
@@ -932,14 +924,14 @@ function syncPartnershipEmails() {
             <button
               type="button"
               onClick={() => copyText(syncIngestUrl, "Webhook URL copied.")}
-              className="h-9 rounded-md border border-white/[0.09] px-3 text-[13px] font-medium text-zinc-400 transition hover:bg-white/[0.045] hover:text-zinc-100"
+              className="h-9 rounded-md border border-white/[0.09] px-3 text-[13px] font-medium text-zinc-400 transition hover:bg-white/[0.045] hover:text-zinc-100 cursor-pointer"
             >
               Copy URL
             </button>
             <button
               type="button"
               onClick={() => copyText(syncScriptTemplate, "Apps Script copied.")}
-              className="h-9 rounded-md bg-zinc-700 px-3 text-[13px] font-medium text-white transition hover:bg-zinc-600"
+              className="h-9 rounded-md bg-zinc-700 px-3 text-[13px] font-medium text-white transition hover:bg-zinc-600 cursor-pointer"
             >
               Copy script
             </button>
@@ -959,7 +951,7 @@ function syncPartnershipEmails() {
                 type="button"
                 aria-label="Close sync help"
                 onClick={() => setSyncHelpOpen(false)}
-                className="grid size-8 shrink-0 place-items-center rounded-md text-zinc-500 transition hover:bg-white/[0.055] hover:text-zinc-100"
+                className="grid size-8 shrink-0 place-items-center rounded-md text-zinc-500 transition hover:bg-white/[0.055] hover:text-zinc-100 cursor-pointer"
               >
                 <X className="size-4" strokeWidth={1.8} />
               </button>
@@ -1004,14 +996,14 @@ function syncPartnershipEmails() {
               <button
                 type="button"
                 onClick={() => copyText(syncIngestUrl, "Webhook URL copied.")}
-                className="h-8 rounded-md border border-white/[0.09] px-3 text-[12px] font-medium text-zinc-400 transition hover:bg-white/[0.045] hover:text-zinc-100"
+                className="h-8 rounded-md border border-white/[0.09] px-3 text-[12px] font-medium text-zinc-400 transition hover:bg-white/[0.045] hover:text-zinc-100 cursor-pointer"
               >
                 Copy URL
               </button>
               <button
                 type="button"
                 onClick={() => copyText(syncScriptTemplate, "Apps Script copied.")}
-                className="h-8 rounded-md bg-zinc-700 px-3 text-[12px] font-medium text-white transition hover:bg-zinc-600"
+                className="h-8 rounded-md bg-zinc-700 px-3 text-[12px] font-medium text-white transition hover:bg-zinc-600 cursor-pointer"
               >
                 Copy script
               </button>
