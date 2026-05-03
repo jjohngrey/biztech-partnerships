@@ -28,7 +28,7 @@ const primaryNavItems = [
   { href: "/companies", label: "Companies", key: "companies", icon: Building2 },
   { href: "/partners", label: "Partners", key: "partners", icon: UsersRound },
   { href: "/events", label: "Events", key: "events", icon: CalendarDays },
-  { href: "/contact-log", label: "Contact history", key: "touchpoints", icon: MessageSquarePlus },
+  { href: "/contact-log", label: "Contact History", key: "touchpoints", icon: MessageSquarePlus },
   { href: "/pipeline", label: "Pipeline", key: "pipeline", icon: Handshake },
   { href: "/outreach", label: "Outreach", key: "outreach", icon: MailPlus },
 ] as const;
@@ -68,6 +68,7 @@ export function CrmShell({
   return (
     <main className="min-h-[100dvh] bg-[#0d0d0f] text-zinc-100">
       <div className="flex min-h-[100dvh]">
+        {/* Desktop sidebar: hidden on mobile/tablet, visible on xl screens and up */}
         <aside className="hidden w-[212px] shrink-0 border-r border-white/[0.08] bg-[#09090b] px-3 py-4 xl:flex xl:flex-col">
           <div className="flex h-8 items-center gap-2 px-2">
             <div className="grid size-6 shrink-0 place-items-center rounded-md border border-white/[0.08] bg-white/[0.045] text-[10px] font-semibold tracking-[-0.01em] text-zinc-200">
@@ -117,8 +118,7 @@ export function CrmShell({
               <button
                 type="button"
                 onClick={toggleTheme}
-                className="flex h-8 items-center justify-center gap-1.5 rounded-md border border-white/[0.08] px-2 text-[12px] font-medium text-zinc-500 transition hover:bg-white/[0.045] hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
-              >
+                className="flex h-8 items-center justify-center gap-1.5 rounded-md border border-white/[0.08] cursor-pointer px-2 text-[12px] font-medium text-zinc-500 transition hover:bg-white/[0.045] hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500">
                 <ThemeIcon className="size-3.5" strokeWidth={1.8} />
                 {theme === "dark" ? "Light" : "Dark"}
               </button>
@@ -138,8 +138,7 @@ export function CrmShell({
             <form action="/auth/signout" method="post" className="mt-1.5">
               <button
                 type="submit"
-                className="flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-white/[0.08] px-2 text-[12px] font-medium text-zinc-500 transition hover:border-red-400/20 hover:bg-red-500/10 hover:text-red-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
-              >
+                className="flex h-8 w-full items-center justify-center gap-1.5 rounded-md border cursor-pointer border-white/[0.08] px-2 text-[12px] font-medium text-zinc-500 transition hover:border-red-400/20 hover:bg-red-500/10 hover:text-red-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500">
                 <LogOut className="size-3.5" strokeWidth={1.8} />
                 Sign out
               </button>
@@ -147,8 +146,10 @@ export function CrmShell({
           </div>
         </aside>
 
+        {/* Main content area: includes mobile nav bar (visible on mobile/tablet, hidden on xl+) */}
         <section className="w-0 min-w-0 flex-1 overflow-x-hidden">
           <div className="min-h-[100dvh] bg-[#0d0d0f]">
+            {/* Mobile navigation bar: visible on mobile/tablet, hidden on xl screens and up */}
             <div className="sticky top-0 z-20 border-b border-white/[0.08] bg-[#09090b]/95 px-2 py-2 backdrop-blur xl:hidden">
               <nav className="flex min-w-0 gap-1.5 overflow-x-auto">
                 {primaryNavItems.map((item) => {
@@ -190,8 +191,7 @@ export function CrmShell({
                 <button
                   type="button"
                   onClick={toggleTheme}
-                  className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.03] text-zinc-400 transition hover:bg-white/[0.055] hover:text-zinc-200"
-                  title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+                  className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.03] text-zinc-400 transition hover:bg-white/[0.055] hover:text-zinc-200 cursor-pointer"title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
                   aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
                 >
                   <ThemeIcon className="size-3.5 shrink-0" strokeWidth={1.8} />
