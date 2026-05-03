@@ -1,0 +1,13 @@
+const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="7" fill="#111113"/>
+  <path d="M9 10h14v3H9zM9 15h10v3H9zM9 20h14v3H9z" fill="#d4d4d8"/>
+</svg>`;
+
+export function GET() {
+  return new Response(iconSvg, {
+    headers: {
+      "Cache-Control": "public, max-age=31536000, immutable",
+      "Content-Type": "image/svg+xml",
+    },
+  });
+}

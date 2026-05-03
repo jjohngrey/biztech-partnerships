@@ -15,7 +15,6 @@ import type { drive_v3, docs_v1, gmail_v1 } from 'googleapis';
 import { fetchTokens, deleteTokens } from './tokens';
 import { refreshIfNeeded, forceRefresh } from './refresh';
 import { buildConsentUrl } from './consent';
-import { hasAllScopes } from './scopes';
 import { NeedsConsentError } from './errors';
 import type { GoogleScope } from './scopes';
 import type { NeedsConsent } from './errors';
