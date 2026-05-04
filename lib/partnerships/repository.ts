@@ -1,18 +1,19 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, desc, eq, inArray, ne } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, ne, or } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   companies,
   companyEvents,
+  contactActivities,
+  contactActivityAttendees,
+  contactActivityCompanies,
+  contactActivityEvents,
+  contactActivityPartners,
   emailCampaigns,
   emailSends,
   emailTemplates,
   events,
   interactions,
-  meetingNoteCompanies,
-  meetingNoteEvents,
-  meetingNoteAttendees,
-  meetingNotePartners,
   meetingNotes,
   partnerDocuments,
   partners,
@@ -182,6 +183,27 @@ function sumAmounts(rows: Array<{ amount: number | null }>) {
 
 function parseTags(value: string[] | undefined) {
   return (value ?? []).map((tag) => tag.trim()).filter(Boolean);
+}
+
+function contactActivityTypeToInteractionType(
+  type: typeof contactActivities.$inferSelect.type,
+): CompanyInteractionRecord["type"] {
+  return type === "note" ? "other" : (type as CompanyInteractionRecord["type"]);
+}
+
+function contactActivityIsMeetingLog(activity: typeof contactActivities.$inferSelect) {
+  return activity.type === "meeting" && Boolean(activity.content || activity.legacyMeetingNoteId);
+}
+
+function contactActivitySubject(input: {
+  subject?: string | null;
+  type: CompanyInteractionRecord["type"];
+  partnerName?: string | null;
+}) {
+  const subject = input.subject?.trim();
+  if (subject) return subject;
+  const typeLabel = input.type.replace("_", " ");
+  return input.partnerName ? `${typeLabel} with ${input.partnerName}` : typeLabel;
 }
 
 async function findOrCreateCompanyByName(nameValue: string) {
@@ -487,71 +509,71 @@ export async function listCurrentPipeline(): Promise<CurrentPipelineRecord[]> {
 }
 
 export async function listMeetingLogs(): Promise<MeetingLogRecord[]> {
-  const [noteRows, companyLinks, partnerLinks, eventLinks, attendeeLinks] = await Promise.all([
-    db.select().from(meetingNotes).orderBy(desc(meetingNotes.meetingDate)),
+  const [activityRows, companyLinks, partnerLinks, eventLinks, attendeeLinks] = await Promise.all([
+    db.select().from(contactActivities).orderBy(desc(contactActivities.occurredAt)),
     db
       .select({
-        meetingNoteId: meetingNoteCompanies.meetingNoteId,
+        activityId: contactActivityCompanies.activityId,
         companyId: companies.id,
         companyName: companies.name,
         companyArchived: companies.archived,
       })
-      .from(meetingNoteCompanies)
-      .innerJoin(companies, eq(meetingNoteCompanies.companyId, companies.id)),
+      .from(contactActivityCompanies)
+      .innerJoin(companies, eq(contactActivityCompanies.companyId, companies.id)),
     db
       .select({
-        meetingNoteId: meetingNotePartners.meetingNoteId,
+        activityId: contactActivityPartners.activityId,
         partnerId: partners.id,
         firstName: partners.firstName,
         lastName: partners.lastName,
         partnerArchived: partners.archived,
         companyArchived: companies.archived,
       })
-      .from(meetingNotePartners)
-      .innerJoin(partners, eq(meetingNotePartners.partnerId, partners.id))
+      .from(contactActivityPartners)
+      .innerJoin(partners, eq(contactActivityPartners.partnerId, partners.id))
       .innerJoin(companies, eq(partners.companyId, companies.id)),
     db
       .select({
-        meetingNoteId: meetingNoteEvents.meetingNoteId,
+        activityId: contactActivityEvents.activityId,
         eventId: events.id,
         eventName: events.name,
         eventArchived: events.archived,
       })
-      .from(meetingNoteEvents)
-      .innerJoin(events, eq(meetingNoteEvents.eventId, events.id)),
+      .from(contactActivityEvents)
+      .innerJoin(events, eq(contactActivityEvents.eventId, events.id)),
     db
       .select({
-        meetingNoteId: meetingNoteAttendees.meetingNoteId,
+        activityId: contactActivityAttendees.activityId,
         user: users,
       })
-      .from(meetingNoteAttendees)
-      .innerJoin(users, eq(meetingNoteAttendees.userId, users.id)),
+      .from(contactActivityAttendees)
+      .innerJoin(users, eq(contactActivityAttendees.userId, users.id)),
   ]);
 
-  return noteRows.map((note) => ({
-    id: note.id,
-    title: note.title,
-    meetingDateIso: note.meetingDate.toISOString(),
-    source: note.source,
-    content: note.content,
-    summary: note.summary,
+  return activityRows.filter(contactActivityIsMeetingLog).map((activity) => ({
+    id: activity.id,
+    title: activity.subject,
+    meetingDateIso: activity.occurredAt.toISOString(),
+    source: activity.source,
+    content: activity.content ?? "",
+    summary: activity.summary,
     companies: companyLinks
-      .filter((link) => link.meetingNoteId === note.id)
+      .filter((link) => link.activityId === activity.id)
       .filter((link) => !link.companyArchived)
       .map((link) => ({ id: link.companyId, name: link.companyName })),
     partners: partnerLinks
-      .filter((link) => link.meetingNoteId === note.id)
+      .filter((link) => link.activityId === activity.id)
       .filter((link) => !link.partnerArchived && !link.companyArchived)
       .map((link) => ({
         id: link.partnerId,
         name: [link.firstName, link.lastName].filter(Boolean).join(" "),
       })),
     events: eventLinks
-      .filter((link) => link.meetingNoteId === note.id)
+      .filter((link) => link.activityId === activity.id)
       .filter((link) => !link.eventArchived)
       .map((link) => ({ id: link.eventId, name: link.eventName })),
     attendees: attendeeLinks
-      .filter((link) => link.meetingNoteId === note.id)
+      .filter((link) => link.activityId === activity.id)
       .map((link) => toUserSummary(link.user)),
   }));
 }
@@ -559,37 +581,39 @@ export async function listMeetingLogs(): Promise<MeetingLogRecord[]> {
 export async function listTouchpoints(): Promise<TouchpointRecord[]> {
   const rows = await db
     .select({
-      interaction: interactions,
+      activity: contactActivities,
       company: companies,
       partner: partners,
       user: users,
     })
-    .from(interactions)
-    .innerJoin(companies, eq(interactions.companyId, companies.id))
-    .innerJoin(users, eq(interactions.userId, users.id))
-    .leftJoin(partners, eq(interactions.partnerId, partners.id))
+    .from(contactActivities)
+    .innerJoin(companies, eq(contactActivities.primaryCompanyId, companies.id))
+    .leftJoin(users, eq(contactActivities.primaryUserId, users.id))
+    .leftJoin(partners, eq(contactActivities.primaryPartnerId, partners.id))
     .where(eq(companies.archived, false))
-    .orderBy(desc(interactions.contactedAt), desc(interactions.createdAt));
+    .orderBy(desc(contactActivities.occurredAt), desc(contactActivities.createdAt));
 
-  return rows.map(({ interaction, company, partner, user }) => ({
-    id: interaction.id,
-    companyId: interaction.companyId,
+  return rows
+    .filter(({ activity }) => !contactActivityIsMeetingLog(activity))
+    .map(({ activity, company, partner, user }) => ({
+    id: activity.id,
+    companyId: activity.primaryCompanyId ?? company.id,
     companyName: company.name,
-    partnerId: interaction.partnerId,
+    partnerId: activity.primaryPartnerId,
     partnerName: partner
       ? [partner.firstName, partner.lastName].filter(Boolean).join(" ")
       : null,
-    userId: interaction.userId,
-    userName: toUserSummary(user).name,
-    type: interaction.type as CompanyInteractionRecord["type"],
-    direction: interaction.direction as CompanyInteractionRecord["direction"],
-    subject: interaction.subject,
-    notes: interaction.notes,
-    contactedAtIso: interaction.contactedAt.toISOString(),
-    followUpDate: interaction.followUpDate,
-    source: interaction.source,
-    createdAtIso: interaction.createdAt.toISOString(),
-    externalThreadId: interaction.externalThreadId,
+    userId: activity.primaryUserId ?? activity.createdBy ?? "",
+    userName: user ? toUserSummary(user).name : "No director",
+    type: contactActivityTypeToInteractionType(activity.type),
+    direction: activity.direction as CompanyInteractionRecord["direction"],
+    subject: activity.subject,
+    notes: activity.notes,
+    contactedAtIso: activity.occurredAt.toISOString(),
+    followUpDate: activity.followUpDate,
+    source: activity.source,
+    createdAtIso: activity.createdAt.toISOString(),
+    externalThreadId: activity.externalThreadId,
   }));
 }
 
@@ -714,15 +738,15 @@ export async function listCompanyDirectory(): Promise<CompanyDirectoryRecord[]> 
       .orderBy(desc(partnerDocuments.updatedAt)),
     db
       .select({
-        interaction: interactions,
+        activity: contactActivities,
         user: users,
         partnerFirstName: partners.firstName,
         partnerLastName: partners.lastName,
       })
-      .from(interactions)
-      .innerJoin(users, eq(interactions.userId, users.id))
-      .leftJoin(partners, eq(interactions.partnerId, partners.id))
-      .orderBy(desc(interactions.contactedAt)),
+      .from(contactActivities)
+      .leftJoin(users, eq(contactActivities.primaryUserId, users.id))
+      .leftJoin(partners, eq(contactActivities.primaryPartnerId, partners.id))
+      .orderBy(desc(contactActivities.occurredAt)),
   ]);
 
   return accounts.map((account) => {
@@ -769,20 +793,20 @@ export async function listCompanyDirectory(): Promise<CompanyDirectoryRecord[]> 
           updatedAtIso: row.document.updatedAt.toISOString(),
         })),
       communications: communicationRows
-        .filter((row) => row.interaction.companyId === account.id)
+        .filter((row) => row.activity.primaryCompanyId === account.id)
         .map((row) => ({
-          id: row.interaction.id,
-          companyId: row.interaction.companyId,
-          partnerId: row.interaction.partnerId,
+          id: row.activity.id,
+          companyId: row.activity.primaryCompanyId ?? account.id,
+          partnerId: row.activity.primaryPartnerId,
           partnerName: [row.partnerFirstName, row.partnerLastName].filter(Boolean).join(" ") || null,
-          userId: row.interaction.userId,
-          userName: toUserSummary(row.user).name,
-          type: row.interaction.type as CompanyInteractionRecord["type"],
-          direction: row.interaction.direction as CompanyInteractionRecord["direction"],
-          subject: row.interaction.subject,
-          notes: row.interaction.notes,
-          contactedAtIso: row.interaction.contactedAt.toISOString(),
-          followUpDate: row.interaction.followUpDate,
+          userId: row.activity.primaryUserId ?? row.activity.createdBy ?? "",
+          userName: row.user ? toUserSummary(row.user).name : "No director",
+          type: contactActivityTypeToInteractionType(row.activity.type),
+          direction: row.activity.direction as CompanyInteractionRecord["direction"],
+          subject: row.activity.subject,
+          notes: row.activity.notes ?? row.activity.summary,
+          contactedAtIso: row.activity.occurredAt.toISOString(),
+          followUpDate: row.activity.followUpDate,
         })),
       updatedAtIso: updatedAt.toISOString(),
     };
@@ -1251,39 +1275,44 @@ export async function createMeetingLog(input: CreateMeetingLogInput) {
       companyId = linkedPartner?.companyId ?? null;
     }
 
-    const [note] = await tx
-      .insert(meetingNotes)
+    const [activity] = await tx
+      .insert(contactActivities)
       .values({
-        title,
-        meetingDate: new Date(`${meetingDate}T12:00:00`),
+        type: "meeting",
+        subject: title,
+        occurredAt: new Date(`${meetingDate}T12:00:00`),
         source: "manual",
         content,
         summary: input.summary?.trim() || null,
+        primaryCompanyId: companyId,
+        primaryPartnerId: partnerId,
+        primaryUserId: attendeeUserIds[0] ?? null,
+        createdBy: attendeeUserIds[0] ?? null,
       })
       .returning();
 
     if (companyId) {
-      await tx.insert(meetingNoteCompanies).values({
-        meetingNoteId: note.id,
+      await tx.insert(contactActivityCompanies).values({
+        activityId: activity.id,
         companyId,
       }).onConflictDoNothing();
     }
     if (partnerId) {
-      await tx.insert(meetingNotePartners).values({
-        meetingNoteId: note.id,
+      await tx.insert(contactActivityPartners).values({
+        activityId: activity.id,
         partnerId,
       }).onConflictDoNothing();
     }
     if (input.eventId) {
-      await tx.insert(meetingNoteEvents).values({
-        meetingNoteId: note.id,
+      await tx.insert(contactActivityEvents).values({
+        activityId: activity.id,
         eventId: input.eventId,
       }).onConflictDoNothing();
     }
     if (attendeeUserIds.length) {
       await tx
-        .insert(meetingNoteAttendees)
-        .values(attendeeUserIds.map((userId) => ({ meetingNoteId: note.id, userId })))
+        .insert(contactActivityAttendees)
+        .values(attendeeUserIds.map((userId) => ({ activityId: activity.id, userId })))
         .onConflictDoNothing();
     }
 
@@ -1304,7 +1333,7 @@ export async function createMeetingLog(input: CreateMeetingLogInput) {
       });
     }
 
-    return note;
+    return activity;
   });
 }
 
@@ -1365,60 +1394,66 @@ export async function updateMeetingLog(input: UpdateMeetingLogInput) {
       companyId = linkedPartner?.companyId ?? null;
     }
 
-    const [note] = await tx
-      .update(meetingNotes)
+    const [activity] = await tx
+      .update(contactActivities)
       .set({
-        title,
-        meetingDate: new Date(`${meetingDate}T12:00:00`),
+        type: "meeting",
+        subject: title,
+        occurredAt: new Date(`${meetingDate}T12:00:00`),
         content,
         summary: input.summary?.trim() || null,
+        primaryCompanyId: companyId,
+        primaryPartnerId: partnerId,
+        primaryUserId: attendeeUserIds[0] ?? null,
+        createdBy: attendeeUserIds[0] ?? null,
+        source: "manual",
         updatedAt: new Date(),
       })
-      .where(eq(meetingNotes.id, input.id))
+      .where(eq(contactActivities.id, input.id))
       .returning();
 
-    if (!note) throw new Error("Meeting was not found.");
+    if (!activity) throw new Error("Meeting was not found.");
 
-    await tx.delete(meetingNoteCompanies).where(eq(meetingNoteCompanies.meetingNoteId, input.id));
-    await tx.delete(meetingNotePartners).where(eq(meetingNotePartners.meetingNoteId, input.id));
-    await tx.delete(meetingNoteEvents).where(eq(meetingNoteEvents.meetingNoteId, input.id));
-    await tx.delete(meetingNoteAttendees).where(eq(meetingNoteAttendees.meetingNoteId, input.id));
+    await tx.delete(contactActivityCompanies).where(eq(contactActivityCompanies.activityId, input.id));
+    await tx.delete(contactActivityPartners).where(eq(contactActivityPartners.activityId, input.id));
+    await tx.delete(contactActivityEvents).where(eq(contactActivityEvents.activityId, input.id));
+    await tx.delete(contactActivityAttendees).where(eq(contactActivityAttendees.activityId, input.id));
 
     if (companyId) {
       await tx
-        .insert(meetingNoteCompanies)
+        .insert(contactActivityCompanies)
         .values({
-          meetingNoteId: note.id,
+          activityId: activity.id,
           companyId,
         })
         .onConflictDoNothing();
     }
     if (partnerId) {
       await tx
-        .insert(meetingNotePartners)
+        .insert(contactActivityPartners)
         .values({
-          meetingNoteId: note.id,
+          activityId: activity.id,
           partnerId,
         })
         .onConflictDoNothing();
     }
     if (input.eventId) {
       await tx
-        .insert(meetingNoteEvents)
+        .insert(contactActivityEvents)
         .values({
-          meetingNoteId: note.id,
+          activityId: activity.id,
           eventId: input.eventId,
         })
         .onConflictDoNothing();
     }
     if (attendeeUserIds.length) {
       await tx
-        .insert(meetingNoteAttendees)
-        .values(attendeeUserIds.map((userId) => ({ meetingNoteId: note.id, userId })))
+        .insert(contactActivityAttendees)
+        .values(attendeeUserIds.map((userId) => ({ activityId: activity.id, userId })))
         .onConflictDoNothing();
     }
 
-    return note;
+    return activity;
   });
 }
 
@@ -1526,29 +1561,63 @@ export async function createCompanyInteraction(input: CreateCompanyInteractionIn
     partnerId = contact.id;
   }
 
-  const [interaction] = await db
-    .insert(interactions)
-    .values({
-      companyId,
-      partnerId,
-      userId: input.userId,
-      type: input.type,
-      direction: input.direction || null,
-      subject: input.subject?.trim() || null,
-      notes: input.notes?.trim() || null,
-      contactedAt: new Date(contactedAt),
-      followUpDate: input.followUpDate || null,
-      source: "manual",
-    })
-    .returning();
-  return interaction;
+  return db.transaction(async (tx) => {
+    const partnerName = partnerId
+      ? (await tx.select().from(partners).where(eq(partners.id, partnerId)).limit(1))[0]
+      : null;
+    const [activity] = await tx
+      .insert(contactActivities)
+      .values({
+        type: input.type,
+        direction: input.direction || null,
+        subject: contactActivitySubject({
+          subject: input.subject,
+          type: input.type,
+          partnerName: partnerName
+            ? [partnerName.firstName, partnerName.lastName].filter(Boolean).join(" ")
+            : null,
+        }),
+        notes: input.notes?.trim() || null,
+        occurredAt: new Date(contactedAt),
+        followUpDate: input.followUpDate || null,
+        source: "manual",
+        primaryCompanyId: companyId,
+        primaryPartnerId: partnerId,
+        primaryUserId: input.userId,
+        createdBy: input.userId,
+      })
+      .returning();
+
+    await tx
+      .insert(contactActivityCompanies)
+      .values({ activityId: activity.id, companyId })
+      .onConflictDoNothing();
+    if (partnerId) {
+      await tx
+        .insert(contactActivityPartners)
+        .values({ activityId: activity.id, partnerId })
+        .onConflictDoNothing();
+    }
+    await tx
+      .insert(contactActivityAttendees)
+      .values({ activityId: activity.id, userId: input.userId })
+      .onConflictDoNothing();
+
+    return activity;
+  });
 }
 
 export async function deleteCompanyInteraction(interactionId: string) {
+  await db
+    .delete(contactActivities)
+    .where(or(eq(contactActivities.id, interactionId), eq(contactActivities.legacyInteractionId, interactionId)));
   await db.delete(interactions).where(eq(interactions.id, interactionId));
 }
 
 export async function deleteMeetingLog(meetingLogId: string) {
+  await db
+    .delete(contactActivities)
+    .where(or(eq(contactActivities.id, meetingLogId), eq(contactActivities.legacyMeetingNoteId, meetingLogId)));
   await db.delete(meetingNotes).where(eq(meetingNotes.id, meetingLogId));
 }
 
@@ -1685,13 +1754,13 @@ export async function listEmailCampaigns(): Promise<EmailCampaignRecord[]> {
 export async function getEmailSyncSummary(): Promise<EmailSyncSummary> {
   const rows = await db
     .select({
-      companyId: interactions.companyId,
-      partnerId: interactions.partnerId,
-      contactedAt: interactions.contactedAt,
+      companyId: contactActivities.primaryCompanyId,
+      partnerId: contactActivities.primaryPartnerId,
+      contactedAt: contactActivities.occurredAt,
     })
-    .from(interactions)
-    .where(inArray(interactions.source, ["gmail", "gmail_sync"]))
-    .orderBy(desc(interactions.contactedAt));
+    .from(contactActivities)
+    .where(inArray(contactActivities.source, ["gmail", "gmail_sync"]))
+    .orderBy(desc(contactActivities.occurredAt));
 
   return {
     lastSyncedAtIso: rows[0]?.contactedAt.toISOString() ?? null,
@@ -1793,22 +1862,41 @@ export async function logEmailInteraction(input: {
   notes?: string;
   externalMessageId?: string | null;
 }) {
-  const [interaction] = await db
-    .insert(interactions)
-    .values({
-      companyId: input.companyId,
-      partnerId: input.partnerId || null,
-      userId: input.userId,
-      type: "email",
-      direction: "outbound",
-      subject: input.subject,
-      notes: input.notes?.trim() || null,
-      contactedAt: new Date(),
-      source: "mail_merge",
-      externalMessageId: input.externalMessageId ?? null,
-    })
-    .returning();
-  return interaction;
+  return db.transaction(async (tx) => {
+    const [activity] = await tx
+      .insert(contactActivities)
+      .values({
+        type: "email",
+        direction: "outbound",
+        subject: input.subject.trim() || "Email",
+        notes: input.notes?.trim() || null,
+        occurredAt: new Date(),
+        source: "mail_merge",
+        externalMessageId: input.externalMessageId ?? null,
+        primaryCompanyId: input.companyId,
+        primaryPartnerId: input.partnerId || null,
+        primaryUserId: input.userId,
+        createdBy: input.userId,
+      })
+      .returning();
+
+    await tx
+      .insert(contactActivityCompanies)
+      .values({ activityId: activity.id, companyId: input.companyId })
+      .onConflictDoNothing();
+    if (input.partnerId) {
+      await tx
+        .insert(contactActivityPartners)
+        .values({ activityId: activity.id, partnerId: input.partnerId })
+        .onConflictDoNothing();
+    }
+    await tx
+      .insert(contactActivityAttendees)
+      .values({ activityId: activity.id, userId: input.userId })
+      .onConflictDoNothing();
+
+    return activity;
+  });
 }
 
 export async function buildMergeValues(input: {

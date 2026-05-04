@@ -1,7 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { companies, interactions, partners, users } from "@/lib/db/schema";
+import {
+  companies,
+  contactActivities,
+  contactActivityAttendees,
+  contactActivityCompanies,
+  contactActivityPartners,
+  partners,
+  users,
+} from "@/lib/db/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -81,9 +89,9 @@ export async function POST(request: NextRequest) {
 
     if (externalMessageId) {
       const [existing] = await db
-        .select({ id: interactions.id })
-        .from(interactions)
-        .where(eq(interactions.externalMessageId, externalMessageId))
+        .select({ id: contactActivities.id })
+        .from(contactActivities)
+        .where(eq(contactActivities.externalMessageId, externalMessageId))
         .limit(1);
       if (existing) {
         skipped += 1;
@@ -114,18 +122,36 @@ export async function POST(request: NextRequest) {
     const occurredAtValue = normalize(message.occurredAt);
     const occurredAt = occurredAtValue ? new Date(occurredAtValue) : new Date();
 
-    await db.insert(interactions).values({
-      userId: owner.id,
-      companyId: company.id,
-      partnerId: partner?.id ?? null,
-      type: "email",
-      direction: message.direction === "inbound" ? "inbound" : "outbound",
-      subject,
-      notes: normalize(message.summary) || null,
-      contactedAt: Number.isNaN(occurredAt.getTime()) ? new Date() : occurredAt,
-      source: "gmail_sync",
-      externalMessageId: externalMessageId || null,
-      externalThreadId: externalThreadId || null,
+    await db.transaction(async (tx) => {
+      const [activity] = await tx.insert(contactActivities).values({
+        type: "email",
+        direction: message.direction === "inbound" ? "inbound" : "outbound",
+        subject,
+        notes: normalize(message.summary) || null,
+        occurredAt: Number.isNaN(occurredAt.getTime()) ? new Date() : occurredAt,
+        source: "gmail_sync",
+        externalMessageId: externalMessageId || null,
+        externalThreadId: externalThreadId || null,
+        primaryCompanyId: company.id,
+        primaryPartnerId: partner?.id ?? null,
+        primaryUserId: owner.id,
+        createdBy: owner.id,
+      }).returning();
+
+      await tx
+        .insert(contactActivityCompanies)
+        .values({ activityId: activity.id, companyId: company.id })
+        .onConflictDoNothing();
+      if (partner) {
+        await tx
+          .insert(contactActivityPartners)
+          .values({ activityId: activity.id, partnerId: partner.id })
+          .onConflictDoNothing();
+      }
+      await tx
+        .insert(contactActivityAttendees)
+        .values({ activityId: activity.id, userId: owner.id })
+        .onConflictDoNothing();
     });
     imported += 1;
   }

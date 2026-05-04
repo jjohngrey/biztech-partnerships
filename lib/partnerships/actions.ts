@@ -158,7 +158,10 @@ export async function deletePartnerDocumentAction(documentId: string) {
 export async function createCompanyInteractionAction(input: CreateCompanyInteractionInput) {
   const interaction = await createCompanyInteraction(input);
   revalidateCrmData();
-  return interaction;
+  return {
+    ...interaction,
+    partnerId: interaction.primaryPartnerId,
+  };
 }
 
 export async function deleteCompanyInteractionAction(interactionId: string) {
