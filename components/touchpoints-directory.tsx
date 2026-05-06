@@ -1293,6 +1293,27 @@ export function TouchpointsDirectory({
                     Remove
                   </button>
                 ) : null}
+
+                {selected.kind === "meeting" && selected.meeting ? (
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={() => {
+                      if (!window.confirm("Remove this contact record?")) return;
+                      startTransition(async () => {
+                        await deleteMeetingLogAction(selected.meeting!.id);
+                        setMode("closed");
+                        setSelectedKey(null);
+                        resetActivityUrl();
+                        router.refresh();
+                      });
+                    }}
+                    className="inline-flex h-9 w-fit items-center gap-1.5 rounded-md border border-red-400/20 px-3 text-[13px] font-medium text-red-200 transition hover:bg-red-400/10 disabled:opacity-60"
+                  >
+                    <Trash2 className="size-4" strokeWidth={1.8} />
+                    Remove contact record
+                  </button>
+                ) : null}
               </div>
             </div>
           ) : null}
