@@ -171,13 +171,12 @@ export const meetingNotes = pgTable("meeting_notes", {
   id: uuid("id").primaryKey().defaultRandom(),
   title: text("title").notNull(),
   meetingDate: timestamp("meeting_date", { withTimezone: true }).notNull(),
-  source: text("source", { enum: ["manual", "upload", "granola", "google_doc", "other"] }).notNull(),
-  sourceUrl: text("source_url"),
-  originalFilename: text("original_filename"),
+  source: text("source", { enum: ["upload", "paste"] }).notNull(),
+  originalFilename: text("original_filename"),          // null for paste, file.name for upload
   content: text("content").notNull(),
   summary: text("summary"),
   createdBy: uuid("created_by")
-    .references(() => users.id, { onDelete: "set null" }),
+    .references(() => users.id, { onDelete: "set null" }), // nullable — renders as "Former member" if null
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

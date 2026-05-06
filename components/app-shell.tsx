@@ -1,0 +1,58 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { clsx } from "clsx";
+
+const NAV_LINKS = [
+  { href: "/meetings", label: "Meeting Notes" },
+  { href: "/partners", label: "Partners" },
+  { href: "/events", label: "Events" },
+];
+
+// Routes that render full-screen without the sidebar
+const SKIP_SHELL = ["/login", "/auth/"];
+
+function Sidebar() {
+  const pathname = usePathname();
+  return (
+    <aside className="flex h-screen w-52 shrink-0 flex-col border-r border-neutral-200 bg-white">
+      <div className="flex h-14 items-center border-b border-neutral-200 px-4">
+        <span className="text-sm font-semibold text-neutral-900">BizTech</span>
+      </div>
+      <nav className="flex flex-col gap-0.5 p-2 pt-4">
+        {NAV_LINKS.map(({ href, label }) => {
+          const isActive = pathname.startsWith(href);
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={clsx(
+                "rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-neutral-100 text-neutral-900"
+                  : "text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900"
+              )}
+            >
+              {label}
+            </Link>
+          );
+        })}
+      </nav>
+    </aside>
+  );
+}
+
+export function AppShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const skipShell = SKIP_SHELL.some((prefix) => pathname.startsWith(prefix));
+
+  if (skipShell) return <>{children}</>;
+
+  return (
+    <div className="flex min-h-screen bg-neutral-50">
+      <Sidebar />
+      <main className="flex-1 overflow-y-auto">{children}</main>
+    </div>
+  );
+}

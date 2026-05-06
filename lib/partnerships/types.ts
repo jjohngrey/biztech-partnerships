@@ -156,6 +156,36 @@ export type MeetingLogRecord = {
   attendees: CrmUserSummary[];
 };
 
+export type MeetingNotePartnerOption = {
+  id: string;
+  firstName: string;
+  lastName: string | null;
+  companyId: string | null;
+  companyName: string | null;
+};
+
+export type MeetingNoteDetail = {
+  id: string;
+  title: string;
+  meetingDate: Date;
+  source: "upload" | "paste";
+  originalFilename: string | null;
+  content: string;
+  summary: string | null;
+  createdBy: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  partnersByCompany: Array<{
+    id: string;
+    name: string;
+    partners: Array<{ id: string; firstName: string; lastName: string | null }>;
+  }>;
+  noCompanyPartners: Array<{ id: string; firstName: string; lastName: string | null }>;
+  attendees: Array<{ userId: string; firstName: string; lastName: string }>;
+  events: Array<{ eventId: string; eventName: string }>;
+  creator: { firstName: string; lastName: string } | null;
+};
+
 export type PartnerDocumentRecord = {
   id: string;
   companyId: string;
@@ -240,16 +270,21 @@ export type CreatePartnerDocumentInput = {
   notes?: string;
 };
 
+export type CompanyInteractionContactInput = {
+  partnerId?: string;
+  firstName?: string;
+  lastName?: string;
+  role?: string;
+  email?: string;
+  linkedin?: string;
+};
+
 export type CreateCompanyInteractionInput = {
   companyId?: string;
   companyName?: string;
-  partnerId?: string;
-  partnerFirstName?: string;
-  partnerLastName?: string;
-  partnerRole?: string;
-  partnerEmail?: string;
-  partnerLinkedin?: string;
+  contacts?: CompanyInteractionContactInput[];
   userId: string;
+  attendeeUserIds?: string[];
   type: CompanyInteractionRecord["type"];
   direction?: CompanyInteractionRecord["direction"];
   subject?: string;
@@ -260,9 +295,26 @@ export type CreateCompanyInteractionInput = {
 
 export type TouchpointRecord = CompanyInteractionRecord & {
   companyName: string;
+  partners: Array<{ id: string; name: string }>;
+  attendees: CrmUserSummary[];
   source: string | null;
   createdAtIso: string;
   externalThreadId: string | null;
+  createdBy: string | null;
+};
+
+export type UpdateCompanyInteractionInput = {
+  id: string;
+  subject: string;
+  contactedAt: string;
+  followUpDate?: string;
+  type: CompanyInteractionRecord["type"];
+  direction?: CompanyInteractionRecord["direction"];
+  userId: string;
+  companyId: string;
+  partnerId?: string;
+  newContact?: CompanyInteractionContactInput;
+  notes?: string;
 };
 
 export type CrmDashboard = {

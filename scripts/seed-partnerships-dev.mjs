@@ -640,7 +640,7 @@ async function seed() {
   }
 }
 
-seed().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+// seed().catch((error) => {
+//   console.error(error);
+//   process.exitCode = 1;
+// });

@@ -136,8 +136,7 @@ function SortHeader({
     <button
       type="button"
       onClick={() => onSort(sortKey)}
-      className={[
-        "w-fit rounded-full px-2 py-1 text-left transition hover:bg-white/[0.055] hover:text-zinc-300",
+      className={["w-fit rounded-full px-2 py-1 text-left transition hover:bg-white/[0.055] hover:text-zinc-300 cursor-pointer",
         active ? "bg-white/[0.055] text-zinc-200" : "",
       ].join(" ")}
     >
@@ -221,7 +220,7 @@ function PartnerCombo({
                 onChange(partner.name);
                 setOpen(false);
               }}
-              className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-white/[0.05]"
+              className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-white/[0.05] cursor-pointer"
             >
               <span className="min-w-0">
                 <span className="block truncate text-[13px] font-medium text-zinc-100">{partner.name}</span>
@@ -419,7 +418,7 @@ export function EventsDirectory({
               setMode("create");
               window.history.replaceState(null, "", "/events");
             }}
-            className="inline-flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-md bg-zinc-700 px-3.5 text-[13px] font-medium text-white transition hover:bg-zinc-600 md:w-auto"
+            className="inline-flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-md bg-zinc-700 px-3.5 text-[13px] font-medium text-white transition hover:bg-zinc-600 md:w-auto cursor-pointer"
           >
             <Plus className="size-4" strokeWidth={1.8} />
             New event
@@ -446,8 +445,7 @@ export function EventsDirectory({
                   setMode("view");
                   window.history.replaceState(null, "", `/events?eventId=${event.id}`);
                 }}
-                className={[
-                  "grid min-w-0 w-full grid-cols-1 items-center border-b border-white/[0.06] px-4 py-3.5 text-left text-[13px] text-zinc-300 transition hover:bg-white/[0.035] md:grid-cols-[minmax(140px,1fr)_64px_120px_140px]",
+                className={["grid min-w-0 w-full grid-cols-1 items-center border-b border-white/[0.06] px-4 py-3.5 text-left text-[13px] text-zinc-300 transition hover:bg-white/[0.035] md:grid-cols-[minmax(140px,1fr)_64px_120px_140px] cursor-pointer",
                   selected?.id === event.id && mode !== "closed" && mode !== "create" ? "bg-white/[0.055]" : "",
                 ].join(" ")}
               >
@@ -482,7 +480,7 @@ export function EventsDirectory({
                   setSelectedResponsePartnerId("");
                   window.history.replaceState(null, "", "/events");
                 }}
-                className="shrink-0 text-zinc-500 hover:text-white"
+                className="shrink-0 text-zinc-500 hover:text-white cursor-pointer"
               >
                 <ArrowLeft className="size-5" strokeWidth={1.8} />
               </button>
@@ -496,7 +494,7 @@ export function EventsDirectory({
                     setError(null);
                     setMode("edit");
                   }}
-                  className="hidden h-8 shrink-0 items-center gap-1.5 rounded-md border border-white/[0.1] px-2.5 text-[12px] font-medium text-zinc-300 transition hover:bg-white/[0.05] hover:text-white sm:inline-flex"
+                  className="hidden h-8 shrink-0 items-center gap-1.5 rounded-md border border-white/[0.1] px-2.5 text-[12px] font-medium text-zinc-300 transition hover:bg-white/[0.05] hover:text-white sm:inline-flex cursor-pointer"
                 >
                   <Pencil className="size-3.5" strokeWidth={1.8} />
                   Edit event
@@ -512,7 +510,7 @@ export function EventsDirectory({
                   setSelectedResponsePartnerId("");
                   window.history.replaceState(null, "", "/events");
                 }}
-                className="grid size-7 shrink-0 place-items-center rounded-md border border-white/[0.12] bg-white/[0.055] text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:hidden"
+                className="grid size-7 shrink-0 place-items-center rounded-md border border-white/[0.12] bg-white/[0.055] text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:hidden cursor-pointer"
               >
                 <X className="size-4" strokeWidth={1.8} />
               </button>
@@ -527,7 +525,7 @@ export function EventsDirectory({
                 setSelectedResponsePartnerId("");
                 window.history.replaceState(null, "", "/events");
               }}
-              className="hidden size-8 shrink-0 place-items-center rounded-md border border-white/[0.12] bg-white/[0.055] text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:grid"
+              className="hidden size-8 shrink-0 place-items-center rounded-md border border-white/[0.12] bg-white/[0.055] text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:grid cursor-pointer"
             >
               <X className="size-5" strokeWidth={1.8} />
             </button>
@@ -587,7 +585,7 @@ export function EventsDirectory({
                         setError(null);
                         setMode("edit");
                       }}
-                      className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-md border border-white/[0.1] px-2.5 text-[12px] font-medium text-zinc-300 transition hover:bg-white/[0.05] hover:text-white sm:hidden"
+                      className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-md border border-white/[0.1] px-2.5 text-[12px] font-medium text-zinc-300 transition hover:bg-white/[0.05] hover:text-white sm:hidden cursor-pointer"
                     >
                       <Pencil className="size-3.5" strokeWidth={1.8} />
                       Edit event details
@@ -664,7 +662,7 @@ export function EventsDirectory({
                         <Field label="Title"><input name="role" placeholder="Founder, Recruiter, Engineering Manager" className={inputClass()} /></Field>
                       </div>
                     ) : null}
-                    <button disabled={isPending} className="h-9 w-fit rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60">
+                    <button disabled={isPending} className="h-9 w-fit rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer">
                       Add person to event
                     </button>
                   </form>
@@ -726,7 +724,7 @@ export function EventsDirectory({
                                   router.refresh();
                                 });
                               }}
-                              className="inline-flex size-8 shrink-0 items-center justify-center justify-self-start rounded-md text-zinc-500 transition hover:bg-red-500/10 hover:text-red-200 sm:justify-self-end"
+                              className="inline-flex size-8 shrink-0 items-center justify-center justify-self-start rounded-md text-zinc-500 transition hover:bg-red-500/10 hover:text-red-200 sm:justify-self-end cursor-pointer"
                               aria-label={`Remove ${response.partnerName} ${eventRoleLabel(response.eventRole)} ${eventStatusLabel(response.eventStatus)} response`}
                             >
                               <Trash2 className="size-4" strokeWidth={1.8} />
@@ -744,7 +742,7 @@ export function EventsDirectory({
             </div>
             {mode === "create" || mode === "edit" ? (
               <div className="shrink-0 border-t border-white/[0.08] bg-[#0d0e11] px-5 py-4">
-                <button form="event-detail-form" type="submit" disabled={isPending} className="h-9 rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60">
+                <button form="event-detail-form" type="submit" disabled={isPending} className="h-9 rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer">
                   {mode === "create" ? "Create event" : "Save changes"}
                 </button>
               </div>

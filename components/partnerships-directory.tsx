@@ -248,8 +248,7 @@ function SortHeader<T extends string>({
     <button
       type="button"
       onClick={() => onSort(sortKey)}
-      className={[
-        "-ml-2 w-fit rounded-full px-2 py-1 text-left transition hover:bg-white/[0.055] hover:text-zinc-300",
+      className={["-ml-2 w-fit rounded-full px-2 py-1 text-left transition hover:bg-white/[0.055] hover:text-zinc-300 cursor-pointer",
         active ? "bg-white/[0.055] text-zinc-200" : "",
       ].join(" ")}
     >
@@ -321,7 +320,7 @@ function CompanyCombo({
                 onChange(company.name);
                 setOpen(false);
               }}
-              className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-white/[0.05]"
+              className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-white/[0.05] cursor-pointer"
             >
               <Avatar name={company.name} />
               <span className="min-w-0">
@@ -337,7 +336,7 @@ function CompanyCombo({
               type="button"
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => setOpen(false)}
-              className="block w-full border-t border-white/[0.08] px-3 py-2.5 text-left text-[13px] text-zinc-300 transition hover:bg-white/[0.05]"
+              className="block w-full border-t border-white/[0.08] px-3 py-2.5 text-left text-[13px] text-zinc-300 transition hover:bg-white/[0.05] cursor-pointer"
             >
               Create company &quot;{value.trim()}&quot;
             </button>
@@ -393,7 +392,7 @@ function EventCombo({
                 onChange(event.name);
                 setOpen(false);
               }}
-              className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-white/[0.05]"
+              className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-white/[0.05] cursor-pointer"
             >
               <span className="truncate text-[13px] font-medium text-zinc-100">{event.name}</span>
               <span className="shrink-0 text-[12px] text-zinc-500">{event.year ?? ""}</span>
@@ -439,7 +438,7 @@ function DirectorCheckboxes({
             <span className="min-w-0 truncate">{user.name}</span>
           </label>
         ))}
-        {!users.length && <p className="text-[13px] text-zinc-500">No BizTech directors found.</p>}
+        {!users.length && <p className="text-[13px] text-zinc-500">No BizTech Directors found.</p>}
       </div>
     </div>
   );
@@ -628,7 +627,7 @@ export function PartnersDirectory({ partners, companies, events, users, initialP
               setEventName("");
               resetPartnerUrl();
             }}
-            className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-md bg-zinc-700 px-3.5 text-[13px] font-medium text-white transition hover:bg-zinc-600 md:w-auto"
+            className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-md bg-zinc-700 px-3.5 text-[13px] font-medium text-white transition hover:bg-zinc-600 md:w-auto cursor-pointer"
           >
             <Plus className="size-4" strokeWidth={1.8} />
             Log person
@@ -662,7 +661,7 @@ export function PartnersDirectory({ partners, companies, events, users, initialP
                     setEventName("");
                   }}
                   className={[
-                    `grid ${partnerTableMin} w-full ${partnerGrid} items-center border-b border-white/[0.06] px-4 py-3.5 text-left text-[13px] text-zinc-300 transition hover:bg-white/[0.035]`,
+                    `grid ${partnerTableMin} w-full ${partnerGrid} items-center border-b border-white/[0.06] px-4 py-3.5 text-left text-[13px] text-zinc-300 transition hover:bg-white/[0.035] cursor-pointer`,
                     selectedRow ? "bg-white/[0.055]" : "",
                   ].join(" ")}
                 >
@@ -707,7 +706,7 @@ export function PartnersDirectory({ partners, companies, events, users, initialP
                   setEventName("");
                   resetPartnerUrl();
                 }}
-                className="shrink-0 text-zinc-500 hover:text-white"
+                className="shrink-0 text-zinc-500 hover:text-white cursor-pointer"
               >
                 <ArrowLeft className="size-5" strokeWidth={1.8} />
               </button>
@@ -723,7 +722,7 @@ export function PartnersDirectory({ partners, companies, events, users, initialP
                   setEventName("");
                   resetPartnerUrl();
                 }}
-                className="grid size-7 shrink-0 place-items-center rounded-md border border-white/[0.12] bg-white/[0.055] text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:hidden"
+                className="grid size-7 shrink-0 place-items-center rounded-md border border-white/[0.12] bg-white/[0.055] text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:hidden cursor-pointer"
               >
                 <X className="size-4" strokeWidth={1.8} />
               </button>
@@ -735,7 +734,7 @@ export function PartnersDirectory({ partners, companies, events, users, initialP
                   setError(null);
                   setMode("edit");
                 }}
-                className="hidden h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-white/[0.09] px-2.5 text-[12px] font-medium text-zinc-300 transition hover:bg-white/[0.055] hover:text-white md:inline-flex"
+                className="hidden h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-white/[0.09] px-2.5 text-[12px] font-medium text-zinc-300 transition hover:bg-white/[0.055] hover:text-white md:inline-flex cursor-pointer"
               >
                 <Pencil className="size-3.5" strokeWidth={1.8} />
                 Edit
@@ -750,7 +749,7 @@ export function PartnersDirectory({ partners, companies, events, users, initialP
                 setEventName("");
                 resetPartnerUrl();
               }}
-              className="hidden size-8 shrink-0 place-items-center rounded-md border border-white/[0.12] bg-white/[0.055] text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:grid"
+              className="hidden size-8 shrink-0 place-items-center rounded-md border border-white/[0.12] bg-white/[0.055] text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:grid cursor-pointer"
             >
               <X className="size-5" strokeWidth={1.8} />
             </button>
@@ -807,7 +806,7 @@ export function PartnersDirectory({ partners, companies, events, users, initialP
                 {error && <p className="rounded-md border border-red-400/20 bg-red-400/10 px-3 py-2 text-[13px] text-red-200">{error}</p>}
               </div>
               <div className="shrink-0 border-t border-white/[0.08] bg-[#0d0e11] px-5 py-4">
-                <button disabled={isPending} className="h-9 rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60">
+                <button disabled={isPending} className="h-9 rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer">
                   Save person
                 </button>
               </div>
@@ -860,7 +859,7 @@ export function PartnersDirectory({ partners, companies, events, users, initialP
                         setError(null);
                         setMode("edit");
                       }}
-                      className="inline-flex h-8 items-center gap-1.5 rounded-md border border-white/[0.09] px-2.5 text-[12px] font-medium text-zinc-300 transition hover:bg-white/[0.055] hover:text-white"
+                      className="inline-flex h-8 items-center gap-1.5 rounded-md border border-white/[0.09] px-2.5 text-[12px] font-medium text-zinc-300 transition hover:bg-white/[0.055] hover:text-white cursor-pointer"
                     >
                       <Pencil className="size-3.5" strokeWidth={1.8} />
                       Edit person
@@ -911,8 +910,7 @@ export function PartnersDirectory({ partners, companies, events, users, initialP
                     </div>
                     <button
                       disabled={isPending}
-                      className="h-9 w-fit rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60"
-                    >
+                      className="h-9 w-fit rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer">
                       Add attendance
                     </button>
                   </form>
@@ -964,7 +962,7 @@ export function PartnersDirectory({ partners, companies, events, users, initialP
                                 });
                               }}
                               aria-label={`Remove ${attendance.eventName} ${eventRoleLabel(attendance.eventRole)} attendance`}
-                              className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-zinc-500 transition hover:bg-red-500/10 hover:text-red-200"
+                              className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-zinc-500 transition hover:bg-red-500/10 hover:text-red-200 cursor-pointer"
                             >
                               <Trash2 className="size-4" strokeWidth={1.8} />
                             </button>
@@ -1049,8 +1047,7 @@ export function PartnersDirectory({ partners, companies, events, users, initialP
                     </div>
                     <button
                       disabled={isPending}
-                      className="h-9 w-fit rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60"
-                    >
+                      className="h-9 w-fit rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer">
                       Add attendance
                     </button>
                   </form>
@@ -1101,7 +1098,7 @@ export function PartnersDirectory({ partners, companies, events, users, initialP
                                 });
                               }}
                               aria-label={`Remove ${attendance.eventName} ${eventRoleLabel(attendance.eventRole)} role`}
-                              className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-zinc-500 transition hover:bg-red-500/10 hover:text-red-200"
+                              className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-zinc-500 transition hover:bg-red-500/10 hover:text-red-200 cursor-pointer"
                             >
                               <Trash2 className="size-4" strokeWidth={1.8} />
                             </button>
@@ -1116,7 +1113,7 @@ export function PartnersDirectory({ partners, companies, events, users, initialP
                 {error && <p className="mt-4 rounded-md border border-red-400/20 bg-red-400/10 px-3 py-2 text-[13px] text-red-200">{error}</p>}
               </div>
               <div className="shrink-0 border-t border-white/[0.08] bg-[#0d0e11] px-5 py-4">
-                <button form="partner-edit-form" disabled={isPending} className="h-9 rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60">
+                <button form="partner-edit-form" disabled={isPending} className="h-9 rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer">
                   Save changes
                 </button>
               </div>
@@ -1318,7 +1315,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
       try {
         await createCompanyInteractionAction({
           companyId: selected.id,
-          partnerId,
+          contacts: partnerId ? [{ partnerId }] : [],
           userId: String(data.get("userId") ?? ""),
           type: String(data.get("type") ?? "meeting") as CompanyInteractionRecord["type"],
           direction: (String(data.get("direction") ?? "") || undefined) as CompanyInteractionRecord["direction"] | undefined,
@@ -1434,7 +1431,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
               setExistingPartnerId("");
               resetCompanyUrl();
             }}
-            className="inline-flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-md bg-zinc-700 px-3.5 text-[13px] font-medium text-white transition hover:bg-zinc-600 md:w-auto"
+            className="inline-flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-md bg-zinc-700 px-3.5 text-[13px] font-medium text-white transition hover:bg-zinc-600 md:w-auto cursor-pointer"
           >
             <Plus className="size-4" strokeWidth={1.8} />
             New company
@@ -1473,7 +1470,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                     setExistingPartnerId("");
                   }}
                   className={[
-                    `grid ${companyTableMin} w-full ${companyGrid} items-center border-b border-white/[0.06] px-4 py-3.5 text-left text-[13px] text-zinc-300 transition hover:bg-white/[0.035]`,
+                    `grid ${companyTableMin} w-full ${companyGrid} items-center border-b border-white/[0.06] px-4 py-3.5 text-left text-[13px] text-zinc-300 transition hover:bg-white/[0.035] cursor-pointer`,
                     selectedRow ? "bg-white/[0.055]" : "",
                   ].join(" ")}
                 >
@@ -1517,7 +1514,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                   setShowTouchpointForm(false);
                   resetCompanyUrl();
                 }}
-                className="shrink-0 text-zinc-500 hover:text-white"
+                className="shrink-0 text-zinc-500 hover:text-white cursor-pointer"
               >
                 <ArrowLeft className="size-5" strokeWidth={1.8} />
               </button>
@@ -1535,7 +1532,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                   setShowTouchpointForm(false);
                   resetCompanyUrl();
                 }}
-                className="grid size-7 shrink-0 place-items-center rounded-md border border-white/[0.12] bg-white/[0.055] text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:hidden"
+                className="grid size-7 shrink-0 place-items-center rounded-md border border-white/[0.12] bg-white/[0.055] text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:hidden cursor-pointer"
               >
                 <X className="size-4" strokeWidth={1.8} />
               </button>
@@ -1547,7 +1544,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                   setError(null);
                   setMode("edit");
                 }}
-                className="hidden h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-white/[0.09] px-2.5 text-[12px] font-medium text-zinc-300 transition hover:bg-white/[0.055] hover:text-white md:inline-flex"
+                className="hidden h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-white/[0.09] px-2.5 text-[12px] font-medium text-zinc-300 transition hover:bg-white/[0.055] hover:text-white md:inline-flex cursor-pointer"
               >
                 <Pencil className="size-3.5" strokeWidth={1.8} />
                 Edit
@@ -1564,7 +1561,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                 setShowTouchpointForm(false);
                 resetCompanyUrl();
               }}
-              className="hidden size-8 shrink-0 place-items-center rounded-md border border-white/[0.12] bg-white/[0.055] text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:grid"
+              className="hidden size-8 shrink-0 place-items-center rounded-md border border-white/[0.12] bg-white/[0.055] text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:grid cursor-pointer"
             >
               <X className="size-5" strokeWidth={1.8} />
             </button>
@@ -1584,7 +1581,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                 {error && <p className="rounded-md border border-red-400/20 bg-red-400/10 px-3 py-2 text-[13px] text-red-200">{error}</p>}
               </div>
               <div className="shrink-0 border-t border-white/[0.08] bg-[#0d0e11] px-5 py-4">
-                <button disabled={isPending} className="h-9 rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60">
+                <button disabled={isPending} className="h-9 rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer">
                   Create company
                 </button>
               </div>
@@ -1623,7 +1620,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                       setError(null);
                       setMode("edit");
                     }}
-                    className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-md border border-white/[0.09] px-2.5 text-[12px] font-medium text-zinc-300 transition hover:bg-white/[0.055] hover:text-white"
+                    className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-md border border-white/[0.09] px-2.5 text-[12px] font-medium text-zinc-300 transition hover:bg-white/[0.055] hover:text-white cursor-pointer"
                   >
                     <Pencil className="size-3.5" strokeWidth={1.8} />
                     Edit company
@@ -1636,7 +1633,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                     <button
                       type="button"
                       onClick={() => setShowPartnerForm((current) => !current)}
-                      className="h-7 rounded-md border border-white/[0.09] px-2.5 text-[12px] text-zinc-300 transition hover:bg-white/[0.055] hover:text-white"
+                      className="h-7 rounded-md border border-white/[0.09] px-2.5 text-[12px] text-zinc-300 transition hover:bg-white/[0.055] hover:text-white cursor-pointer"
                     >
                       {showPartnerForm ? "Cancel" : "Add or link partner"}
                     </button>
@@ -1660,7 +1657,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                           Primary contact
                         </label>
                         <DirectorCheckboxes users={users} />
-                        <button disabled={isPending} className="h-8 w-fit rounded-md bg-zinc-700 px-3 text-[12px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60">
+                        <button disabled={isPending} className="h-8 w-fit rounded-md bg-zinc-700 px-3 text-[12px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer">
                           Add partner
                         </button>
                       </form>
@@ -1681,8 +1678,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                         </select>
                         <button
                           disabled={isPending || !linkablePartners.length || !existingPartnerId}
-                          className="h-8 w-fit rounded-md border border-white/[0.09] px-3 text-[12px] font-medium text-zinc-300 transition hover:bg-white/[0.055] hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
-                        >
+                          className="h-8 w-fit rounded-md border border-white/[0.09] px-3 text-[12px] font-medium text-zinc-300 transition hover:bg-white/[0.055] hover:text-white disabled:cursor-not-allowed disabled:opacity-45 cursor-pointer">
                           Link existing partner
                         </button>
                       </form>
@@ -1706,7 +1702,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
 
                 <section className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/[0.09] bg-[#0d0e11] p-4">
                   <div className="flex min-w-0 flex-col items-start gap-2 lg:flex-row lg:items-center lg:justify-between">
-                    <p className="text-[13px] font-medium text-zinc-200">Contact history</p>
+                    <p className="text-[13px] font-medium text-zinc-200">Contact History</p>
                     <div className="flex flex-wrap items-center gap-2">
                       <a
                         href={contactLogCreateHref({ companyName: selected.name })}
@@ -1723,7 +1719,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                             return !current;
                           });
                         }}
-                        className="inline-flex h-7 items-center gap-1.5 rounded-md border border-white/[0.09] px-2.5 text-[12px] text-zinc-300 transition hover:bg-white/[0.055] hover:text-white"
+                        className="inline-flex h-7 items-center gap-1.5 rounded-md border border-white/[0.09] px-2.5 text-[12px] text-zinc-300 transition hover:bg-white/[0.055] hover:text-white cursor-pointer"
                       >
                         <MessageSquarePlus className="size-3.5" strokeWidth={1.8} />
                         {showTouchpointForm ? "Cancel" : "Log contact"}
@@ -1755,7 +1751,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                           </select>
                         </Field>
                       </div>
-                      <Field label="Contacted person">
+                      <Field label="Contact">
                         <select name="partnerId" className={inputClass("w-full min-w-0")}>
                           <option value="">Company-level contact</option>
                           {selected.contacts.map((contact) => (
@@ -1763,9 +1759,9 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                           ))}
                         </select>
                       </Field>
-                      <Field label="BizTech director">
+                      <Field label="BizTech Director">
                         <select name="userId" required className={inputClass("w-full min-w-0")}>
-                          <option value="">Select BizTech director</option>
+                          <option value="">Select BizTech Director</option>
                           {users.map((user) => (
                             <option key={user.id} value={user.id}>{user.name}</option>
                           ))}
@@ -1797,7 +1793,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                         </div>
                       </div>
                       <Field label="Notes"><textarea name="notes" rows={3} className={inputClass("h-auto py-2")} /></Field>
-                      <button disabled={isPending} className="h-9 w-fit rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60">
+                      <button disabled={isPending} className="h-9 w-fit rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer">
                         Save contact
                       </button>
                     </form>
@@ -1865,7 +1861,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                     <button
                       type="button"
                       onClick={() => setShowEventForm((current) => !current)}
-                      className="h-7 rounded-md border border-white/[0.09] px-2.5 text-[12px] text-zinc-300 transition hover:bg-white/[0.055] hover:text-white"
+                      className="h-7 rounded-md border border-white/[0.09] px-2.5 text-[12px] text-zinc-300 transition hover:bg-white/[0.055] hover:text-white cursor-pointer"
                     >
                       {showEventForm ? "Cancel" : "Add involvement"}
                     </button>
@@ -1893,8 +1889,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                       </div>
                       <button
                         disabled={isPending}
-                        className="h-8 w-fit rounded-md bg-zinc-700 px-3 text-[12px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60"
-                      >
+                        className="h-8 w-fit rounded-md bg-zinc-700 px-3 text-[12px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer">
                         Add involvement
                       </button>
                     </form>
@@ -1947,7 +1942,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                                 });
                               }}
                               aria-label={`Remove ${attendance.eventName} ${eventRoleLabel(attendance.eventRole)} role`}
-                              className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-zinc-500 transition hover:bg-red-500/10 hover:text-red-200"
+                              className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-zinc-500 transition hover:bg-red-500/10 hover:text-red-200 cursor-pointer"
                             >
                               <Trash2 className="size-4" strokeWidth={1.8} />
                             </button>
@@ -1994,7 +1989,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                       <button
                         type="button"
                         onClick={() => setShowPartnerForm((current) => !current)}
-                        className="h-7 rounded-md border border-white/[0.09] px-2.5 text-[12px] text-zinc-300 transition hover:bg-white/[0.055] hover:text-white"
+                        className="h-7 rounded-md border border-white/[0.09] px-2.5 text-[12px] text-zinc-300 transition hover:bg-white/[0.055] hover:text-white cursor-pointer"
                       >
                         {showPartnerForm ? "Cancel" : "Add partner"}
                       </button>
@@ -2017,7 +2012,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                           Primary contact
                         </label>
                         <DirectorCheckboxes users={users} />
-                        <button disabled={isPending} className="h-8 w-fit rounded-md bg-zinc-700 px-3 text-[12px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60">
+                        <button disabled={isPending} className="h-8 w-fit rounded-md bg-zinc-700 px-3 text-[12px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer">
                           Link partner
                         </button>
                       </form>
@@ -2039,8 +2034,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                       </select>
                       <button
                         disabled={isPending || !linkablePartners.length || !existingPartnerId}
-                        className="h-9 rounded-md border border-white/[0.09] px-3 text-[13px] font-medium text-zinc-300 transition hover:bg-white/[0.055] hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
-                      >
+                        className="h-9 rounded-md border border-white/[0.09] px-3 text-[13px] font-medium text-zinc-300 transition hover:bg-white/[0.055] hover:text-white disabled:cursor-not-allowed disabled:opacity-45 cursor-pointer">
                         Link
                       </button>
                     </form>
@@ -2109,8 +2103,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                       </div>
                       <button
                         disabled={isPending}
-                        className="h-9 w-fit rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60"
-                      >
+                        className="h-9 w-fit rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer">
                         Add involvement
                       </button>
                     </form>
@@ -2161,7 +2154,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                                   });
                                 }}
                                 aria-label={`Remove ${attendance.eventName} ${eventRoleLabel(attendance.eventRole)} role`}
-                                className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-zinc-500 transition hover:bg-red-500/10 hover:text-red-200"
+                                className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-zinc-500 transition hover:bg-red-500/10 hover:text-red-200 cursor-pointer"
                               >
                                 <Trash2 className="size-4" strokeWidth={1.8} />
                               </button>
@@ -2223,8 +2216,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                       </Field>
                       <button
                         disabled={isPending}
-                        className="h-9 w-fit rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60"
-                      >
+                        className="h-9 w-fit rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer">
                         Add document
                       </button>
                     </form>
@@ -2250,7 +2242,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                                 });
                               }}
                               aria-label={`Remove ${document.title}`}
-                              className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-zinc-500 transition hover:bg-red-500/10 hover:text-red-200"
+                              className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-zinc-500 transition hover:bg-red-500/10 hover:text-red-200 cursor-pointer"
                             >
                               <Trash2 className="size-4" strokeWidth={1.8} />
                             </button>
@@ -2264,7 +2256,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
 
                   <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/[0.09] bg-[#0d0e11] p-4">
                     <div className="flex min-w-0 flex-col items-start gap-2 lg:flex-row lg:items-center lg:justify-between">
-                      <p className="text-[13px] font-medium text-zinc-200">Contact history</p>
+                      <p className="text-[13px] font-medium text-zinc-200">Contact History</p>
                       <a
                         href={contactLogCreateHref({ companyName: selected.name })}
                         className="inline-flex h-7 items-center gap-1.5 rounded-md border border-white/[0.09] px-2.5 text-[12px] text-zinc-300 transition hover:bg-white/[0.055] hover:text-white"
@@ -2304,15 +2296,15 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                         </Field>
                       </div>
                       <div className="grid min-w-0 gap-3">
-                        <Field label="BizTech director">
+                        <Field label="BizTech Director">
                           <select name="userId" required className={inputClass("w-full min-w-0")}>
-                            <option value="">Select BizTech director</option>
+                            <option value="">Select BizTech Director</option>
                             {users.map((user) => (
                               <option key={user.id} value={user.id}>{user.name}</option>
                             ))}
                           </select>
                         </Field>
-                        <Field label="Contacted person">
+                        <Field label="Contact">
                           <select name="partnerId" className={inputClass("w-full min-w-0")}>
                             <option value="">Company-level contact</option>
                             {selected.contacts.map((contact) => (
@@ -2326,8 +2318,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                       </Field>
                       <button
                         disabled={isPending}
-                        className="h-9 w-fit rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60"
-                      >
+                        className="h-9 w-fit rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer">
                         Save contact
                       </button>
                     </form>
@@ -2374,7 +2365,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                                   });
                                 }}
                                 aria-label={`Remove ${communication.subject || titleStatus(communication.type)}`}
-                                className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-zinc-500 transition hover:bg-red-500/10 hover:text-red-200"
+                                className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-zinc-500 transition hover:bg-red-500/10 hover:text-red-200 cursor-pointer"
                               >
                                 <Trash2 className="size-4" strokeWidth={1.8} />
                               </button>
@@ -2390,7 +2381,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                 {error && <p className="rounded-md border border-red-400/20 bg-red-400/10 px-3 py-2 text-[13px] text-red-200">{error}</p>}
               </div>
               <div className="shrink-0 border-t border-white/[0.08] bg-[#0d0e11] px-5 py-4">
-                <button form="company-edit-form" disabled={isPending} className="h-9 rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60">
+                <button form="company-edit-form" disabled={isPending} className="h-9 rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer">
                   Save changes
                 </button>
               </div>

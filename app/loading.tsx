@@ -1,4 +1,4 @@
-const navRows = ["Dashboard", "Companies", "Partners", "Events", "Contact history", "Pipeline", "Outreach"];
+const navRows = ["Dashboard", "Companies", "Partners", "Events", "Contact History", "Pipeline", "Outreach"];
 
 function SkeletonBlock({ className = "" }: { className?: string }) {
   return <div className={["animate-pulse rounded-md bg-white/[0.055]", className].join(" ")} />;

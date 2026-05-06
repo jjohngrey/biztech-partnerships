@@ -1,6 +1,9 @@
 "use server";
 
 import { revalidatePath, revalidateTag } from "next/cache";
+import { redirect } from "next/navigation";
+import { eq } from "drizzle-orm";
+import { db, contactActivities } from "@/lib/db";
 import {
   displayNameFromAuthUser,
   resolveCrmUserForAuthUser,
@@ -14,6 +17,7 @@ import {
   archiveEmailTemplate,
   buildMergeValues,
   createCompanyInteraction,
+  updateCompanyInteraction,
   createCompany,
   createContact,
   createDirector,
@@ -53,6 +57,7 @@ import type {
   AddCompanyEventRoleInput,
   AddPartnerEventRoleInput,
   CreateCompanyInteractionInput,
+  UpdateCompanyInteractionInput,
   CreateCompanyInput,
   CreateContactInput,
   CreateDirectorInput,
@@ -167,6 +172,26 @@ export async function createCompanyInteractionAction(input: CreateCompanyInterac
 export async function deleteCompanyInteractionAction(interactionId: string) {
   await deleteCompanyInteraction(interactionId);
   revalidateCrmData();
+}
+
+export async function updateCompanyInteractionAction(input: UpdateCompanyInteractionInput) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const [existing] = await db
+    .select({ createdBy: contactActivities.createdBy })
+    .from(contactActivities)
+    .where(eq(contactActivities.id, input.id));
+
+  if (!existing) return { error: "Contact record not found." };
+  if (existing.createdBy !== user.id) return { error: "Only the creator can edit this contact record." };
+
+  await updateCompanyInteraction(input);
+  revalidateCrmData();
+  return {};
 }
 
 export async function deleteMeetingLogAction(meetingLogId: string) {
