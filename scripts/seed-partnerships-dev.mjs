@@ -411,6 +411,152 @@ async function upsertMeetingLogs(client, meetings, refs) {
   }
 }
 
+async function backfillContactActivities(client) {
+  await client.query(`
+    INSERT INTO contact_activities (
+      legacy_interaction_id, type, direction, subject, notes, occurred_at,
+      follow_up_date, source, external_message_id, external_thread_id,
+      primary_company_id, primary_partner_id, primary_user_id, sponsor_id,
+      created_by, created_at, updated_at
+    )
+    SELECT
+      i.id,
+      i.type,
+      i.direction,
+      COALESCE(NULLIF(BTRIM(i.subject), ''), INITCAP(REPLACE(i.type, '_', ' '))),
+      i.notes,
+      i.contacted_at,
+      i.follow_up_date,
+      COALESCE(NULLIF(BTRIM(i.source), ''), 'manual'),
+      i.external_message_id,
+      i.external_thread_id,
+      i.company_id,
+      i.partner_id,
+      i.user_id,
+      i.sponsor_id,
+      i.user_id,
+      i.created_at,
+      i.updated_at
+    FROM interactions i
+    ON CONFLICT (legacy_interaction_id) DO UPDATE SET
+      type = EXCLUDED.type,
+      direction = EXCLUDED.direction,
+      subject = EXCLUDED.subject,
+      notes = EXCLUDED.notes,
+      occurred_at = EXCLUDED.occurred_at,
+      follow_up_date = EXCLUDED.follow_up_date,
+      source = EXCLUDED.source,
+      external_message_id = EXCLUDED.external_message_id,
+      external_thread_id = EXCLUDED.external_thread_id,
+      primary_company_id = EXCLUDED.primary_company_id,
+      primary_partner_id = EXCLUDED.primary_partner_id,
+      primary_user_id = EXCLUDED.primary_user_id,
+      sponsor_id = EXCLUDED.sponsor_id,
+      created_by = EXCLUDED.created_by,
+      updated_at = EXCLUDED.updated_at
+  `);
+
+  await client.query(`
+    INSERT INTO contact_activities (
+      legacy_meeting_note_id, type, subject, content, summary, occurred_at,
+      source, source_url, original_filename, primary_company_id,
+      primary_partner_id, primary_user_id, created_by, created_at, updated_at
+    )
+    SELECT
+      mn.id,
+      'meeting',
+      mn.title,
+      mn.content,
+      mn.summary,
+      mn.meeting_date,
+      mn.source,
+      mn.source_url,
+      mn.original_filename,
+      (SELECT mnc.company_id FROM meeting_note_companies mnc WHERE mnc.meeting_note_id = mn.id LIMIT 1),
+      (SELECT mnp.partner_id FROM meeting_note_partners mnp WHERE mnp.meeting_note_id = mn.id LIMIT 1),
+      COALESCE(mn.created_by, (SELECT mna.user_id FROM meeting_note_attendees mna WHERE mna.meeting_note_id = mn.id LIMIT 1)),
+      mn.created_by,
+      mn.created_at,
+      mn.updated_at
+    FROM meeting_notes mn
+    ON CONFLICT (legacy_meeting_note_id) DO UPDATE SET
+      subject = EXCLUDED.subject,
+      content = EXCLUDED.content,
+      summary = EXCLUDED.summary,
+      occurred_at = EXCLUDED.occurred_at,
+      source = EXCLUDED.source,
+      source_url = EXCLUDED.source_url,
+      original_filename = EXCLUDED.original_filename,
+      primary_company_id = EXCLUDED.primary_company_id,
+      primary_partner_id = EXCLUDED.primary_partner_id,
+      primary_user_id = EXCLUDED.primary_user_id,
+      created_by = EXCLUDED.created_by,
+      updated_at = EXCLUDED.updated_at
+  `);
+
+  await client.query(`
+    INSERT INTO contact_activity_companies (activity_id, company_id)
+    SELECT ca.id, i.company_id
+    FROM contact_activities ca
+    JOIN interactions i ON i.id = ca.legacy_interaction_id
+    WHERE i.company_id IS NOT NULL
+    ON CONFLICT DO NOTHING
+  `);
+  await client.query(`
+    INSERT INTO contact_activity_companies (activity_id, company_id)
+    SELECT ca.id, mnc.company_id
+    FROM contact_activities ca
+    JOIN meeting_note_companies mnc ON mnc.meeting_note_id = ca.legacy_meeting_note_id
+    ON CONFLICT DO NOTHING
+  `);
+  await client.query(`
+    INSERT INTO contact_activity_partners (activity_id, partner_id)
+    SELECT ca.id, i.partner_id
+    FROM contact_activities ca
+    JOIN interactions i ON i.id = ca.legacy_interaction_id
+    WHERE i.partner_id IS NOT NULL
+    ON CONFLICT DO NOTHING
+  `);
+  await client.query(`
+    INSERT INTO contact_activity_partners (activity_id, partner_id)
+    SELECT ca.id, mnp.partner_id
+    FROM contact_activities ca
+    JOIN meeting_note_partners mnp ON mnp.meeting_note_id = ca.legacy_meeting_note_id
+    ON CONFLICT DO NOTHING
+  `);
+  await client.query(`
+    INSERT INTO contact_activity_events (activity_id, event_id)
+    SELECT ca.id, s.event_id
+    FROM contact_activities ca
+    JOIN interactions i ON i.id = ca.legacy_interaction_id
+    JOIN sponsors s ON s.id = i.sponsor_id
+    WHERE s.event_id IS NOT NULL
+    ON CONFLICT DO NOTHING
+  `);
+  await client.query(`
+    INSERT INTO contact_activity_events (activity_id, event_id)
+    SELECT ca.id, mne.event_id
+    FROM contact_activities ca
+    JOIN meeting_note_events mne ON mne.meeting_note_id = ca.legacy_meeting_note_id
+    ON CONFLICT DO NOTHING
+  `);
+  await client.query(`
+    INSERT INTO contact_activity_attendees (activity_id, user_id)
+    SELECT ca.id, i.user_id
+    FROM contact_activities ca
+    JOIN interactions i ON i.id = ca.legacy_interaction_id
+    WHERE i.user_id IS NOT NULL
+    ON CONFLICT DO NOTHING
+  `);
+  await client.query(`
+    INSERT INTO contact_activity_attendees (activity_id, user_id)
+    SELECT ca.id, mna.user_id
+    FROM contact_activities ca
+    JOIN meeting_note_attendees mna ON mna.meeting_note_id = ca.legacy_meeting_note_id
+    ON CONFLICT DO NOTHING
+  `);
+}
+
 async function upsertEmailTemplates(client, templates, userIdsByEmail) {
   for (const template of templates) {
     await client.query(
@@ -469,6 +615,7 @@ async function seed() {
     await upsertDocuments(client, localFixtures.documents, refs);
     await upsertInteractions(client, localFixtures.interactions, refs);
     await upsertMeetingLogs(client, localFixtures.meetings, refs);
+    await backfillContactActivities(client);
     await upsertEmailTemplates(client, localFixtures.emailTemplates, userIdsByEmail);
 
     await client.query("COMMIT");

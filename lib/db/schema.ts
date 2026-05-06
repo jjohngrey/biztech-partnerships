@@ -289,6 +289,101 @@ export const interactions = pgTable("interactions", {
 });
 
 // ---------------------------------------------------------------------------
+// contact_activities
+// Canonical contact timeline record. Legacy interactions and meeting notes
+// backfill into this table, then the app reads/writes here.
+// ---------------------------------------------------------------------------
+export const contactActivities = pgTable("contact_activities", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  legacyInteractionId: uuid("legacy_interaction_id").unique().references(() => interactions.id, {
+    onDelete: "set null",
+  }),
+  legacyMeetingNoteId: uuid("legacy_meeting_note_id").unique().references(() => meetingNotes.id, {
+    onDelete: "set null",
+  }),
+  type: text("type", { enum: ["meeting", "call", "email", "linkedin", "in_person", "note", "other"] }).notNull(),
+  direction: text("direction", { enum: ["inbound", "outbound"] }),
+  subject: text("subject").notNull(),
+  content: text("content"),
+  summary: text("summary"),
+  notes: text("notes"),
+  occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
+  followUpDate: date("follow_up_date"),
+  source: text("source").notNull().default("manual"),
+  sourceUrl: text("source_url"),
+  originalFilename: text("original_filename"),
+  externalMessageId: text("external_message_id"),
+  externalThreadId: text("external_thread_id"),
+  primaryCompanyId: uuid("primary_company_id").references(() => companies.id, {
+    onDelete: "set null",
+  }),
+  primaryPartnerId: uuid("primary_partner_id").references(() => partners.id, {
+    onDelete: "set null",
+  }),
+  primaryUserId: uuid("primary_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  sponsorId: uuid("sponsor_id").references(() => sponsors.id, {
+    onDelete: "set null",
+  }),
+  createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const contactActivityCompanies = pgTable(
+  "contact_activity_companies",
+  {
+    activityId: uuid("activity_id")
+      .notNull()
+      .references(() => contactActivities.id, { onDelete: "cascade" }),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.activityId, t.companyId] })],
+);
+
+export const contactActivityPartners = pgTable(
+  "contact_activity_partners",
+  {
+    activityId: uuid("activity_id")
+      .notNull()
+      .references(() => contactActivities.id, { onDelete: "cascade" }),
+    partnerId: uuid("partner_id")
+      .notNull()
+      .references(() => partners.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.activityId, t.partnerId] })],
+);
+
+export const contactActivityEvents = pgTable(
+  "contact_activity_events",
+  {
+    activityId: uuid("activity_id")
+      .notNull()
+      .references(() => contactActivities.id, { onDelete: "cascade" }),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.activityId, t.eventId] })],
+);
+
+export const contactActivityAttendees = pgTable(
+  "contact_activity_attendees",
+  {
+    activityId: uuid("activity_id")
+      .notNull()
+      .references(() => contactActivities.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.activityId, t.userId] })],
+);
+
+// ---------------------------------------------------------------------------
 // partner_documents - link-only document metadata for v1
 // ---------------------------------------------------------------------------
 export const partnerDocuments = pgTable("partner_documents", {
@@ -470,6 +565,9 @@ export type NewUsersCompany = typeof usersCompanies.$inferInsert;
 
 export type Interaction = typeof interactions.$inferSelect;
 export type NewInteraction = typeof interactions.$inferInsert;
+
+export type ContactActivity = typeof contactActivities.$inferSelect;
+export type NewContactActivity = typeof contactActivities.$inferInsert;
 
 export type PartnerDocument = typeof partnerDocuments.$inferSelect;
 export type NewPartnerDocument = typeof partnerDocuments.$inferInsert;
