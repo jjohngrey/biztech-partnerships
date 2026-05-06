@@ -23,6 +23,7 @@ import {
   partnersEvents,
   sponsors,
   users,
+  usersEvents,
   usersPartners,
   type NewSponsor,
 } from "@/lib/db/schema";
@@ -58,6 +59,7 @@ import type {
   MeetingLogRecord,
   MeetingNoteDetail,
   MeetingNotePartnerOption,
+  MyContactPartner,
   PartnerAccount,
   PartnerContact,
   PartnerDirectoryRecord,
@@ -352,7 +354,7 @@ export async function listPartnerAccounts(options?: {
 }
 
 export async function listEvents(options?: { includeArchived?: boolean }): Promise<CrmEventSummary[]> {
-  const [eventRows, sponsorRows, partnerRoleRows, sponsorContactRows] = await Promise.all([
+  const [eventRows, sponsorRows, partnerRoleRows, sponsorContactRows, directorRows] = await Promise.all([
     db.select().from(events).orderBy(desc(events.startDate)),
     db.select().from(sponsors),
     db
@@ -387,6 +389,11 @@ export async function listEvents(options?: { includeArchived?: boolean }): Promi
       .innerJoin(partners, eq(sponsors.primaryContactId, partners.id))
       .innerJoin(companies, eq(partners.companyId, companies.id))
       .orderBy(asc(partners.firstName), asc(partners.lastName)),
+    db
+      .select({ eventId: usersEvents.eventId, user: users })
+      .from(usersEvents)
+      .innerJoin(users, eq(usersEvents.userId, users.id))
+      .orderBy(asc(users.first_name), asc(users.last_name)),
   ]);
 
   return eventRows
@@ -430,6 +437,9 @@ export async function listEvents(options?: { includeArchived?: boolean }): Promi
       });
 
       const eventPeople = Array.from(peopleByKey.values());
+      const eventDirectors = directorRows
+        .filter((row) => row.eventId === event.id)
+        .map((row) => toUserSummary(row.user));
 
       return {
         id: event.id,
@@ -459,6 +469,7 @@ export async function listEvents(options?: { includeArchived?: boolean }): Promi
             .map((person) => person.partnerId),
         ).size,
         partnerResponses: eventPeople,
+        directors: eventDirectors,
       };
     });
 }
@@ -704,6 +715,92 @@ export async function listMeetingNotePartners(): Promise<MeetingNotePartnerOptio
     companyId: row.companyId,
     companyName: row.companyName,
   }));
+}
+
+export async function listMyAssignedEventIds(userId: string): Promise<string[]> {
+  const rows = await db
+    .select({ eventId: usersEvents.eventId })
+    .from(usersEvents)
+    .where(eq(usersEvents.userId, userId));
+  return rows.map((row) => row.eventId);
+}
+
+export async function listMyContactPartners(userId: string): Promise<MyContactPartner[]> {
+  const [primaryActivities, attendeeActivities] = await Promise.all([
+    db
+      .select({
+        id: contactActivities.id,
+        occurredAt: contactActivities.occurredAt,
+        primaryPartnerId: contactActivities.primaryPartnerId,
+      })
+      .from(contactActivities)
+      .where(eq(contactActivities.primaryUserId, userId)),
+    db
+      .select({
+        id: contactActivities.id,
+        occurredAt: contactActivities.occurredAt,
+        primaryPartnerId: contactActivities.primaryPartnerId,
+      })
+      .from(contactActivities)
+      .innerJoin(
+        contactActivityAttendees,
+        eq(contactActivityAttendees.activityId, contactActivities.id),
+      )
+      .where(eq(contactActivityAttendees.userId, userId)),
+  ]);
+
+  const activityById = new Map<string, { occurredAt: Date; primaryPartnerId: string | null }>();
+  for (const row of [...primaryActivities, ...attendeeActivities]) {
+    activityById.set(row.id, { occurredAt: row.occurredAt, primaryPartnerId: row.primaryPartnerId });
+  }
+  if (activityById.size === 0) return [];
+
+  const partnerLinks = await db
+    .select({
+      activityId: contactActivityPartners.activityId,
+      partnerId: contactActivityPartners.partnerId,
+    })
+    .from(contactActivityPartners)
+    .where(inArray(contactActivityPartners.activityId, Array.from(activityById.keys())));
+
+  const partnerLatest = new Map<string, Date>();
+  for (const [, activity] of activityById) {
+    if (!activity.primaryPartnerId) continue;
+    const cur = partnerLatest.get(activity.primaryPartnerId);
+    if (!cur || cur < activity.occurredAt) partnerLatest.set(activity.primaryPartnerId, activity.occurredAt);
+  }
+  for (const link of partnerLinks) {
+    const activity = activityById.get(link.activityId);
+    if (!activity) continue;
+    const cur = partnerLatest.get(link.partnerId);
+    if (!cur || cur < activity.occurredAt) partnerLatest.set(link.partnerId, activity.occurredAt);
+  }
+  if (partnerLatest.size === 0) return [];
+
+  const partnerRows = await db
+    .select({
+      partner: partners,
+      company: companies,
+    })
+    .from(partners)
+    .innerJoin(companies, eq(partners.companyId, companies.id))
+    .where(
+      and(
+        inArray(partners.id, Array.from(partnerLatest.keys())),
+        eq(partners.archived, false),
+        eq(companies.archived, false),
+      ),
+    );
+
+  return partnerRows
+    .map(({ partner, company }) => ({
+      partnerId: partner.id,
+      partnerName: [partner.firstName, partner.lastName].filter(Boolean).join(" "),
+      companyId: company.id,
+      companyName: company.name,
+      lastContactedAt: partnerLatest.get(partner.id)!.toISOString(),
+    }))
+    .sort((a, b) => b.lastContactedAt.localeCompare(a.lastContactedAt));
 }
 
 export async function listTouchpoints(): Promise<TouchpointRecord[]> {
@@ -1331,51 +1428,73 @@ export async function archivePartnerAccount(companyId: string, archived = true) 
   return company;
 }
 
+async function syncEventDirectors(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  eventId: string,
+  userIds: string[] | undefined,
+) {
+  if (!userIds) return;
+  const uniqueUserIds = Array.from(new Set(userIds.filter(Boolean)));
+  await tx.delete(usersEvents).where(eq(usersEvents.eventId, eventId));
+  if (uniqueUserIds.length) {
+    await tx
+      .insert(usersEvents)
+      .values(uniqueUserIds.map((userId) => ({ eventId, userId })))
+      .onConflictDoNothing();
+  }
+}
+
 export async function createCrmEvent(input: CreateEventInput) {
   const name = input.name.trim();
   if (!name) throw new Error("Event name is required.");
 
-  const [event] = await db
-    .insert(events)
-    .values({
-      name,
-      year: input.year ?? null,
-      startDate: input.startDate,
-      endDate: input.endDate || null,
-      outreachStartDate: input.outreachStartDate || null,
-      sponsorshipGoal: input.sponsorshipGoal ?? null,
-      confirmedPartnerGoal: input.confirmedPartnerGoal ?? null,
-      tierConfigs: input.tierConfigs ?? [],
-      notes: input.notes?.trim() || null,
-    })
-    .returning();
+  return db.transaction(async (tx) => {
+    const [event] = await tx
+      .insert(events)
+      .values({
+        name,
+        year: input.year ?? null,
+        startDate: input.startDate,
+        endDate: input.endDate || null,
+        outreachStartDate: input.outreachStartDate || null,
+        sponsorshipGoal: input.sponsorshipGoal ?? null,
+        confirmedPartnerGoal: input.confirmedPartnerGoal ?? null,
+        tierConfigs: input.tierConfigs ?? [],
+        notes: input.notes?.trim() || null,
+      })
+      .returning();
 
-  return event;
+    await syncEventDirectors(tx, event.id, input.directorUserIds);
+    return event;
+  });
 }
 
 export async function updateCrmEvent(input: UpdateEventInput) {
   const name = input.name.trim();
   if (!name) throw new Error("Event name is required.");
 
-  const [event] = await db
-    .update(events)
-    .set({
-      name,
-      year: input.year ?? null,
-      startDate: input.startDate,
-      endDate: input.endDate || null,
-      outreachStartDate: input.outreachStartDate || null,
-      sponsorshipGoal: input.sponsorshipGoal ?? null,
-      confirmedPartnerGoal: input.confirmedPartnerGoal ?? null,
-      tierConfigs: input.tierConfigs ?? [],
-      notes: input.notes?.trim() || null,
-      archived: input.archived ?? false,
-      updatedAt: new Date(),
-    })
-    .where(eq(events.id, input.id))
-    .returning();
+  return db.transaction(async (tx) => {
+    const [event] = await tx
+      .update(events)
+      .set({
+        name,
+        year: input.year ?? null,
+        startDate: input.startDate,
+        endDate: input.endDate || null,
+        outreachStartDate: input.outreachStartDate || null,
+        sponsorshipGoal: input.sponsorshipGoal ?? null,
+        confirmedPartnerGoal: input.confirmedPartnerGoal ?? null,
+        tierConfigs: input.tierConfigs ?? [],
+        notes: input.notes?.trim() || null,
+        archived: input.archived ?? false,
+        updatedAt: new Date(),
+      })
+      .where(eq(events.id, input.id))
+      .returning();
 
-  return event;
+    await syncEventDirectors(tx, event.id, input.directorUserIds);
+    return event;
+  });
 }
 
 export async function createMeetingLog(input: CreateMeetingLogInput) {
@@ -1765,10 +1884,13 @@ export async function createCompanyInteraction(input: CreateCompanyInteractionIn
         .values(uniquePartnerIds.map((partnerId) => ({ activityId: activity.id, partnerId })))
         .onConflictDoNothing();
     }
-    await tx
-      .insert(contactActivityAttendees)
-      .values({ activityId: activity.id, userId: input.userId })
-      .onConflictDoNothing();
+    const attendeeIds = Array.from(new Set([input.userId, ...(input.attendeeUserIds ?? [])].filter(Boolean)));
+    if (attendeeIds.length > 0) {
+      await tx
+        .insert(contactActivityAttendees)
+        .values(attendeeIds.map((userId) => ({ activityId: activity.id, userId })))
+        .onConflictDoNothing();
+    }
 
     return activity;
   });

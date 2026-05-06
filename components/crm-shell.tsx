@@ -71,15 +71,13 @@ export function CrmShell({
         {/* Desktop sidebar: hidden on mobile/tablet, visible on xl screens and up */}
         <aside className="hidden w-[212px] shrink-0 border-r border-white/[0.08] bg-[#09090b] px-3 py-4 xl:flex xl:flex-col">
           <div className="flex h-8 items-center gap-2 px-2">
-            <div className="grid size-6 shrink-0 place-items-center rounded-md border border-white/[0.08] bg-white/[0.045] text-[10px] font-semibold tracking-[-0.01em] text-zinc-200">
-              BT
-            </div>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" className="size-6 shrink-0" aria-hidden="true">
+              <rect width="32" height="32" rx="7" fill="#111113" />
+              <path d="M9 10h14v3H9zM9 15h10v3H9zM9 20h14v3H9z" fill="#d4d4d8" />
+            </svg>
             <div className="min-w-0 leading-none">
               <p className="truncate text-[12px] font-medium tracking-[-0.01em] text-zinc-100">
-                BizTech
-              </p>
-              <p className="mt-0.5 truncate text-[10px] font-medium text-zinc-500">
-                Partnerships
+                Hermes
               </p>
             </div>
           </div>
@@ -107,7 +105,7 @@ export function CrmShell({
           <div className="mt-auto border-t border-white/[0.08] pt-4">
             <div className="flex items-center gap-2.5 px-1">
               <div className="grid size-7 place-items-center rounded-full bg-white/[0.09] text-[10px] font-medium text-zinc-200">
-                {initials || "BT"}
+                {initials || "H"}
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[12px] font-medium text-zinc-100">{displayName}</p>

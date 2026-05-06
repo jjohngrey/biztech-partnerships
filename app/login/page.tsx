@@ -28,7 +28,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     <main className="flex min-h-[100dvh] items-center justify-center bg-[#0d0d0f] p-6 text-zinc-100">
       <div className="w-full max-w-sm rounded-md border border-white/[0.09] bg-[#111113] p-6">
         <h1 className="text-[17px] font-medium text-white">
-          BizTech Partnerships
+          Hermes
         </h1>
         <p className="mt-2 text-[13px] leading-5 text-zinc-500">
           Sign in with your @ubcbiztech.com Google account to continue.

@@ -9,6 +9,8 @@ import {
   listEmailTemplates,
   listEvents,
   listMeetingLogs,
+  listMyAssignedEventIds,
+  listMyContactPartners,
   listPartnerDirectory,
   listTouchpoints,
   listUsers,
@@ -30,3 +32,17 @@ export const listCachedMeetingLogs = unstable_cache(listMeetingLogs, ["crm-meeti
 export const listCachedPartnerDirectory = unstable_cache(listPartnerDirectory, ["crm-partner-directory"], cacheOptions);
 export const listCachedTouchpoints = unstable_cache(listTouchpoints, ["crm-touchpoints"], cacheOptions);
 export const listCachedUsers = unstable_cache(listUsers, ["crm-users"], cacheOptions);
+
+export const listCachedMyContactPartners = (userId: string) =>
+  unstable_cache(
+    () => listMyContactPartners(userId),
+    ["crm-my-contact-partners", userId],
+    cacheOptions,
+  )();
+
+export const listCachedMyAssignedEventIds = (userId: string) =>
+  unstable_cache(
+    () => listMyAssignedEventIds(userId),
+    ["crm-my-assigned-event-ids", userId],
+    cacheOptions,
+  )();

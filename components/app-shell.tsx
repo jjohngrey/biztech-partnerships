@@ -18,7 +18,7 @@ function Sidebar() {
   return (
     <aside className="flex h-screen w-52 shrink-0 flex-col border-r border-neutral-200 bg-white">
       <div className="flex h-14 items-center border-b border-neutral-200 px-4">
-        <span className="text-sm font-semibold text-neutral-900">BizTech</span>
+        <span className="text-sm font-semibold text-neutral-900">Hermes</span>
       </div>
       <nav className="flex flex-col gap-0.5 p-2 pt-4">
         {NAV_LINKS.map(({ href, label }) => {

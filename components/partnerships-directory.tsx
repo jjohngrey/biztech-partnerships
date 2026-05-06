@@ -202,10 +202,13 @@ function Avatar({ name, size = "md" }: { name: string; size?: "sm" | "md" | "lg"
   );
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function Field({ label, children, required }: { label: string; children: ReactNode; required?: boolean }) {
   return (
     <label className="grid min-w-0 max-w-full gap-1.5 text-[12px] font-medium text-zinc-400">
-      {label}
+      <span>
+        {label}
+        {required ? <span className="ml-0.5 text-red-400">*</span> : null}
+      </span>
       {children}
     </label>
   );
@@ -759,16 +762,16 @@ export function PartnersDirectory({ partners, companies, events, users, initialP
             <form id="partner-create-form" onSubmit={submitCreate} className="flex min-h-0 flex-1 flex-col">
               <div className="min-h-0 flex-1 min-w-0 space-y-4 overflow-x-hidden overflow-y-auto px-5 py-5">
                 <div className="grid min-w-0 gap-4">
-                  <Field label="New partner first name"><input name="firstName" required autoComplete="given-name" className={inputClass()} /></Field>
+                  <Field label="New partner first name" required><input name="firstName" required autoComplete="given-name" className={inputClass()} /></Field>
                   <Field label="New partner last name"><input name="lastName" autoComplete="family-name" className={inputClass()} /></Field>
                 </div>
-                <Field label="Company">
+                <Field label="Company" required>
                   <CompanyCombo companies={companies} value={createCompanyName} onChange={setCreateCompanyName} />
                 </Field>
                 <Field label="Title"><input name="role" className={inputClass()} /></Field>
-                <Field label="Email"><input name="email" type="email" autoComplete="email" className={inputClass()} /></Field>
+                <Field label="Email" required><input name="email" type="email" autoComplete="email" className={inputClass()} /></Field>
                 <Field label="Phone"><input name="phone" autoComplete="tel" className={inputClass()} /></Field>
-                <Field label="LinkedIn"><input name="linkedin" autoComplete="url" className={inputClass()} /></Field>
+                <Field label="LinkedIn" required><input name="linkedin" autoComplete="url" className={inputClass()} /></Field>
                 <ContactRequirementHint />
                 <Field label="Notes"><textarea name="notes" rows={3} className={inputClass("h-auto py-2")} /></Field>
                 <label className="flex items-center gap-2 text-[13px] text-zinc-300">

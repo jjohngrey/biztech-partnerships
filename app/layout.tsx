@@ -4,7 +4,7 @@ import "./globals.css";
 import { AppShell } from "@/components/app-shell";
 
 export const metadata: Metadata = {
-  title: "BizTech Partnerships",
+  title: "Hermes",
   description: "Internal CRM for the BizTech partnerships team.",
 };
 

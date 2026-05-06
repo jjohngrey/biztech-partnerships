@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Pencil, Plus, Trash2, X } from "lucide-react";
 import {
@@ -10,7 +10,7 @@ import {
   updatePartnerEventStatusAction,
   updateEventAction,
 } from "@/lib/partnerships/actions";
-import type { CrmEventSummary, EventAttendanceStatus, EventRole, PartnerDirectoryRecord } from "@/lib/partnerships/types";
+import type { CrmEventSummary, CrmUserSummary, EventAttendanceStatus, EventRole, PartnerDirectoryRecord } from "@/lib/partnerships/types";
 
 type PanelMode = "closed" | "create" | "view" | "edit";
 type SortDirection = "asc" | "desc";
@@ -240,13 +240,142 @@ function PartnerCombo({
   );
 }
 
+function DirectorMultiSelect({
+  directors,
+  selectedIds,
+  onChange,
+}: {
+  directors: CrmUserSummary[];
+  selectedIds: string[];
+  onChange: (ids: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const selected = directors.filter((director) => selectedIds.includes(director.id));
+  const filtered = directors.filter((director) => {
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    return [director.name, director.email].filter(Boolean).join(" ").toLowerCase().includes(q);
+  });
+
+  useEffect(() => {
+    if (!open) return;
+    searchInputRef.current?.focus();
+    function handlePointerDown(event: MouseEvent) {
+      if (!containerRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    function handleKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [open]);
+
+  function toggle(id: string) {
+    if (selectedIds.includes(id)) {
+      onChange(selectedIds.filter((value) => value !== id));
+    } else {
+      onChange([...selectedIds, id]);
+    }
+  }
+
+  return (
+    <div ref={containerRef} className="grid gap-2">
+      {selectedIds.map((id) => (
+        <input key={id} type="hidden" name="directorUserIds" value={id} />
+      ))}
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setOpen((value) => !value)}
+          className={inputClass("flex items-center justify-between text-left text-zinc-300")}
+        >
+          <span className="truncate">
+            {selected.length === 0
+              ? "Select BizTech directors…"
+              : `${selected.length} director${selected.length === 1 ? "" : "s"} selected`}
+          </span>
+          <span className="ml-2 text-zinc-500">▾</span>
+        </button>
+        {open ? (
+          <div className="absolute left-0 right-0 top-11 z-30 max-h-72 overflow-auto rounded-md border border-white/[0.1] bg-[#15161a] shadow-2xl shadow-black/40">
+            <div className="border-b border-white/[0.08] p-2">
+              <input
+                ref={searchInputRef}
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search directors…"
+                className={inputClass("h-8 text-[12px]")}
+              />
+            </div>
+            {filtered.length === 0 ? (
+              <p className="px-3 py-2.5 text-[13px] text-zinc-500">No directors found.</p>
+            ) : (
+              filtered.map((director) => {
+                const isSelected = selectedIds.includes(director.id);
+                return (
+                  <button
+                    key={director.id}
+                    type="button"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => toggle(director.id)}
+                    className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-white/[0.05] cursor-pointer"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-[13px] font-medium text-zinc-100">{director.name}</span>
+                      <span className="block truncate text-[12px] text-zinc-500">{director.email}</span>
+                    </span>
+                    <span className={`shrink-0 text-[12px] ${isSelected ? "text-emerald-300" : "text-zinc-600"}`}>
+                      {isSelected ? "✓" : ""}
+                    </span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        ) : null}
+      </div>
+      {selected.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5">
+          {selected.map((director) => (
+            <span
+              key={director.id}
+              className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.07] px-2.5 py-1 text-[12px] text-zinc-200"
+            >
+              {director.name}
+              <button
+                type="button"
+                onClick={() => toggle(director.id)}
+                aria-label={`Remove ${director.name}`}
+                className="text-zinc-500 transition hover:text-red-200 cursor-pointer"
+              >
+                <X className="size-3" strokeWidth={2} />
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function EventsDirectory({
   events,
   partners,
+  directors,
   initialEventId,
 }: {
   events: CrmEventSummary[];
   partners: PartnerDirectoryRecord[];
+  directors: CrmUserSummary[];
   initialEventId?: string;
 }) {
   const router = useRouter();
@@ -258,6 +387,9 @@ export function EventsDirectory({
   const [mode, setMode] = useState<PanelMode>(initialEvent ? "view" : "closed");
   const [partnerName, setPartnerName] = useState("");
   const [selectedResponsePartnerId, setSelectedResponsePartnerId] = useState("");
+  const [selectedDirectorIds, setSelectedDirectorIds] = useState<string[]>(
+    initialEvent?.directors.map((director) => director.id) ?? [],
+  );
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const selected = events.find((event) => event.id === selectedId) ?? null;
@@ -317,6 +449,7 @@ export function EventsDirectory({
       confirmedPartnerGoal: parsedPartnerGoal.value,
       notes: String(data.get("notes") ?? ""),
       archived: data.get("archived") === "on",
+      directorUserIds: selectedDirectorIds,
     };
   }
 
@@ -331,6 +464,7 @@ export function EventsDirectory({
         form.reset();
         setSelectedId(created.id);
         setMode("view");
+        setSelectedDirectorIds([]);
         window.history.replaceState(null, "", `/events?eventId=${created.id}`);
         router.refresh();
       } catch (cause) {
@@ -414,6 +548,7 @@ export function EventsDirectory({
               setError(null);
               setPartnerName("");
               setSelectedResponsePartnerId("");
+              setSelectedDirectorIds([]);
               setSelectedId(null);
               setMode("create");
               window.history.replaceState(null, "", "/events");
@@ -441,6 +576,7 @@ export function EventsDirectory({
                   setError(null);
                   setPartnerName("");
                   setSelectedResponsePartnerId("");
+                  setSelectedDirectorIds(event.directors.map((director) => director.id));
                   setSelectedId(event.id);
                   setMode("view");
                   window.history.replaceState(null, "", `/events?eventId=${event.id}`);
@@ -546,6 +682,21 @@ export function EventsDirectory({
                       {selected.partnerResponses.length} people
                     </span>
                   </div>
+                  {selected.directors.length ? (
+                    <div className="mt-4 rounded-md border border-white/[0.08] bg-white/[0.018] p-3">
+                      <p className="text-[12px] font-medium text-zinc-300">BizTech directors</p>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {selected.directors.map((director) => (
+                          <span
+                            key={director.id}
+                            className="inline-flex items-center rounded-full bg-white/[0.07] px-2.5 py-1 text-[12px] text-zinc-200"
+                          >
+                            {director.name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                   <div className="mt-4 grid gap-2">
                     {selectedRoleGroups.length ? (
                       selectedRoleGroups.map((group) => (
@@ -606,6 +757,13 @@ export function EventsDirectory({
                     <Field label="End date"><input name="endDate" type="date" defaultValue={mode === "edit" ? selected?.endDate ?? "" : ""} className={inputClass()} /></Field>
                   </div>
                   <Field label="Outreach start"><input name="outreachStartDate" type="date" defaultValue={mode === "edit" ? selected?.outreachStartDate ?? "" : ""} className={inputClass()} /></Field>
+                  <Field label="BizTech directors">
+                    <DirectorMultiSelect
+                      directors={directors}
+                      selectedIds={selectedDirectorIds}
+                      onChange={setSelectedDirectorIds}
+                    />
+                  </Field>
                   <Field label="Notes"><textarea name="notes" rows={4} defaultValue={mode === "edit" ? selected?.notes ?? "" : ""} className={inputClass("h-auto py-2")} /></Field>
                   <label className="flex items-center gap-2 text-[13px] text-zinc-300">
                     <input name="archived" type="checkbox" defaultChecked={mode === "edit" ? selected?.archived : false} className="size-4 accent-zinc-400" />

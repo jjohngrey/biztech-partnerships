@@ -103,6 +103,7 @@ export type CrmEventSummary = {
   sponsorCount: number;
   confirmedPartnerCount: number;
   partnerResponses: EventPartnerResponse[];
+  directors: CrmUserSummary[];
 };
 
 export type EventPartnerResponse = {
@@ -438,6 +439,7 @@ export type CreateEventInput = {
   confirmedPartnerGoal?: number;
   notes?: string;
   tierConfigs?: Array<{ id: string; label: string; amount: number | null }>;
+  directorUserIds?: string[];
 };
 
 export type UpdateEventInput = CreateEventInput & {
@@ -558,4 +560,12 @@ export type CreateEmailCampaignDraftInput = {
   subject: string;
   body: string;
   recipientIds: string[];
+};
+
+export type MyContactPartner = {
+  partnerId: string;
+  partnerName: string;
+  companyId: string;
+  companyName: string;
+  lastContactedAt: string;
 };

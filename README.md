@@ -1,4 +1,4 @@
-# BizTech Partnerships CRM
+# BizTech Partnerships CRM aka Hermes
 
 Internal CRM for the BizTech partnerships team. One central place to manage sponsors across events, track revenue, capture meeting insights, and keep partner-facing documents organized throughout the year.
 

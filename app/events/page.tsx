@@ -1,7 +1,7 @@
 import { CrmShell } from "@/components/crm-shell";
 import { EventsDirectory } from "@/components/events-directory";
 import { requireDisplayUser } from "@/lib/auth/session-display";
-import { listCachedEvents, listCachedPartnerDirectory } from "@/lib/partnerships/cached";
+import { listCachedEvents, listCachedPartnerDirectory, listCachedUsers } from "@/lib/partnerships/cached";
 
 export default async function EventsPage({
   searchParams,
@@ -9,10 +9,11 @@ export default async function EventsPage({
   searchParams?: Promise<{ eventId?: string }>;
 }) {
   const params = await searchParams;
-  const [{ displayName }, events, partners] = await Promise.all([
+  const [{ displayName }, events, partners, directors] = await Promise.all([
     requireDisplayUser(),
     listCachedEvents(),
     listCachedPartnerDirectory(),
+    listCachedUsers(),
   ]);
 
   return (
@@ -20,7 +21,12 @@ export default async function EventsPage({
       displayName={displayName}
       activeSection="events"
     >
-      <EventsDirectory events={events} partners={partners} initialEventId={params?.eventId} />
+      <EventsDirectory
+        events={events}
+        partners={partners}
+        directors={directors}
+        initialEventId={params?.eventId}
+      />
     </CrmShell>
   );
 }
