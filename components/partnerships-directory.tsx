@@ -1315,7 +1315,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
       try {
         await createCompanyInteractionAction({
           companyId: selected.id,
-          partnerId,
+          contacts: partnerId ? [{ partnerId }] : [],
           userId: String(data.get("userId") ?? ""),
           type: String(data.get("type") ?? "meeting") as CompanyInteractionRecord["type"],
           direction: (String(data.get("direction") ?? "") || undefined) as CompanyInteractionRecord["direction"] | undefined,
@@ -1702,7 +1702,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
 
                 <section className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/[0.09] bg-[#0d0e11] p-4">
                   <div className="flex min-w-0 flex-col items-start gap-2 lg:flex-row lg:items-center lg:justify-between">
-                    <p className="text-[13px] font-medium text-zinc-200">Contact history</p>
+                    <p className="text-[13px] font-medium text-zinc-200">Contact History</p>
                     <div className="flex flex-wrap items-center gap-2">
                       <a
                         href={contactLogCreateHref({ companyName: selected.name })}
@@ -1751,7 +1751,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                           </select>
                         </Field>
                       </div>
-                      <Field label="Contacted person">
+                      <Field label="Contact">
                         <select name="partnerId" className={inputClass("w-full min-w-0")}>
                           <option value="">Company-level contact</option>
                           {selected.contacts.map((contact) => (
@@ -2256,7 +2256,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
 
                   <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/[0.09] bg-[#0d0e11] p-4">
                     <div className="flex min-w-0 flex-col items-start gap-2 lg:flex-row lg:items-center lg:justify-between">
-                      <p className="text-[13px] font-medium text-zinc-200">Contact history</p>
+                      <p className="text-[13px] font-medium text-zinc-200">Contact History</p>
                       <a
                         href={contactLogCreateHref({ companyName: selected.name })}
                         className="inline-flex h-7 items-center gap-1.5 rounded-md border border-white/[0.09] px-2.5 text-[12px] text-zinc-300 transition hover:bg-white/[0.055] hover:text-white"
@@ -2304,7 +2304,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                             ))}
                           </select>
                         </Field>
-                        <Field label="Contacted person">
+                        <Field label="Contact">
                           <select name="partnerId" className={inputClass("w-full min-w-0")}>
                             <option value="">Company-level contact</option>
                             {selected.contacts.map((contact) => (

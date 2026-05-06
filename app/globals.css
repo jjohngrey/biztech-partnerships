@@ -186,8 +186,10 @@ body > * {
   background-color: #ffffff !important;
 }
 
-:root[data-theme="light"] [class*="bg-white/["],
-:root[data-theme="light"] [class*="bg-white\\/\\["] {
+:root[data-theme="light"] [class*="bg-white/["]:not([class*="hover:bg-white"]),
+:root[data-theme="light"] [class*="bg-white\\/\\["]:not([class*="hover:bg-white"]),
+:root[data-theme="light"] [class*="hover:bg-white/["]:hover,
+:root[data-theme="light"] [class*="hover:bg-white\\/\\["]:hover {
   background-color: rgba(24, 24, 27, 0.045) !important;
 }
 

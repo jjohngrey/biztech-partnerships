@@ -16,7 +16,7 @@ export default async function ContactLogPage({
   searchParams?: Promise<{ activity?: string; create?: string; company?: string; contact?: string; event?: string }>;
 }) {
   const params = await searchParams;
-  const [{ displayName }, touchpoints, meetings, companies, partners, users, events] = await Promise.all([
+  const [{ id: currentUserId, displayName }, touchpoints, meetings, companies, partners, users, events] = await Promise.all([
     requireDisplayUser(),
     listCachedTouchpoints(),
     listCachedMeetingLogs(),
@@ -38,6 +38,7 @@ export default async function ContactLogPage({
         partners={partners}
         users={users}
         events={events}
+        currentUserId={currentUserId}
         initialActivityKey={params?.activity}
         initialCreate={params?.create === "1"}
         initialCompanyName={params?.company}

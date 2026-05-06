@@ -15,6 +15,9 @@ import {
   events,
   interactions,
   meetingNotes,
+  meetingNoteAttendees,
+  meetingNoteEvents,
+  meetingNotePartners,
   partnerDocuments,
   partners,
   partnersEvents,
@@ -61,6 +64,7 @@ import type {
   PipelineDeal,
   TouchpointRecord,
   UpdateCompanyInput,
+  UpdateCompanyInteractionInput,
   UpdateContactInput,
   UpdateDirectorInput,
   UpdateEmailTemplateInput,
@@ -703,42 +707,73 @@ export async function listMeetingNotePartners(): Promise<MeetingNotePartnerOptio
 }
 
 export async function listTouchpoints(): Promise<TouchpointRecord[]> {
-  const rows = await db
-    .select({
-      activity: contactActivities,
-      company: companies,
-      partner: partners,
-      user: users,
-    })
-    .from(contactActivities)
-    .innerJoin(companies, eq(contactActivities.primaryCompanyId, companies.id))
-    .leftJoin(users, eq(contactActivities.primaryUserId, users.id))
-    .leftJoin(partners, eq(contactActivities.primaryPartnerId, partners.id))
-    .where(eq(companies.archived, false))
-    .orderBy(desc(contactActivities.occurredAt), desc(contactActivities.createdAt));
+  const [rows, partnerLinks, attendeeLinks] = await Promise.all([
+    db
+      .select({
+        activity: contactActivities,
+        company: companies,
+        partner: partners,
+        user: users,
+      })
+      .from(contactActivities)
+      .innerJoin(companies, eq(contactActivities.primaryCompanyId, companies.id))
+      .leftJoin(users, eq(contactActivities.primaryUserId, users.id))
+      .leftJoin(partners, eq(contactActivities.primaryPartnerId, partners.id))
+      .where(eq(companies.archived, false))
+      .orderBy(desc(contactActivities.occurredAt), desc(contactActivities.createdAt)),
+    db
+      .select({
+        activityId: contactActivityPartners.activityId,
+        partnerId: partners.id,
+        firstName: partners.firstName,
+        lastName: partners.lastName,
+        partnerArchived: partners.archived,
+      })
+      .from(contactActivityPartners)
+      .innerJoin(partners, eq(contactActivityPartners.partnerId, partners.id)),
+    // 1. Fetch attendee links
+    db
+      .select({
+        activityId: contactActivityAttendees.activityId,
+        user: users,
+      })
+      .from(contactActivityAttendees)
+      .innerJoin(users, eq(contactActivityAttendees.userId, users.id)),
+  ]);
 
   return rows
     .filter(({ activity }) => !contactActivityIsMeetingLog(activity))
     .map(({ activity, company, partner, user }) => ({
-    id: activity.id,
-    companyId: activity.primaryCompanyId ?? company.id,
-    companyName: company.name,
-    partnerId: activity.primaryPartnerId,
-    partnerName: partner
-      ? [partner.firstName, partner.lastName].filter(Boolean).join(" ")
-      : null,
-    userId: activity.primaryUserId ?? activity.createdBy ?? "",
-    userName: user ? toUserSummary(user).name : "No director",
-    type: contactActivityTypeToInteractionType(activity.type),
-    direction: activity.direction as CompanyInteractionRecord["direction"],
-    subject: activity.subject,
-    notes: activity.notes,
-    contactedAtIso: activity.occurredAt.toISOString(),
-    followUpDate: activity.followUpDate,
-    source: activity.source,
-    createdAtIso: activity.createdAt.toISOString(),
-    externalThreadId: activity.externalThreadId,
-  }));
+      id: activity.id,
+      companyId: activity.primaryCompanyId ?? company.id,
+      companyName: company.name,
+      partnerId: activity.primaryPartnerId,
+      partnerName: partner
+        ? [partner.firstName, partner.lastName].filter(Boolean).join(" ")
+        : null,
+      partners: partnerLinks
+        .filter((link) => link.activityId === activity.id && !link.partnerArchived)
+        .map((link) => ({
+          id: link.partnerId,
+          name: [link.firstName, link.lastName].filter(Boolean).join(" "),
+        })),
+      // 2. Map the attendees property required by TouchpointRecord
+      attendees: attendeeLinks
+        .filter((link) => link.activityId === activity.id)
+        .map((link) => toUserSummary(link.user)),
+      userId: activity.primaryUserId ?? activity.createdBy ?? "",
+      userName: user ? toUserSummary(user).name : "No director",
+      type: contactActivityTypeToInteractionType(activity.type),
+      direction: activity.direction as CompanyInteractionRecord["direction"],
+      subject: activity.subject,
+      notes: activity.notes,
+      contactedAtIso: activity.occurredAt.toISOString(),
+      followUpDate: activity.followUpDate,
+      source: activity.source,
+      createdAtIso: activity.createdAt.toISOString(),
+      externalThreadId: activity.externalThreadId,
+      createdBy: activity.createdBy,
+    }));
 }
 
 export async function getDashboard(): Promise<CrmDashboard> {
@@ -1671,23 +1706,31 @@ export async function createCompanyInteraction(input: CreateCompanyInteractionIn
   if (!input.userId) throw new Error("BizTech Director is required.");
   const contactedAt = input.contactedAt.trim();
   if (!contactedAt) throw new Error("Contact date is required.");
-  let partnerId = input.partnerId || null;
 
-  if (!partnerId && input.partnerFirstName?.trim()) {
+  const partnerIds: string[] = [];
+  for (const entry of input.contacts ?? []) {
+    if (entry.partnerId) {
+      partnerIds.push(entry.partnerId);
+      continue;
+    }
+    if (!entry.firstName?.trim()) continue;
     const contact = await createContact({
       companyId,
-      firstName: input.partnerFirstName,
-      lastName: input.partnerLastName,
-      role: input.partnerRole,
-      email: input.partnerEmail,
-      linkedin: input.partnerLinkedin,
+      firstName: entry.firstName,
+      lastName: entry.lastName,
+      role: entry.role,
+      email: entry.email,
+      linkedin: entry.linkedin,
     });
-    partnerId = contact.id;
+    partnerIds.push(contact.id);
   }
 
+  const uniquePartnerIds = Array.from(new Set(partnerIds));
+  const primaryPartnerId = uniquePartnerIds[0] ?? null;
+
   return db.transaction(async (tx) => {
-    const partnerName = partnerId
-      ? (await tx.select().from(partners).where(eq(partners.id, partnerId)).limit(1))[0]
+    const primaryPartner = primaryPartnerId
+      ? (await tx.select().from(partners).where(eq(partners.id, primaryPartnerId)).limit(1))[0]
       : null;
     const [activity] = await tx
       .insert(contactActivities)
@@ -1697,8 +1740,8 @@ export async function createCompanyInteraction(input: CreateCompanyInteractionIn
         subject: contactActivitySubject({
           subject: input.subject,
           type: input.type,
-          partnerName: partnerName
-            ? [partnerName.firstName, partnerName.lastName].filter(Boolean).join(" ")
+          partnerName: primaryPartner
+            ? [primaryPartner.firstName, primaryPartner.lastName].filter(Boolean).join(" ")
             : null,
         }),
         notes: input.notes?.trim() || null,
@@ -1706,7 +1749,7 @@ export async function createCompanyInteraction(input: CreateCompanyInteractionIn
         followUpDate: input.followUpDate || null,
         source: "manual",
         primaryCompanyId: companyId,
-        primaryPartnerId: partnerId,
+        primaryPartnerId,
         primaryUserId: input.userId,
         createdBy: input.userId,
       })
@@ -1716,15 +1759,88 @@ export async function createCompanyInteraction(input: CreateCompanyInteractionIn
       .insert(contactActivityCompanies)
       .values({ activityId: activity.id, companyId })
       .onConflictDoNothing();
-    if (partnerId) {
+    if (uniquePartnerIds.length > 0) {
       await tx
         .insert(contactActivityPartners)
-        .values({ activityId: activity.id, partnerId })
+        .values(uniquePartnerIds.map((partnerId) => ({ activityId: activity.id, partnerId })))
         .onConflictDoNothing();
     }
     await tx
       .insert(contactActivityAttendees)
       .values({ activityId: activity.id, userId: input.userId })
+      .onConflictDoNothing();
+
+    return activity;
+  });
+}
+
+export async function updateCompanyInteraction(input: UpdateCompanyInteractionInput) {
+  if (!input.id) throw new Error("Contact record is required.");
+  if (!input.companyId) throw new Error("Company is required.");
+  if (!input.userId) throw new Error("BizTech Director is required.");
+  const contactedAt = input.contactedAt.trim();
+  if (!contactedAt) throw new Error("Contact date is required.");
+
+  let partnerId = input.partnerId || null;
+  if (input.newContact?.firstName?.trim()) {
+    const created = await createContact({
+      companyId: input.companyId,
+      firstName: input.newContact.firstName,
+      lastName: input.newContact.lastName,
+      role: input.newContact.role,
+      email: input.newContact.email,
+      linkedin: input.newContact.linkedin,
+    });
+    partnerId = created.id;
+  }
+
+  return db.transaction(async (tx) => {
+    const primaryPartner = partnerId
+      ? (await tx.select().from(partners).where(eq(partners.id, partnerId)).limit(1))[0]
+      : null;
+
+    const [activity] = await tx
+      .update(contactActivities)
+      .set({
+        type: input.type,
+        direction: input.direction || null,
+        subject: contactActivitySubject({
+          subject: input.subject,
+          type: input.type,
+          partnerName: primaryPartner
+            ? [primaryPartner.firstName, primaryPartner.lastName].filter(Boolean).join(" ")
+            : null,
+        }),
+        notes: input.notes?.trim() || null,
+        occurredAt: new Date(contactedAt),
+        followUpDate: input.followUpDate || null,
+        primaryCompanyId: input.companyId,
+        primaryPartnerId: partnerId,
+        primaryUserId: input.userId,
+        updatedAt: new Date(),
+      })
+      .where(eq(contactActivities.id, input.id))
+      .returning();
+
+    if (!activity) throw new Error("Contact record was not found.");
+
+    await tx.delete(contactActivityCompanies).where(eq(contactActivityCompanies.activityId, input.id));
+    await tx.delete(contactActivityPartners).where(eq(contactActivityPartners.activityId, input.id));
+    await tx.delete(contactActivityAttendees).where(eq(contactActivityAttendees.activityId, input.id));
+
+    await tx
+      .insert(contactActivityCompanies)
+      .values({ activityId: input.id, companyId: input.companyId })
+      .onConflictDoNothing();
+    if (partnerId) {
+      await tx
+        .insert(contactActivityPartners)
+        .values({ activityId: input.id, partnerId })
+        .onConflictDoNothing();
+    }
+    await tx
+      .insert(contactActivityAttendees)
+      .values({ activityId: input.id, userId: input.userId })
       .onConflictDoNothing();
 
     return activity;

@@ -2,12 +2,14 @@
 
 import { useMemo, useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { MessageSquarePlus, Plus, Trash2, X } from "lucide-react";
+import { MessageSquarePlus, Pencil, Plus, Trash2, X } from "lucide-react";
+import { MarkdownNotes } from "@/components/markdown-notes";
 import {
   createCompanyInteractionAction,
   deleteCompanyInteractionAction,
   deleteMeetingLogAction,
   logEventPartnerResponseAction,
+  updateCompanyInteractionAction,
 } from "@/lib/partnerships/actions";
 import type {
   CompanyDirectoryRecord,
@@ -28,6 +30,7 @@ type TouchpointsDirectoryProps = {
   partners: PartnerDirectoryRecord[];
   users: CrmUserSummary[];
   events: CrmEventSummary[];
+  currentUserId: string;
   initialActivityKey?: string;
   initialCreate?: boolean;
   initialCompanyName?: string;
@@ -37,7 +40,33 @@ type TouchpointsDirectoryProps = {
 
 type SortDirection = "asc" | "desc";
 type SortKey = "date" | "company" | "contact" | "type";
-type PanelMode = "closed" | "create" | "view";
+type PanelMode = "closed" | "create" | "view" | "edit";
+
+type ContactRow = {
+  rowId: string;
+  name: string;
+  selectedPartnerId: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  email: string;
+  linkedin: string;
+};
+
+function emptyContactRow(): ContactRow {
+  return {
+    rowId: typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `row-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    name: "",
+    selectedPartnerId: "",
+    firstName: "",
+    lastName: "",
+    role: "",
+    email: "",
+    linkedin: "",
+  };
+}
 
 type ActivityRecord = {
   id: string;
@@ -351,7 +380,7 @@ function PersonCombo({
     <div className="relative">
       <input type="hidden" name="partnerId" value={selectedId || match?.id || ""} />
       <input
-        aria-label="Contacted person"
+        aria-label="Contact"
         name="partnerName"
         value={value}
         onChange={(event) => {
@@ -418,7 +447,7 @@ function toActivities(touchpoints: TouchpointRecord[], meetings: MeetingLogRecor
       title: touchpoint.subject || titleCase(touchpoint.type),
       dateIso: touchpoint.contactedAtIso,
       companyNames: [touchpoint.companyName],
-      partnerNames: touchpoint.partnerName ? [touchpoint.partnerName] : [],
+      partnerNames: touchpoint.partners.map((partner) => partner.name),
       userNames: [touchpoint.userName],
       typeLabel: touchpointTypes.find((type) => type.value === touchpoint.type)?.label ?? titleCase(touchpoint.type),
       followUpDate: touchpoint.followUpDate,
@@ -457,6 +486,7 @@ export function TouchpointsDirectory({
   partners,
   users,
   events,
+  currentUserId,
   initialActivityKey,
   initialCreate = false,
   initialCompanyName = "",
@@ -472,9 +502,10 @@ export function TouchpointsDirectory({
   const [selectedKey, setSelectedKey] = useState<string | null>(initialActivity?.key ?? null);
   const [query, setQuery] = useState("");
   const [companyName, setCompanyName] = useState(initialCompanyName);
-  const [contactName, setContactName] = useState(initialContactName);
   const [eventName, setEventName] = useState(initialEventName);
-  const [selectedPartnerId, setSelectedPartnerId] = useState("");
+  const [contactRows, setContactRows] = useState<ContactRow[]>(() => [
+    { ...emptyContactRow(), name: initialContactName },
+  ]);
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [error, setError] = useState<string | null>(null);
@@ -484,11 +515,23 @@ export function TouchpointsDirectory({
   const partnerOptions = companyMatch
     ? partners.filter((partner) => partner.companyId === companyMatch.id)
     : partners;
-  const selectedPartner = selectedPartnerId
-    ? partners.find((partner) => partner.id === selectedPartnerId) ?? null
-    : getPartnerMatch(partnerOptions, contactName);
   const eventMatch = getEventMatch(events, eventName);
-  const pendingPersonName = splitPersonName(contactName);
+
+  function resetContactRows() {
+    setContactRows([emptyContactRow()]);
+  }
+
+  function updateRow(rowId: string, patch: Partial<ContactRow>) {
+    setContactRows((rows) => rows.map((row) => (row.rowId === rowId ? { ...row, ...patch } : row)));
+  }
+
+  function addRow() {
+    setContactRows((rows) => [...rows, emptyContactRow()]);
+  }
+
+  function removeRow(rowId: string) {
+    setContactRows((rows) => (rows.length === 1 ? [emptyContactRow()] : rows.filter((row) => row.rowId !== rowId)));
+  }
 
   const activities = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -544,20 +587,40 @@ export function TouchpointsDirectory({
     setError(null);
     const form = event.currentTarget;
     const data = new FormData(form);
-    if (
-      contactName.trim() &&
-      !selectedPartner &&
-      !String(data.get("partnerEmail") ?? "").trim() &&
-      !String(data.get("partnerLinkedin") ?? "").trim()
-    ) {
-      setError("New people need either an email or LinkedIn.");
-      return;
+
+    const contacts: Array<{
+      partnerId?: string;
+      firstName?: string;
+      lastName?: string;
+      role?: string;
+      email?: string;
+      linkedin?: string;
+    }> = [];
+    for (const row of contactRows) {
+      if (row.selectedPartnerId) {
+        contacts.push({ partnerId: row.selectedPartnerId });
+        continue;
+      }
+      if (!row.name.trim()) continue;
+      if (!row.email.trim() && !row.linkedin.trim()) {
+        setError("New people need either an email or LinkedIn.");
+        return;
+      }
+      const split = splitPersonName(row.name);
+      contacts.push({
+        firstName: row.firstName.trim() || split.firstName,
+        lastName: row.lastName.trim() || split.lastName,
+        role: row.role.trim() || undefined,
+        email: row.email.trim() || undefined,
+        linkedin: row.linkedin.trim() || undefined,
+      });
     }
+
     if (eventName.trim() && !eventMatch) {
       setError("Choose an existing event before saving attendance.");
       return;
     }
-    if (eventMatch && !contactName.trim() && !selectedPartnerId) {
+    if (eventMatch && contacts.length === 0) {
       setError("Event attendance needs a contacted person.");
       return;
     }
@@ -566,12 +629,7 @@ export function TouchpointsDirectory({
         const interaction = await createCompanyInteractionAction({
           companyId: String(data.get("companyId") ?? "") || undefined,
           companyName: String(data.get("companyName") ?? ""),
-          partnerId: selectedPartnerId || String(data.get("partnerId") ?? "") || undefined,
-          partnerFirstName: String(data.get("partnerFirstName") ?? ""),
-          partnerLastName: String(data.get("partnerLastName") ?? ""),
-          partnerRole: String(data.get("partnerRole") ?? ""),
-          partnerEmail: String(data.get("partnerEmail") ?? ""),
-          partnerLinkedin: String(data.get("partnerLinkedin") ?? ""),
+          contacts,
           userId: String(data.get("userId") ?? ""),
           type: String(data.get("type") ?? "meeting") as CompanyInteractionRecord["type"],
           direction: String(data.get("direction") || "") as CompanyInteractionRecord["direction"],
@@ -581,26 +639,27 @@ export function TouchpointsDirectory({
           followUpDate: String(data.get("followUpDate") ?? "") || undefined,
         });
         if (eventMatch) {
-          const partnerId = selectedPartnerId || interaction.partnerId || undefined;
+          const firstRow = contactRows.find((row) => row.selectedPartnerId || row.name.trim());
+          const partnerId = interaction.partnerId || undefined;
+          const split = firstRow ? splitPersonName(firstRow.name) : { firstName: "", lastName: "" };
           await logEventPartnerResponseAction({
             eventId: eventMatch.id,
             eventRole: String(data.get("eventRole") ?? "judge") as EventRole,
             eventStatus: String(data.get("eventStatus") ?? "asked") as EventAttendanceStatus,
             partnerId,
-            firstName: partnerId ? undefined : String(data.get("partnerFirstName") ?? ""),
-            lastName: partnerId ? undefined : String(data.get("partnerLastName") ?? ""),
+            firstName: partnerId ? undefined : firstRow?.firstName.trim() || split.firstName,
+            lastName: partnerId ? undefined : firstRow?.lastName.trim() || split.lastName,
             companyId: String(data.get("companyId") ?? "") || undefined,
             companyName: String(data.get("companyName") ?? ""),
-            role: String(data.get("partnerRole") ?? ""),
-            email: String(data.get("partnerEmail") ?? ""),
-            linkedin: String(data.get("partnerLinkedin") ?? ""),
+            role: firstRow?.role.trim() ?? "",
+            email: firstRow?.email.trim() ?? "",
+            linkedin: firstRow?.linkedin.trim() ?? "",
           });
         }
         form.reset();
         setCompanyName("");
-        setContactName("");
         setEventName("");
-        setSelectedPartnerId("");
+        resetContactRows();
         setMode("closed");
         resetActivityUrl();
         router.refresh();
@@ -610,10 +669,65 @@ export function TouchpointsDirectory({
     });
   }
 
+  function submitEdit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    if (!selected || selected.kind !== "touchpoint" || !selected.touchpoint) return;
+    const touchpointId = selected.touchpoint.id;
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const companyId = String(data.get("companyId") ?? "");
+    if (!companyId) {
+      setError("Company is required.");
+      return;
+    }
+
+    const newFirstName = String(data.get("newContactFirstName") ?? "").trim();
+    const newLastName = String(data.get("newContactLastName") ?? "").trim();
+    const newRole = String(data.get("newContactRole") ?? "").trim();
+    const newEmail = String(data.get("newContactEmail") ?? "").trim();
+    const newLinkedin = String(data.get("newContactLinkedin") ?? "").trim();
+    const hasNewContact = newFirstName.length > 0;
+    if (hasNewContact && !newEmail && !newLinkedin) {
+      setError("New contact needs either an email or LinkedIn.");
+      return;
+    }
+
+    startTransition(async () => {
+      const result = await updateCompanyInteractionAction({
+        id: touchpointId,
+        subject: String(data.get("subject") ?? ""),
+        contactedAt: String(data.get("contactedAt") ?? ""),
+        followUpDate: String(data.get("followUpDate") ?? "") || undefined,
+        type: String(data.get("type") ?? "meeting") as CompanyInteractionRecord["type"],
+        direction: (String(data.get("direction") || "") || undefined) as CompanyInteractionRecord["direction"],
+        userId: String(data.get("userId") ?? ""),
+        companyId,
+        partnerId: hasNewContact ? undefined : String(data.get("partnerId") ?? "") || undefined,
+        newContact: hasNewContact
+          ? {
+              firstName: newFirstName,
+              lastName: newLastName || undefined,
+              role: newRole || undefined,
+              email: newEmail || undefined,
+              linkedin: newLinkedin || undefined,
+            }
+          : undefined,
+        notes: String(data.get("notes") ?? ""),
+      });
+      if (result && "error" in result && result.error) {
+        setError(result.error);
+        return;
+      }
+      setMode("view");
+      router.refresh();
+    });
+  }
+
   return (
     <div className={["grid min-h-[100dvh] w-full max-w-full grid-cols-1 overflow-x-hidden bg-[#0d0d0f] text-zinc-100 xl:overflow-hidden", panelOpen ? "xl:grid-cols-[minmax(0,1fr)_minmax(400px,480px)]" : ""].join(" ")}>
       <section className={["min-w-0 bg-[#0d0d0f] px-3 py-4 sm:px-5 sm:py-5 xl:overflow-hidden", panelOpen ? "hidden xl:block" : ""].join(" ")}>
-        <h2 className="text-[15px] font-medium text-zinc-100">Contact history</h2>
+        <h2 className="text-[15px] font-medium text-zinc-100">Contact History</h2>
 
         <div className="mt-4 grid w-full max-w-[calc(100dvw-1.5rem)] grid-cols-1 gap-2 md:max-w-[860px] md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
           <input
@@ -629,9 +743,8 @@ export function TouchpointsDirectory({
               setError(null);
               setSelectedKey(null);
               setCompanyName("");
-              setContactName("");
               setEventName("");
-              setSelectedPartnerId("");
+              resetContactRows();
               setMode("create");
               resetActivityUrl();
             }}
@@ -713,9 +826,8 @@ export function TouchpointsDirectory({
                 setMode("closed");
                 setSelectedKey(null);
                 setCompanyName("");
-                setContactName("");
                 setEventName("");
-                setSelectedPartnerId("");
+                resetContactRows();
                 resetActivityUrl();
               }}
               className="grid size-7 shrink-0 place-items-center rounded-md border border-white/[0.12] bg-white/[0.055] text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:hidden cursor-pointer"
@@ -724,7 +836,7 @@ export function TouchpointsDirectory({
             </button>
             <div className="min-w-0 flex-1">
               <h3 className="truncate text-[17px] font-medium text-white">
-                {mode === "create" ? "Log contact" : selected?.title ?? "Contact history"}
+                {mode === "create" ? "Log contact" : mode === "edit" ? "Edit contact" : selected?.title ?? "Contact History"}
               </h3>
             </div>
             <button
@@ -734,9 +846,8 @@ export function TouchpointsDirectory({
                 setMode("closed");
                 setSelectedKey(null);
                 setCompanyName("");
-                setContactName("");
                 setEventName("");
-                setSelectedPartnerId("");
+                resetContactRows();
                 resetActivityUrl();
               }}
               className="hidden size-8 shrink-0 place-items-center rounded-md border border-white/[0.12] bg-white/[0.055] text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:grid cursor-pointer"
@@ -745,7 +856,158 @@ export function TouchpointsDirectory({
             </button>
           </div>
 
-          {mode === "create" ? (
+          {mode === "edit" && selected?.kind === "touchpoint" && selected.touchpoint ? (
+            <form onSubmit={submitEdit} className="flex min-h-0 flex-1 flex-col">
+              <div className="min-h-0 flex-1 min-w-0 space-y-4 overflow-x-hidden overflow-y-auto px-5 py-5">
+                <input type="hidden" name="companyId" defaultValue={selected.touchpoint.companyId} />
+                <Field label="Subject">
+                  <input
+                    name="subject"
+                    required
+                    defaultValue={selected.touchpoint.subject ?? ""}
+                    className={inputClass()}
+                  />
+                </Field>
+                <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+                  <Field label="Date">
+                    <input
+                      name="contactedAt"
+                      required
+                      type="date"
+                      defaultValue={selected.touchpoint.contactedAtIso.slice(0, 10)}
+                      className={inputClass()}
+                    />
+                  </Field>
+                  <Field label="Next outreach">
+                    <input
+                      name="followUpDate"
+                      type="date"
+                      defaultValue={selected.touchpoint.followUpDate ?? ""}
+                      className={inputClass()}
+                    />
+                  </Field>
+                </div>
+                <Field label="Company">
+                  <input
+                    type="text"
+                    value={selected.touchpoint.companyName}
+                    disabled
+                    className={inputClass("opacity-60")}
+                  />
+                </Field>
+                <Field label="Contact">
+                  <select
+                    name="partnerId"
+                    defaultValue={selected.touchpoint.partnerId ?? ""}
+                    className={inputClass()}
+                  >
+                    <option value="">Company-level contact</option>
+                    {partners
+                      .filter((partner) => partner.companyId === selected.touchpoint!.companyId)
+                      .map((partner) => (
+                        <option key={partner.id} value={partner.id}>
+                          {partner.name}
+                        </option>
+                      ))}
+                  </select>
+                </Field>
+                <details className="group rounded-md border border-white/[0.08] bg-white/[0.025] open:bg-white/[0.04]">
+                  <summary className="flex cursor-pointer items-center justify-between px-3 py-2 text-[13px] font-medium text-zinc-300 transition group-open:border-b group-open:border-white/[0.06]">
+                    <span>Or add a new contact</span>
+                    <Plus className="size-4 transition group-open:rotate-45" strokeWidth={1.8} />
+                  </summary>
+                  <div className="grid gap-3 p-3">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field label="First name">
+                        <input name="newContactFirstName" className={inputClass()} />
+                      </Field>
+                      <Field label="Last name">
+                        <input name="newContactLastName" className={inputClass()} />
+                      </Field>
+                    </div>
+                    <Field label="Title">
+                      <input name="newContactRole" placeholder="Recruiter, Founder, Engineering Manager" className={inputClass()} />
+                    </Field>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field label="Email">
+                        <input name="newContactEmail" type="email" placeholder="email@company.com" className={inputClass()} />
+                      </Field>
+                      <Field label="LinkedIn">
+                        <input name="newContactLinkedin" placeholder="https://linkedin.com/in/..." className={inputClass()} />
+                      </Field>
+                    </div>
+                    <p className="text-[12px] text-zinc-500">New contact needs email or LinkedIn. When filled in, the existing contact selection above is ignored.</p>
+                  </div>
+                </details>
+                <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+                  <Field label="Channel">
+                    <select
+                      name="type"
+                      defaultValue={selected.touchpoint.type}
+                      className={inputClass()}
+                    >
+                      {touchpointTypes.map((type) => (
+                        <option key={type.value} value={type.value}>{type.label}</option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Direction">
+                    <select
+                      name="direction"
+                      defaultValue={selected.touchpoint.direction ?? "outbound"}
+                      className={inputClass()}
+                    >
+                      <option value="outbound">Outbound</option>
+                      <option value="inbound">Inbound</option>
+                    </select>
+                  </Field>
+                </div>
+                <Field label="BizTech Director">
+                  <select
+                    name="userId"
+                    required
+                    defaultValue={selected.touchpoint.userId}
+                    className={inputClass()}
+                  >
+                    <option value="">Select BizTech Director</option>
+                    {users.map((user) => (
+                      <option key={user.id} value={user.id}>{user.name}</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Notes">
+                  <textarea
+                    name="notes"
+                    rows={5}
+                    defaultValue={selected.touchpoint.notes ?? ""}
+                    className={inputClass("h-auto py-2")}
+                  />
+                </Field>
+                {error ? <p className="rounded-md border border-red-400/20 bg-red-400/10 px-3 py-2 text-[13px] text-red-200">{error}</p> : null}
+              </div>
+              <div className="flex shrink-0 items-center gap-2 border-t border-white/[0.08] bg-[#0d0e11] px-5 py-4">
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer"
+                >
+                  <Pencil className="size-4" strokeWidth={1.8} />
+                  Save changes
+                </button>
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => {
+                    setError(null);
+                    setMode("view");
+                  }}
+                  className="inline-flex h-9 items-center rounded-md border border-white/[0.12] px-3 text-[13px] text-zinc-300 transition hover:bg-white/[0.05] disabled:opacity-60 cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          ) : mode === "create" ? (
             <form onSubmit={submitCreate} className="flex min-h-0 flex-1 flex-col">
               <div className="min-h-0 flex-1 min-w-0 space-y-4 overflow-x-hidden overflow-y-auto px-5 py-5">
                 <Field label="Subject">
@@ -765,48 +1027,111 @@ export function TouchpointsDirectory({
                     value={companyName}
                     onChange={(value) => {
                       setCompanyName(value);
-                      setSelectedPartnerId("");
+                      setContactRows((rows) => rows.map((row) => ({ ...row, selectedPartnerId: "" })));
                     }}
                   />
                 </Field>
-                <Field label="Contacted person">
-                  <PersonCombo
-                    partners={partnerOptions}
-                    value={contactName}
-                    selectedId={selectedPartnerId}
-                    onChange={setContactName}
-                    onSelect={(partner) => {
-                      setSelectedPartnerId(partner?.id ?? "");
-                      if (partner) {
-                        setCompanyName(partner.companyName);
-                      }
-                    }}
-                  />
-                </Field>
-                {contactName.trim() && !selectedPartner ? (
-                  <div key={contactName} className="grid gap-3 rounded-md border border-white/[0.08] bg-white/[0.025] p-3">
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Field label="New person first name">
-                        <input name="partnerFirstName" defaultValue={pendingPersonName.firstName} className={inputClass()} />
-                      </Field>
-                      <Field label="New person last name">
-                        <input name="partnerLastName" defaultValue={pendingPersonName.lastName} className={inputClass()} />
-                      </Field>
-                    </div>
-                    <Field label="Title">
-                      <input name="partnerRole" placeholder="Recruiter, Founder, Engineering Manager" className={inputClass()} />
-                    </Field>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Field label="Email">
-                        <input name="partnerEmail" type="email" placeholder="email@company.com" className={inputClass()} />
-                      </Field>
-                      <Field label="LinkedIn">
-                        <input name="partnerLinkedin" placeholder="https://linkedin.com/in/..." className={inputClass()} />
-                      </Field>
-                    </div>
-                    <p className="text-[12px] text-zinc-500">New person needs email or LinkedIn.</p>
-                  </div>
-                ) : null}
+                <div className="grid gap-3">
+                  <p className="text-[12px] font-medium text-zinc-400">Contacts</p>
+                  {contactRows.map((row, index) => {
+                    const matchedPartner = row.selectedPartnerId
+                      ? partners.find((partner) => partner.id === row.selectedPartnerId) ?? null
+                      : getPartnerMatch(partnerOptions, row.name);
+                    const isNewPerson = row.name.trim().length > 0 && !matchedPartner;
+                    const split = splitPersonName(row.name);
+                    return (
+                      <div key={row.rowId} className="grid gap-3 rounded-md border border-white/[0.08] bg-white/[0.025] p-3">
+                        <div className="flex items-start gap-2">
+                          <div className="min-w-0 flex-1">
+                            <PersonCombo
+                              partners={partnerOptions}
+                              value={row.name}
+                              selectedId={row.selectedPartnerId}
+                              onChange={(value) => updateRow(row.rowId, { name: value })}
+                              onSelect={(partner) => {
+                                if (partner) {
+                                  updateRow(row.rowId, {
+                                    selectedPartnerId: partner.id,
+                                    name: partner.name,
+                                  });
+                                  setCompanyName(partner.companyName);
+                                } else {
+                                  updateRow(row.rowId, { selectedPartnerId: "" });
+                                }
+                              }}
+                            />
+                          </div>
+                          {contactRows.length > 1 || index > 0 ? (
+                            <button
+                              type="button"
+                              aria-label="Remove contact"
+                              onClick={() => removeRow(row.rowId)}
+                              className="grid size-9 shrink-0 place-items-center rounded-md border border-white/[0.09] text-zinc-400 transition hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-200 cursor-pointer"
+                            >
+                              <X className="size-4" strokeWidth={1.8} />
+                            </button>
+                          ) : null}
+                        </div>
+                        {isNewPerson ? (
+                          <div className="grid gap-3 border-t border-white/[0.06] pt-3">
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <Field label="New person first name">
+                                <input
+                                  value={row.firstName || split.firstName}
+                                  onChange={(event) => updateRow(row.rowId, { firstName: event.target.value })}
+                                  className={inputClass()}
+                                />
+                              </Field>
+                              <Field label="New person last name">
+                                <input
+                                  value={row.lastName || split.lastName}
+                                  onChange={(event) => updateRow(row.rowId, { lastName: event.target.value })}
+                                  className={inputClass()}
+                                />
+                              </Field>
+                            </div>
+                            <Field label="Title">
+                              <input
+                                value={row.role}
+                                onChange={(event) => updateRow(row.rowId, { role: event.target.value })}
+                                placeholder="Recruiter, Founder, Engineering Manager"
+                                className={inputClass()}
+                              />
+                            </Field>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <Field label="Email">
+                                <input
+                                  type="email"
+                                  value={row.email}
+                                  onChange={(event) => updateRow(row.rowId, { email: event.target.value })}
+                                  placeholder="email@company.com"
+                                  className={inputClass()}
+                                />
+                              </Field>
+                              <Field label="LinkedIn">
+                                <input
+                                  value={row.linkedin}
+                                  onChange={(event) => updateRow(row.rowId, { linkedin: event.target.value })}
+                                  placeholder="https://linkedin.com/in/..."
+                                  className={inputClass()}
+                                />
+                              </Field>
+                            </div>
+                            <p className="text-[12px] text-zinc-500">New person needs email or LinkedIn.</p>
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    onClick={addRow}
+                    className="inline-flex h-9 w-fit items-center gap-1.5 rounded-md border border-white/[0.12] bg-white/[0.04] px-3 text-[13px] font-medium text-zinc-200 transition hover:bg-white/[0.07] cursor-pointer"
+                  >
+                    <Plus className="size-4" strokeWidth={1.8} />
+                    Add another contact
+                  </button>
+                </div>
                 <div className="grid min-w-0 gap-3 sm:grid-cols-2">
                   <Field label="Channel">
                     <select name="type" defaultValue="meeting" className={inputClass()}>
@@ -885,7 +1210,7 @@ export function TouchpointsDirectory({
                       <p className="mt-1 text-zinc-300">{selected.companyNames.join(", ") || "No company"}</p>
                     </div>
                     <div>
-                      <p className="text-[12px] text-zinc-500">Contacted person</p>
+                      <p className="text-[12px] text-zinc-500">Contact</p>
                       <p className="mt-1 text-zinc-300">{selected.partnerNames.join(", ") || "Company-level contact"}</p>
                     </div>
                     <div>
@@ -904,29 +1229,48 @@ export function TouchpointsDirectory({
                 {selected.notes ? (
                   <section className="min-w-0 overflow-hidden rounded-md border border-white/[0.09] bg-[#0d0e11] p-4">
                     <p className="text-[13px] font-medium text-zinc-200">Notes</p>
-                    <p className="mt-3 whitespace-pre-wrap text-[13px] leading-5 text-zinc-400">{selected.notes}</p>
+                    <div className="mt-3">
+                      <MarkdownNotes>{selected.notes}</MarkdownNotes>
+                    </div>
                   </section>
                 ) : null}
 
                 {selected.kind === "touchpoint" && selected.touchpoint ? (
-                  <button
-                    type="button"
-                    disabled={isPending}
-                    onClick={() => {
-                      if (!window.confirm("Remove this contact record?")) return;
-                      startTransition(async () => {
-                        await deleteCompanyInteractionAction(selected.touchpoint!.id);
-                        setMode("closed");
-                        setSelectedKey(null);
-                        resetActivityUrl();
-                        router.refresh();
-                      });
-                    }}
-                    className="inline-flex h-9 w-fit items-center gap-1.5 rounded-md border border-red-400/20 px-3 text-[13px] font-medium text-red-200 transition hover:bg-red-400/10 disabled:opacity-60 cursor-pointer"
-                  >
-                    <Trash2 className="size-4" strokeWidth={1.8} />
-                    Remove contact record
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {selected.touchpoint.createdBy != null &&
+                    selected.touchpoint.createdBy === currentUserId ? (
+                      <button
+                        type="button"
+                        disabled={isPending}
+                        onClick={() => {
+                          setError(null);
+                          setMode("edit");
+                        }}
+                        className="inline-flex h-9 w-fit items-center gap-1.5 rounded-md border border-white/[0.12] bg-white/[0.04] px-3 text-[13px] font-medium text-zinc-200 transition hover:bg-white/[0.08] disabled:opacity-60 cursor-pointer"
+                      >
+                        <Pencil className="size-4" strokeWidth={1.8} />
+                        Edit
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => {
+                        if (!window.confirm("Remove this contact record?")) return;
+                        startTransition(async () => {
+                          await deleteCompanyInteractionAction(selected.touchpoint!.id);
+                          setMode("closed");
+                          setSelectedKey(null);
+                          resetActivityUrl();
+                          router.refresh();
+                        });
+                      }}
+                      className="inline-flex h-9 w-fit items-center gap-1.5 rounded-md border border-red-400/20 px-3 text-[13px] font-medium text-red-200 transition hover:bg-red-400/10 disabled:opacity-60 cursor-pointer"
+                    >
+                      <Trash2 className="size-4" strokeWidth={1.8} />
+                      Remove
+                    </button>
+                  </div>
                 ) : null}
 
                 {selected.kind === "meeting" && selected.meeting ? (
@@ -946,7 +1290,7 @@ export function TouchpointsDirectory({
                     className="inline-flex h-9 w-fit items-center gap-1.5 rounded-md border border-red-400/20 px-3 text-[13px] font-medium text-red-200 transition hover:bg-red-400/10 disabled:opacity-60"
                   >
                     <Trash2 className="size-4" strokeWidth={1.8} />
-                    Remove contact record
+                    Remove
                   </button>
                 ) : null}
               </div>

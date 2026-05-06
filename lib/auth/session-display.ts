@@ -15,6 +15,7 @@ export async function requireDisplayUser() {
   const crmUser = await resolveCrmUserForAuthUser(user);
 
   return {
+    id: crmUser.id,
     displayName: crmUser.name,
     email: crmUser.email,
   };
