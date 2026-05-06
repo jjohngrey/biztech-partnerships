@@ -54,17 +54,38 @@ type PanelMode = "closed" | "create" | "view" | "edit";
 type SortDirection = "asc" | "desc";
 type PartnerSortKey = "name" | "company" | "role" | "events";
 type CompanySortKey = "name" | "partners" | "events";
-type CompanyKind = "sponsors" | "in_kind";
+type CompanyKind = "sponsors" | "in_kind" | "previous";
 
 const IN_KIND_TAG = "in-kind";
+const PREVIOUS_TAG = "previous-sponsor";
 
 function isInKind(company: Pick<CompanyDirectoryRecord, "tags">) {
   return company.tags.includes(IN_KIND_TAG);
 }
 
+function isPrevious(company: Pick<CompanyDirectoryRecord, "tags">) {
+  return company.tags.includes(PREVIOUS_TAG);
+}
+
 function withInKindTag(existing: string[], inKind: boolean) {
   const without = existing.filter((tag) => tag !== IN_KIND_TAG);
   return inKind ? [...without, IN_KIND_TAG] : without;
+}
+
+function withPreviousTag(existing: string[], previous: boolean) {
+  const without = existing.filter((tag) => tag !== PREVIOUS_TAG);
+  return previous ? [...without, PREVIOUS_TAG] : without;
+}
+
+function kindForCompany(company: Pick<CompanyDirectoryRecord, "tags">): CompanyKind {
+  if (isPrevious(company)) return "previous";
+  return isInKind(company) ? "in_kind" : "sponsors";
+}
+
+function matchesKind(company: Pick<CompanyDirectoryRecord, "tags">, kind: CompanyKind) {
+  if (kind === "previous") return isPrevious(company);
+  if (kind === "in_kind") return isInKind(company);
+  return !isInKind(company);
 }
 
 const eventRoles: Array<{ value: EventRole; label: string }> = [
@@ -1161,8 +1182,18 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
   const [error, setError] = useState<string | null>(null);
   const selected = companies.find((company) => company.id === selectedId) ?? null;
 
-  const sponsorCount = useMemo(() => companies.filter((company) => !isInKind(company)).length, [companies]);
-  const inKindCount = useMemo(() => companies.filter(isInKind).length, [companies]);
+  const sponsorCount = useMemo(
+    () => companies.filter((company) => matchesKind(company, "sponsors")).length,
+    [companies],
+  );
+  const inKindCount = useMemo(
+    () => companies.filter((company) => matchesKind(company, "in_kind")).length,
+    [companies],
+  );
+  const previousCount = useMemo(
+    () => companies.filter((company) => matchesKind(company, "previous")).length,
+    [companies],
+  );
 
   useEffect(() => {
     const companyId = new URLSearchParams(window.location.search).get("companyId");
@@ -1170,7 +1201,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
     if (!company) return;
     setSelectedId(company.id);
     setMode("view");
-    setKind(isInKind(company) ? "in_kind" : "sponsors");
+    setKind(kindForCompany(company));
   }, [companies]);
   const linkablePartners = selected
     ? partners.filter((partner) => partner.companyId !== selected.id && !partner.archived)
@@ -1186,7 +1217,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
 
   const filteredCompanies = useMemo(() => {
     const filtered = companies.filter((company) => {
-      if (kind === "in_kind" ? !isInKind(company) : isInKind(company)) return false;
+      if (!matchesKind(company, kind)) return false;
       const haystack = [company.name, company.website, company.linkedin]
         .filter(Boolean)
         .join(" ")
@@ -1220,6 +1251,11 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
     const form = event.currentTarget;
     const data = new FormData(form);
     const inKind = data.get("isInKind") === "on";
+    const previous = data.get("isPrevious") === "on";
+    const tags = [
+      inKind ? IN_KIND_TAG : null,
+      previous ? PREVIOUS_TAG : null,
+    ].filter((tag): tag is string => Boolean(tag));
     startTransition(async () => {
       try {
         const company = await createCompanyAction({
@@ -1228,12 +1264,12 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
           linkedin: String(data.get("linkedin") ?? ""),
           notes: String(data.get("notes") ?? ""),
           isAlumni: data.get("isAlumni") === "on",
-          tags: inKind ? [IN_KIND_TAG] : [],
+          tags,
         });
         form.reset();
         setSelectedId(company.id);
         setMode("view");
-        setKind(inKind ? "in_kind" : "sponsors");
+        setKind(kindForCompany({ tags }));
         setCompanyUrl(company.id);
         setShowPartnerForm(false);
         setShowEventForm(false);
@@ -1251,6 +1287,8 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
     setError(null);
     const data = new FormData(event.currentTarget);
     const inKind = data.get("isInKind") === "on";
+    const previous = data.get("isPrevious") === "on";
+    const nextTags = withPreviousTag(withInKindTag(selected.tags, inKind), previous);
     startTransition(async () => {
       try {
         await updateCompanyAction({
@@ -1261,10 +1299,10 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
           notes: String(data.get("notes") ?? ""),
           isAlumni: data.get("isAlumni") === "on",
           archived: data.get("archived") === "on",
-          tags: withInKindTag(selected.tags, inKind),
+          tags: nextTags,
         });
         setMode("view");
-        setKind(inKind ? "in_kind" : "sponsors");
+        setKind(kindForCompany({ tags: nextTags }));
         router.refresh();
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "Could not update company.");
@@ -1428,9 +1466,14 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
   }
 
   const panelOpen = mode !== "closed";
+  const showAmount = kind === "sponsors";
   const companyGrid = panelOpen
-    ? "grid-cols-[minmax(150px,1fr)_96px]"
-    : "grid-cols-1 md:grid-cols-[minmax(180px,1fr)_128px] xl:grid-cols-[minmax(180px,1.4fr)_110px_minmax(160px,1fr)]";
+    ? showAmount
+      ? "grid-cols-[minmax(140px,1fr)_64px_88px_minmax(120px,1.2fr)]"
+      : "grid-cols-[minmax(140px,1fr)_64px_minmax(120px,1.2fr)]"
+    : showAmount
+      ? "grid-cols-1 md:grid-cols-[minmax(180px,1fr)_88px_96px_minmax(140px,1.2fr)] xl:grid-cols-[minmax(180px,1.4fr)_88px_minmax(140px,1fr)_96px_minmax(160px,1.2fr)]"
+      : "grid-cols-1 md:grid-cols-[minmax(180px,1fr)_88px_minmax(140px,1.2fr)] xl:grid-cols-[minmax(180px,1.4fr)_88px_minmax(140px,1fr)_minmax(160px,1.2fr)]";
   const companyTableMin = "min-w-0";
 
   return (
@@ -1442,6 +1485,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
           {([
             { value: "sponsors" as const, label: "Sponsors", count: sponsorCount },
             { value: "in_kind" as const, label: "In-kind", count: inKindCount },
+            { value: "previous" as const, label: "Previous", count: previousCount },
           ]).map((tab) => (
             <button
               key={tab.value}
@@ -1493,13 +1537,11 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
               <SortHeader label="Name" sortKey="name" activeKey={sortKey} direction={sortDirection} onSort={sortCompanies} />
             </span>
             <span className={panelOpen ? "min-w-0 justify-self-start" : "hidden min-w-0 justify-self-start md:block"}>
-              {panelOpen ? (
-                <SortHeader label="Partners" sortKey="partners" activeKey={sortKey} direction={sortDirection} onSort={sortCompanies} />
-              ) : (
-                <SortHeader label="Partners" sortKey="partners" activeKey={sortKey} direction={sortDirection} onSort={sortCompanies} />
-              )}
+              <SortHeader label="Partners" sortKey="partners" activeKey={sortKey} direction={sortDirection} onSort={sortCompanies} />
             </span>
             {!panelOpen && <span className="hidden min-w-0 xl:block"><SortHeader label="Events" sortKey="events" activeKey={sortKey} direction={sortDirection} onSort={sortCompanies} /></span>}
+            {showAmount && <span className={panelOpen ? "min-w-0 justify-self-start" : "hidden min-w-0 justify-self-start md:block"}>Amount</span>}
+            <span className={panelOpen ? "min-w-0" : "hidden min-w-0 md:block"}>Notes</span>
           </div>
           <div className="max-h-[62vh] overflow-auto">
             {filteredCompanies.map((company) => {
@@ -1533,6 +1575,11 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                             In-kind
                           </span>
                         ) : null}
+                        {isPrevious(company) ? (
+                          <span className="shrink-0 rounded-full border border-amber-400/20 bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-200">
+                            Previous
+                          </span>
+                        ) : null}
                       </span>
                       <span className="block truncate text-[12px] text-zinc-500">{companyWebLine(company)}</span>
                       {!panelOpen && (
@@ -1548,12 +1595,20 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                       {eventSummary(company.eventAttendances)}
                     </span>
                   )}
+                  {showAmount && (
+                    <span className={panelOpen ? "min-w-0 text-left text-zinc-300" : "hidden min-w-0 text-left text-zinc-300 md:block"}>
+                      {company.securedValue ? dollars(company.securedValue) : <span className="text-zinc-600">—</span>}
+                    </span>
+                  )}
+                  <span className={panelOpen ? "min-w-0 truncate text-zinc-400" : "hidden min-w-0 truncate text-zinc-400 md:block"}>
+                    {company.notes ? company.notes.split("\n")[0] : <span className="text-zinc-600">—</span>}
+                  </span>
                 </button>
               );
             })}
           </div>
           <div className="border-t border-white/[0.08] px-4 py-4 text-[13px] text-zinc-500">
-            {filteredCompanies.length} {kind === "in_kind" ? "in-kind companies" : "companies"}
+            {filteredCompanies.length} {kind === "in_kind" ? "in-kind companies" : kind === "previous" ? "previous sponsors/in-kinds" : "companies"}
           </div>
         </div>
       </section>
@@ -1639,6 +1694,10 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                     <input name="isInKind" type="checkbox" defaultChecked={kind === "in_kind"} className="size-4 accent-zinc-400" />
                     In-kind sponsor
                   </label>
+                  <label className="flex items-center gap-2 text-[13px] text-zinc-300">
+                    <input name="isPrevious" type="checkbox" defaultChecked={kind === "previous"} className="size-4 accent-zinc-400" />
+                    Previous sponsor
+                  </label>
                 </div>
                 {error && <p className="rounded-md border border-red-400/20 bg-red-400/10 px-3 py-2 text-[13px] text-red-200">{error}</p>}
               </div>
@@ -1662,9 +1721,14 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                             In-kind
                           </span>
                         ) : null}
+                        {isPrevious(selected) ? (
+                          <span className="shrink-0 rounded-full border border-amber-400/20 bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-200">
+                            Previous
+                          </span>
+                        ) : null}
                       </div>
                       <p className="mt-0.5 truncate text-[12px] text-zinc-500">
-                        {[isInKind(selected) ? "In-kind sponsor" : null, selected.isAlumni ? "Alumni-led" : null, selected.archived ? "Archived" : null].filter(Boolean).join(" · ") || "Company profile"}
+                        {[isPrevious(selected) ? "Previous sponsor" : null, isInKind(selected) ? "In-kind sponsor" : null, selected.isAlumni ? "Alumni-led" : null, selected.archived ? "Archived" : null].filter(Boolean).join(" · ") || "Company profile"}
                       </p>
                     </div>
                   </div>
@@ -2048,6 +2112,10 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                     <label className="flex items-center gap-2 text-[13px] text-zinc-300">
                       <input name="isInKind" type="checkbox" defaultChecked={isInKind(selected)} className="size-4 accent-zinc-400" />
                       In-kind sponsor
+                    </label>
+                    <label className="flex items-center gap-2 text-[13px] text-zinc-300">
+                      <input name="isPrevious" type="checkbox" defaultChecked={isPrevious(selected)} className="size-4 accent-zinc-400" />
+                      Previous sponsor
                     </label>
                     <label className="flex items-center gap-2 text-[13px] text-zinc-300">
                       <input name="archived" type="checkbox" defaultChecked={selected.archived} className="size-4 accent-zinc-400" />
