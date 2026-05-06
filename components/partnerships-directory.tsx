@@ -54,6 +54,18 @@ type PanelMode = "closed" | "create" | "view" | "edit";
 type SortDirection = "asc" | "desc";
 type PartnerSortKey = "name" | "company" | "role" | "events";
 type CompanySortKey = "name" | "partners" | "events";
+type CompanyKind = "sponsors" | "in_kind";
+
+const IN_KIND_TAG = "in-kind";
+
+function isInKind(company: Pick<CompanyDirectoryRecord, "tags">) {
+  return company.tags.includes(IN_KIND_TAG);
+}
+
+function withInKindTag(existing: string[], inKind: boolean) {
+  const without = existing.filter((tag) => tag !== IN_KIND_TAG);
+  return inKind ? [...without, IN_KIND_TAG] : without;
+}
 
 const eventRoles: Array<{ value: EventRole; label: string }> = [
   { value: "judge", label: "Judge" },
@@ -1144,9 +1156,13 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
   const [existingPartnerId, setExistingPartnerId] = useState("");
   const [sortKey, setSortKey] = useState<CompanySortKey>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [kind, setKind] = useState<CompanyKind>("sponsors");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const selected = companies.find((company) => company.id === selectedId) ?? null;
+
+  const sponsorCount = useMemo(() => companies.filter((company) => !isInKind(company)).length, [companies]);
+  const inKindCount = useMemo(() => companies.filter(isInKind).length, [companies]);
 
   useEffect(() => {
     const companyId = new URLSearchParams(window.location.search).get("companyId");
@@ -1154,6 +1170,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
     if (!company) return;
     setSelectedId(company.id);
     setMode("view");
+    setKind(isInKind(company) ? "in_kind" : "sponsors");
   }, [companies]);
   const linkablePartners = selected
     ? partners.filter((partner) => partner.companyId !== selected.id && !partner.archived)
@@ -1169,6 +1186,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
 
   const filteredCompanies = useMemo(() => {
     const filtered = companies.filter((company) => {
+      if (kind === "in_kind" ? !isInKind(company) : isInKind(company)) return false;
       const haystack = [company.name, company.website, company.linkedin]
         .filter(Boolean)
         .join(" ")
@@ -1185,7 +1203,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
               : compareText(left.name, right.name);
       return sortValue(result, sortDirection);
     });
-  }, [companies, query, sortDirection, sortKey]);
+  }, [companies, kind, query, sortDirection, sortKey]);
 
   function sortCompanies(key: CompanySortKey) {
     if (sortKey === key) {
@@ -1201,6 +1219,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
     setError(null);
     const form = event.currentTarget;
     const data = new FormData(form);
+    const inKind = data.get("isInKind") === "on";
     startTransition(async () => {
       try {
         const company = await createCompanyAction({
@@ -1209,10 +1228,12 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
           linkedin: String(data.get("linkedin") ?? ""),
           notes: String(data.get("notes") ?? ""),
           isAlumni: data.get("isAlumni") === "on",
+          tags: inKind ? [IN_KIND_TAG] : [],
         });
         form.reset();
         setSelectedId(company.id);
         setMode("view");
+        setKind(inKind ? "in_kind" : "sponsors");
         setCompanyUrl(company.id);
         setShowPartnerForm(false);
         setShowEventForm(false);
@@ -1229,6 +1250,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
     if (!selected) return;
     setError(null);
     const data = new FormData(event.currentTarget);
+    const inKind = data.get("isInKind") === "on";
     startTransition(async () => {
       try {
         await updateCompanyAction({
@@ -1239,8 +1261,10 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
           notes: String(data.get("notes") ?? ""),
           isAlumni: data.get("isAlumni") === "on",
           archived: data.get("archived") === "on",
+          tags: withInKindTag(selected.tags, inKind),
         });
         setMode("view");
+        setKind(inKind ? "in_kind" : "sponsors");
         router.refresh();
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "Could not update company.");
@@ -1414,7 +1438,29 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
       <section className={["min-w-0 bg-[#0d0d0f] px-3 py-4 sm:px-5 sm:py-5 xl:overflow-hidden", panelOpen ? "hidden xl:block" : ""].join(" ")}>
         <h2 className="text-[15px] font-medium text-zinc-100">Companies</h2>
 
-        <div className="mt-4 grid max-w-[760px] grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+        <div className="mt-4 inline-flex rounded-md border border-white/[0.09] bg-[#111113] p-0.5 text-[13px]">
+          {([
+            { value: "sponsors" as const, label: "Sponsors", count: sponsorCount },
+            { value: "in_kind" as const, label: "In-kind", count: inKindCount },
+          ]).map((tab) => (
+            <button
+              key={tab.value}
+              type="button"
+              onClick={() => setKind(tab.value)}
+              className={[
+                "h-7 rounded px-3 transition cursor-pointer",
+                kind === tab.value
+                  ? "bg-white/[0.08] text-zinc-100"
+                  : "text-zinc-400 hover:text-zinc-200",
+              ].join(" ")}
+            >
+              <span>{tab.label}</span>
+              <span className="ml-1.5 text-[12px] text-zinc-500">{tab.count}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-3 grid max-w-[760px] grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
           <input
             name="companySearch"
             value={query}
@@ -1480,7 +1526,14 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                   <span className="flex min-w-0 items-center gap-3">
                     <Avatar name={company.name} />
                     <span className="min-w-0">
-                      <span className="block truncate font-medium text-zinc-100">{company.name}</span>
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="truncate font-medium text-zinc-100">{company.name}</span>
+                        {isInKind(company) ? (
+                          <span className="shrink-0 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-200">
+                            In-kind
+                          </span>
+                        ) : null}
+                      </span>
                       <span className="block truncate text-[12px] text-zinc-500">{companyWebLine(company)}</span>
                       {!panelOpen && (
                         <span className="block truncate text-[12px] text-zinc-500 md:hidden">
@@ -1500,7 +1553,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
             })}
           </div>
           <div className="border-t border-white/[0.08] px-4 py-4 text-[13px] text-zinc-500">
-            {filteredCompanies.length} companies
+            {filteredCompanies.length} {kind === "in_kind" ? "in-kind companies" : "companies"}
           </div>
         </div>
       </section>
@@ -1577,10 +1630,16 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                 <Field label="Website"><input name="website" className={inputClass()} /></Field>
                 <Field label="LinkedIn"><input name="linkedin" className={inputClass()} /></Field>
                 <Field label="Notes"><textarea name="notes" rows={3} className={inputClass("h-auto py-2")} /></Field>
-                <label className="flex items-center gap-2 text-[13px] text-zinc-300">
-                  <input name="isAlumni" type="checkbox" className="size-4 accent-zinc-400" />
-                  Alumni-led
-                </label>
+                <div className="flex flex-wrap gap-5">
+                  <label className="flex items-center gap-2 text-[13px] text-zinc-300">
+                    <input name="isAlumni" type="checkbox" className="size-4 accent-zinc-400" />
+                    Alumni-led
+                  </label>
+                  <label className="flex items-center gap-2 text-[13px] text-zinc-300">
+                    <input name="isInKind" type="checkbox" defaultChecked={kind === "in_kind"} className="size-4 accent-zinc-400" />
+                    In-kind sponsor
+                  </label>
+                </div>
                 {error && <p className="rounded-md border border-red-400/20 bg-red-400/10 px-3 py-2 text-[13px] text-red-200">{error}</p>}
               </div>
               <div className="shrink-0 border-t border-white/[0.08] bg-[#0d0e11] px-5 py-4">
@@ -1596,9 +1655,16 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                   <div className="flex items-start gap-3">
                     <Avatar name={selected.name} size="lg" />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[15px] font-medium text-zinc-100">{selected.name}</p>
+                      <div className="flex min-w-0 items-center gap-2">
+                        <p className="truncate text-[15px] font-medium text-zinc-100">{selected.name}</p>
+                        {isInKind(selected) ? (
+                          <span className="shrink-0 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-200">
+                            In-kind
+                          </span>
+                        ) : null}
+                      </div>
                       <p className="mt-0.5 truncate text-[12px] text-zinc-500">
-                        {[selected.isAlumni ? "Alumni-led" : null, selected.archived ? "Archived" : null].filter(Boolean).join(" · ") || "Company profile"}
+                        {[isInKind(selected) ? "In-kind sponsor" : null, selected.isAlumni ? "Alumni-led" : null, selected.archived ? "Archived" : null].filter(Boolean).join(" · ") || "Company profile"}
                       </p>
                     </div>
                   </div>
@@ -1978,6 +2044,10 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                     <label className="flex items-center gap-2 text-[13px] text-zinc-300">
                       <input name="isAlumni" type="checkbox" defaultChecked={selected.isAlumni} className="size-4 accent-zinc-400" />
                       Alumni-led
+                    </label>
+                    <label className="flex items-center gap-2 text-[13px] text-zinc-300">
+                      <input name="isInKind" type="checkbox" defaultChecked={isInKind(selected)} className="size-4 accent-zinc-400" />
+                      In-kind sponsor
                     </label>
                     <label className="flex items-center gap-2 text-[13px] text-zinc-300">
                       <input name="archived" type="checkbox" defaultChecked={selected.archived} className="size-4 accent-zinc-400" />

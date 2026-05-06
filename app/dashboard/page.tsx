@@ -377,7 +377,7 @@ export default async function DashboardPage() {
             </div>
 
             <div className="grid gap-4 xl:grid-cols-2">
-              <section className="min-w-0 rounded-md border border-white/[0.08] bg-[#0d0d0f]">
+              <section className="min-w-0 rounded-md border border-white/[0.08] bg-[#111113]">
                 <div className="border-b border-white/[0.07] px-4 py-3">
                   <p className="text-[13px] font-medium text-zinc-200">Sponsor commitments</p>
                 </div>
@@ -400,7 +400,7 @@ export default async function DashboardPage() {
                 </div>
               </section>
 
-              <section className="min-w-0 rounded-md border border-white/[0.08] bg-[#0d0d0f]">
+              <section className="min-w-0 rounded-md border border-white/[0.08] bg-[#111113]">
                 <div className="border-b border-white/[0.07] px-4 py-3">
                   <p className="text-[13px] font-medium text-zinc-200">Live conversations</p>
                 </div>
