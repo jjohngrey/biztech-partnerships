@@ -1,9 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { EmailCampaignRecord, EmailRecipientRecord, CrmUserSummary } from "../types";
-
-// ---------------------------------------------------------------------------
-// Mock dependencies before importing the module under test
-// ---------------------------------------------------------------------------
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { CrmUserSummary, EmailCampaignRecord } from "../types";
 
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
@@ -41,17 +37,8 @@ vi.mock("@/lib/db", () => ({
 }));
 
 vi.mock("../repository", () => ({
-  // Used by sendEmailCampaignAction:
   listEmailCampaigns: vi.fn(),
-  listEmailRecipients: vi.fn(),
-  listEvents: vi.fn(),
-  listUsers: vi.fn(),
-  buildMergeValues: vi.fn(),
-  renderMergeTemplate: vi.fn((template: string) => template),
-  updateEmailCampaignStatus: vi.fn(),
-  updateEmailSendResult: vi.fn(),
-  logEmailInteraction: vi.fn(),
-  // Other repo functions imported by actions.ts (unused by these tests but must exist):
+  enqueueEmailCampaign: vi.fn(),
   addCompanyEventRole: vi.fn(),
   addPartnerEventRole: vi.fn(),
   archivePartnerAccount: vi.fn(),
@@ -90,36 +77,17 @@ vi.mock("../cached", () => ({
   CRM_DATA_TAG: "crm-data",
 }));
 
-import { sendEmailCampaignAction } from "../actions";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { resolveCrmUserForAuthUser } from "@/lib/auth/crm-user";
 import { getAuthedClient } from "@/lib/google/client";
-import {
-  buildMergeValues,
-  listEmailCampaigns,
-  listEmailRecipients,
-  listEvents,
-  listUsers,
-  logEmailInteraction,
-  updateEmailCampaignStatus,
-  updateEmailSendResult,
-} from "../repository";
+import { enqueueEmailCampaignAction } from "../actions";
+import { enqueueEmailCampaign, listEmailCampaigns } from "../repository";
 
 const mockCreateClient = vi.mocked(createSupabaseClient);
 const mockResolveCrmUser = vi.mocked(resolveCrmUserForAuthUser);
 const mockGetAuthedClient = vi.mocked(getAuthedClient);
 const mockListCampaigns = vi.mocked(listEmailCampaigns);
-const mockListRecipients = vi.mocked(listEmailRecipients);
-const mockListEvents = vi.mocked(listEvents);
-const mockListUsers = vi.mocked(listUsers);
-const mockBuildMergeValues = vi.mocked(buildMergeValues);
-const mockUpdateCampaignStatus = vi.mocked(updateEmailCampaignStatus);
-const mockUpdateSendResult = vi.mocked(updateEmailSendResult);
-const mockLogEmailInteraction = vi.mocked(logEmailInteraction);
-
-// ---------------------------------------------------------------------------
-// Fixtures
-// ---------------------------------------------------------------------------
+const mockEnqueueEmailCampaign = vi.mocked(enqueueEmailCampaign);
 
 const AUTH_USER = {
   id: "auth-user-1",
@@ -137,18 +105,7 @@ const CRM_USER: CrmUserSummary = {
   team: "partnerships",
 };
 
-const RECIPIENT: EmailRecipientRecord = {
-  id: "partner-1",
-  companyId: "company-1",
-  companyName: "Initech",
-  contactName: "Ada Lovelace",
-  email: "ada@initech.com",
-  latestStatus: null,
-};
-
-function makeCampaign(
-  overrides: Partial<EmailCampaignRecord> = {},
-): EmailCampaignRecord {
+function makeCampaign(overrides: Partial<EmailCampaignRecord> = {}): EmailCampaignRecord {
   return {
     id: "campaign-1",
     templateId: null,
@@ -156,10 +113,13 @@ function makeCampaign(
     eventName: null,
     senderUserId: CRM_USER.id,
     senderName: CRM_USER.name,
-    subject: "Hello {{contact_name}}",
-    body: "Hi {{recipient_first_name}}",
+    subject: "Hello",
+    body: "Hi",
     status: "draft",
     createdAtIso: "2026-05-01T00:00:00.000Z",
+    queuedAtIso: null,
+    scheduledAtIso: null,
+    lastAttemptedAtIso: null,
     sentAtIso: null,
     sends: [
       {
@@ -169,6 +129,7 @@ function makeCampaign(
         recipientEmail: "ada@initech.com",
         status: "queued",
         error: null,
+        sentAtIso: null,
       },
     ],
     ...overrides,
@@ -185,28 +146,12 @@ function setSupabaseUser(user: typeof AUTH_USER | null) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockBuildMergeValues.mockResolvedValue({
-    company_name: RECIPIENT.companyName,
-    contact_name: RECIPIENT.contactName,
-    recipient_first_name: "Ada",
-    recipient_last_name: "Lovelace",
-    recipient_full_name: "Ada Lovelace",
-    recipient_email: RECIPIENT.email,
-    sender_first_name: CRM_USER.firstName,
-    sender_last_name: CRM_USER.lastName,
-    sender_full_name: CRM_USER.name,
-    sender_email: CRM_USER.email,
-    event_name: "",
-    event_year: "",
-  });
 });
 
-describe("sendEmailCampaignAction", () => {
+describe("enqueueEmailCampaignAction", () => {
   it("throws when the caller is not signed in", async () => {
     setSupabaseUser(null);
-    await expect(sendEmailCampaignAction("campaign-1")).rejects.toThrow(
-      /sign in/i,
-    );
+    await expect(enqueueEmailCampaignAction({ campaignId: "campaign-1" })).rejects.toThrow(/sign in/i);
   });
 
   it("returns needs-consent when Google client lacks scope", async () => {
@@ -217,7 +162,7 @@ describe("sendEmailCampaignAction", () => {
       consentUrl: "https://accounts.google.com/consent",
     } as Awaited<ReturnType<typeof getAuthedClient>>);
 
-    const result = await sendEmailCampaignAction("campaign-1");
+    const result = await enqueueEmailCampaignAction({ campaignId: "campaign-1" });
     expect(result).toEqual({
       kind: "needs-consent",
       consentUrl: "https://accounts.google.com/consent",
@@ -232,13 +177,8 @@ describe("sendEmailCampaignAction", () => {
       gmail: { users: { messages: { send: vi.fn() } } },
     } as unknown as Awaited<ReturnType<typeof getAuthedClient>>);
     mockListCampaigns.mockResolvedValue([]);
-    mockListRecipients.mockResolvedValue([]);
-    mockListEvents.mockResolvedValue([]);
-    mockListUsers.mockResolvedValue([]);
 
-    await expect(sendEmailCampaignAction("missing")).rejects.toThrow(
-      /draft was not found/i,
-    );
+    await expect(enqueueEmailCampaignAction({ campaignId: "missing" })).rejects.toThrow(/draft was not found/i);
   });
 
   it("throws when the campaign has no queued sends", async () => {
@@ -247,142 +187,54 @@ describe("sendEmailCampaignAction", () => {
     mockGetAuthedClient.mockResolvedValue({
       gmail: { users: { messages: { send: vi.fn() } } },
     } as unknown as Awaited<ReturnType<typeof getAuthedClient>>);
-    mockListCampaigns.mockResolvedValue([
-      makeCampaign({ sends: [] }),
-    ]);
-    mockListRecipients.mockResolvedValue([]);
-    mockListEvents.mockResolvedValue([]);
-    mockListUsers.mockResolvedValue([]);
+    mockListCampaigns.mockResolvedValue([makeCampaign({ sends: [] })]);
 
-    await expect(sendEmailCampaignAction("campaign-1")).rejects.toThrow(
-      /no queued recipients/i,
-    );
+    await expect(enqueueEmailCampaignAction({ campaignId: "campaign-1" })).rejects.toThrow(/no queued recipients/i);
   });
 
-  it("sends a queued message, records the result, and logs an interaction", async () => {
+  it("queues campaign with parsed schedule and returns queue metadata", async () => {
     setSupabaseUser(AUTH_USER);
     mockResolveCrmUser.mockResolvedValue(CRM_USER);
-    const sendMessage = vi.fn().mockResolvedValue({
-      data: { id: "gmail-message-id-abc" },
-    });
     mockGetAuthedClient.mockResolvedValue({
-      gmail: { users: { messages: { send: sendMessage } } },
+      gmail: { users: { messages: { send: vi.fn() } } },
     } as unknown as Awaited<ReturnType<typeof getAuthedClient>>);
+    mockListCampaigns.mockResolvedValue([makeCampaign()]);
+    const scheduledAt = new Date("2026-07-10T16:30:00.000Z");
+    mockEnqueueEmailCampaign.mockResolvedValue({
+      id: "campaign-1",
+      scheduledAt,
+    } as Awaited<ReturnType<typeof enqueueEmailCampaign>>);
 
-    const campaign = makeCampaign();
-    mockListCampaigns.mockResolvedValue([campaign]);
-    mockListRecipients.mockResolvedValue([RECIPIENT]);
-    mockListEvents.mockResolvedValue([]);
-    mockListUsers.mockResolvedValue([CRM_USER]);
-
-    const result = await sendEmailCampaignAction(campaign.id);
-
-    // Status transitions: sending -> sent
-    expect(mockUpdateCampaignStatus).toHaveBeenNthCalledWith(1, campaign.id, "sending");
-    expect(mockUpdateCampaignStatus).toHaveBeenLastCalledWith(campaign.id, "sent");
-
-    expect(sendMessage).toHaveBeenCalledTimes(1);
-    const sendArgs = sendMessage.mock.calls[0][0];
-    expect(sendArgs.userId).toBe("me");
-    expect(sendArgs.requestBody).toHaveProperty("raw");
-    // Verify the raw payload encodes the recipient address.
-    const decoded = Buffer.from(sendArgs.requestBody.raw, "base64url").toString("utf8");
-    expect(decoded).toContain(`To: ${RECIPIENT.email}`);
-    expect(decoded).toContain('Content-Type: text/plain; charset="UTF-8"');
-
-    expect(mockUpdateSendResult).toHaveBeenCalledWith({
-      sendId: "send-1",
-      status: "sent",
-      externalMessageId: "gmail-message-id-abc",
+    const result = await enqueueEmailCampaignAction({
+      campaignId: "campaign-1",
+      scheduledAtIso: "2026-07-10T16:30:00.000Z",
     });
 
-    // logEmailInteraction is only called when there is a senderUserId AND companyId.
-    expect(mockLogEmailInteraction).toHaveBeenCalledWith(
-      expect.objectContaining({
-        companyId: "company-1",
-        partnerId: "partner-1",
-        userId: CRM_USER.id,
+    expect(mockEnqueueEmailCampaign).toHaveBeenCalledWith({
+      campaignId: "campaign-1",
+      scheduledAt,
+    });
+    expect(result).toEqual({
+      kind: "queued",
+      campaignId: "campaign-1",
+      queuedRecipientCount: 1,
+      scheduledAtIso: "2026-07-10T16:30:00.000Z",
+    });
+  });
+
+  it("rejects invalid scheduled timestamp", async () => {
+    setSupabaseUser(AUTH_USER);
+    mockResolveCrmUser.mockResolvedValue(CRM_USER);
+    mockGetAuthedClient.mockResolvedValue({
+      gmail: { users: { messages: { send: vi.fn() } } },
+    } as unknown as Awaited<ReturnType<typeof getAuthedClient>>);
+    mockListCampaigns.mockResolvedValue([makeCampaign()]);
+
+    await expect(
+      enqueueEmailCampaignAction({
+        campaignId: "campaign-1",
+        scheduledAtIso: "not-a-date",
       }),
-    );
-
-    expect(result).toMatchObject({
-      kind: "sent",
-      sentCount: 1,
-      failedCount: 0,
-      skippedCount: 0,
-    });
-  });
-
-  it("skips a queued send when the partner is no longer an eligible recipient", async () => {
-    setSupabaseUser(AUTH_USER);
-    mockResolveCrmUser.mockResolvedValue(CRM_USER);
-    const sendMessage = vi.fn();
-    mockGetAuthedClient.mockResolvedValue({
-      gmail: { users: { messages: { send: sendMessage } } },
-    } as unknown as Awaited<ReturnType<typeof getAuthedClient>>);
-
-    mockListCampaigns.mockResolvedValue([makeCampaign()]);
-    // Recipient list is empty — the partner referenced by the send is gone.
-    mockListRecipients.mockResolvedValue([]);
-    mockListEvents.mockResolvedValue([]);
-    mockListUsers.mockResolvedValue([CRM_USER]);
-
-    const result = await sendEmailCampaignAction("campaign-1");
-
-    expect(sendMessage).not.toHaveBeenCalled();
-    expect(mockUpdateSendResult).toHaveBeenCalledWith(
-      expect.objectContaining({ sendId: "send-1", status: "skipped" }),
-    );
-    expect(result.kind).toBe("sent");
-    expect(result).toMatchObject({ sentCount: 0, skippedCount: 1, failedCount: 0 });
-  });
-
-  it("marks a send as failed and the campaign as failed when Gmail rejects", async () => {
-    setSupabaseUser(AUTH_USER);
-    mockResolveCrmUser.mockResolvedValue(CRM_USER);
-    const sendMessage = vi.fn().mockRejectedValue(new Error("Quota exceeded"));
-    mockGetAuthedClient.mockResolvedValue({
-      gmail: { users: { messages: { send: sendMessage } } },
-    } as unknown as Awaited<ReturnType<typeof getAuthedClient>>);
-
-    mockListCampaigns.mockResolvedValue([makeCampaign()]);
-    mockListRecipients.mockResolvedValue([RECIPIENT]);
-    mockListEvents.mockResolvedValue([]);
-    mockListUsers.mockResolvedValue([CRM_USER]);
-
-    const result = await sendEmailCampaignAction("campaign-1");
-
-    expect(mockUpdateSendResult).toHaveBeenCalledWith({
-      sendId: "send-1",
-      status: "failed",
-      error: "Quota exceeded",
-    });
-    // Final campaign state is "failed" when any send fails.
-    expect(mockUpdateCampaignStatus).toHaveBeenLastCalledWith("campaign-1", "failed");
-    expect(mockLogEmailInteraction).not.toHaveBeenCalled();
-    expect(result).toMatchObject({ failedCount: 1, sentCount: 0, skippedCount: 0 });
-    expect(result.results[0]).toMatchObject({ status: "failed", message: "Quota exceeded" });
-  });
-
-  it("does not log a contact-log interaction when the campaign has no senderUserId", async () => {
-    setSupabaseUser(AUTH_USER);
-    mockResolveCrmUser.mockResolvedValue(CRM_USER);
-    const sendMessage = vi.fn().mockResolvedValue({ data: { id: "gmail-id" } });
-    mockGetAuthedClient.mockResolvedValue({
-      gmail: { users: { messages: { send: sendMessage } } },
-    } as unknown as Awaited<ReturnType<typeof getAuthedClient>>);
-
-    mockListCampaigns.mockResolvedValue([makeCampaign({ senderUserId: null })]);
-    mockListRecipients.mockResolvedValue([RECIPIENT]);
-    mockListEvents.mockResolvedValue([]);
-    mockListUsers.mockResolvedValue([CRM_USER]);
-
-    await sendEmailCampaignAction("campaign-1");
-
-    expect(sendMessage).toHaveBeenCalledTimes(1);
-    expect(mockUpdateSendResult).toHaveBeenCalledWith(
-      expect.objectContaining({ status: "sent" }),
-    );
-    expect(mockLogEmailInteraction).not.toHaveBeenCalled();
+    ).rejects.toThrow(/not a valid date/i);
   });
 });

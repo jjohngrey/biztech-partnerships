@@ -7,7 +7,7 @@ import {
   archiveEmailTemplateAction,
   createEmailCampaignDraftAction,
   createEmailTemplateAction,
-  sendEmailCampaignAction,
+  enqueueEmailCampaignAction,
   updateEmailTemplateAction,
 } from "@/lib/partnerships/actions";
 import type {
@@ -160,6 +160,14 @@ function formatSyncTime(value: string | null) {
   }).format(new Date(value));
 }
 
+function toIsoFromDateTimeLocal(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const date = new Date(trimmed);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
+}
+
 function pickEventForTemplate(
   events: CrmEventSummary[],
   template: {
@@ -205,6 +213,7 @@ export function OutreachDirectory({
   const [composerTemplateId, setComposerTemplateId] = useState(initialTemplate?.id ?? "");
   const [composerSubject, setComposerSubject] = useState(initialTemplate?.subjectTemplate ?? "");
   const [composerBody, setComposerBody] = useState(initialTemplate?.bodyTemplate ?? "");
+  const [scheduledAtLocal, setScheduledAtLocal] = useState("");
   const [eventId, setEventId] = useState(initialEvent?.id ?? "");
   const [senderUserId, setSenderUserId] = useState(users[0]?.id ?? "");
   const [selectedRecipientIds, setSelectedRecipientIds] = useState<string[]>([]);
@@ -443,6 +452,7 @@ function syncPartnershipEmails() {
           subject: composerSubject,
           body: composerBody,
           recipientIds: selectedRecipientIds,
+          scheduledAtIso: toIsoFromDateTimeLocal(scheduledAtLocal),
         });
         setMessage(`Outreach draft saved for ${selectedRecipientIds.length} recipients.`);
         router.refresh();
@@ -452,7 +462,7 @@ function syncPartnershipEmails() {
     });
   }
 
-  function sendCampaign(campaignId: string) {
+  function sendCampaign(campaignId: string, scheduledAtIso?: string | null) {
     if (
       !window.confirm(
         "This will send the rendered email to every queued recipient in this outreach draft from your connected Gmail account.",
@@ -463,18 +473,22 @@ function syncPartnershipEmails() {
     setConsentUrl(null);
     startTransition(async () => {
       try {
-        const result = await sendEmailCampaignAction(campaignId);
+        const result = await enqueueEmailCampaignAction({
+          campaignId,
+          scheduledAtIso: scheduledAtIso ?? undefined,
+        });
         if (result.kind === "needs-consent") {
           setConsentUrl(result.consentUrl);
-          setMessage("Gmail access is needed before sending.");
+          setMessage("Gmail access is needed before queueing this campaign.");
           return;
         }
-        setMessage(
-          `Sent ${result.sentCount}; ${result.failedCount} failed; ${result.skippedCount} skipped.`,
-        );
+        const scheduleMessage = result.scheduledAtIso
+          ? ` Scheduled for ${new Date(result.scheduledAtIso).toLocaleString("en-CA")}.`
+          : "";
+        setMessage(`Queued ${result.queuedRecipientCount} recipients for background send.${scheduleMessage}`);
         router.refresh();
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : "Could not send outreach draft.");
+        setError(cause instanceof Error ? cause.message : "Could not queue outreach draft.");
       }
     });
   }
@@ -592,6 +606,15 @@ function syncPartnershipEmails() {
                   </select>
                 </label>
               </div>
+              <label className={labelClass()}>
+                Schedule send (optional)
+                <input
+                  type="datetime-local"
+                  value={scheduledAtLocal}
+                  onChange={(event) => setScheduledAtLocal(event.target.value)}
+                  className={inputClass()}
+                />
+              </label>
               <div className="grid min-w-0 gap-2 rounded-md border border-white/[0.08] bg-[#0d0e11] px-3 py-2 xl:hidden">
                 <p className="text-[12px] text-zinc-500">
                   <span className="font-medium text-zinc-300">{selectedRecipientIds.length}</span> recipients selected
@@ -856,10 +879,15 @@ function syncPartnershipEmails() {
           </div>
           <div className="divide-y divide-white/[0.06]">
             {campaigns.map((campaign) => (
-              <div key={campaign.id} className="grid gap-3 px-4 py-3 text-[13px] text-zinc-400 md:grid-cols-[minmax(0,1fr)_120px_110px_90px_80px] md:items-center">
+              <div key={campaign.id} className="grid gap-3 px-4 py-3 text-[13px] text-zinc-400 md:grid-cols-[minmax(0,1fr)_120px_110px_90px_100px] md:items-center">
                 <span className="min-w-0">
                   <span className="block truncate font-medium text-zinc-100">{campaign.subject}</span>
-                  <span className="block truncate text-[12px] text-zinc-500">{campaign.eventName ?? "No event"} · {campaign.senderName ?? "No BizTech Director"}</span>
+                  <span className="block truncate text-[12px] text-zinc-500">
+                    {campaign.eventName ?? "No event"} · {campaign.senderName ?? "No BizTech Director"}
+                    {campaign.scheduledAtIso
+                      ? ` · scheduled ${new Date(campaign.scheduledAtIso).toLocaleString("en-CA")}`
+                      : ""}
+                  </span>
                 </span>
                 <span>{campaign.sends.length} recipients</span>
                 <span>{new Date(campaign.createdAtIso).toLocaleDateString("en-CA")}</span>
@@ -869,12 +897,12 @@ function syncPartnershipEmails() {
                   disabled={isPending || campaign.status === "sent" || campaign.sends.every((send) => send.status !== "queued")}
                   onClick={() => {
                     const queued = campaign.sends.filter((send) => send.status === "queued").length;
-                    if (!window.confirm(`Send this outreach draft to ${queued} recipient${queued === 1 ? "" : "s"} now?`)) return;
-                    sendCampaign(campaign.id);
+                    if (!window.confirm(`Queue this outreach draft for ${queued} recipient${queued === 1 ? "" : "s"}?`)) return;
+                    sendCampaign(campaign.id, campaign.scheduledAtIso);
                   }}
                   className="h-8 rounded-md border border-white/[0.09] px-2.5 text-[12px] font-medium text-zinc-400 transition hover:bg-white/[0.045] hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
                 >
-                  Send now
+                  Queue send
                 </button>
               </div>
             ))}
