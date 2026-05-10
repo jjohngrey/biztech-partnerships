@@ -42,7 +42,8 @@ Supabase Postgres with row-level security. All tables enforce that the caller is
 **users** (extends `auth.users`)
 - `id` uuid, PK, FK to `auth.users.id`
 - `email` text, unique, must end in `@ubcbiztech.com`
-- `name` text
+- `first_name`, `last_name` text
+- `team` text, enum (`partnerships`, `experiences`, `mmd`, `internal`, `dev`)
 - `role` text, enum (`admin`, `member`), default `member` — present as a forward-compatibility hook; admins have no additional privileges in v1
 - `created_at`, `updated_at` timestamps
 
@@ -72,7 +73,8 @@ Supabase Postgres with row-level security. All tables enforce that the caller is
 - `end_date` date, nullable
 - `outreach_start_date` date, nullable
 - `sponsorship_goal` integer, nullable — stored in cents
-- `tier_configs` jsonb — event package presets with label + default amount
+- `confirmed_partner_goal` integer, nullable — target for confirmed sponsors
+- `tier_configs` jsonb — event package presets with id, label, and default amount
 - `description` text
 - `notes` text
 - `archived` boolean, default `false`
@@ -93,29 +95,88 @@ Supabase Postgres with row-level security. All tables enforce that the caller is
 - (`sponsor_id`, `partner_id`) composite PK
 - Links additional company contacts to a sponsorship. This is what lets one sponsorship attach to both the company and multiple people without duplicating the deal.
 
+**in_kind_sponsors** (goods/services sponsorships)
+- `id` uuid, PK
+- `company_id` uuid, FK to `companies.id`
+- `event_id` uuid, nullable FK to `events.id`
+- `primary_contact_id` uuid, nullable FK to `partners.id`
+- `description` text — describes the in-kind contribution (e.g., "catering for 200 people")
+- `estimated_value` integer, nullable — in cents
+- `start_date`, `end_date` date — when the contribution applies
+- `notes` text
+- `created_at`, `updated_at`
+
 **partner_documents**
 - Link-only document metadata for v1.
 - `company_id` required, with optional `partner_id`, `event_id`, and `sponsor_id`
 - `title`, `type`, `status`, `url`, `file_name`, `notes`
 
-**meeting_notes**
+**meeting_notes** (legacy, backfilled into contact_activities)
 - `id` uuid, PK
 - `title` text
 - `meeting_date` timestamp
-- `source` text, enum (`manual`, `upload`, `granola`, `google_doc`, `other`)
-- `source_url` text, nullable
-- `original_filename` text, nullable — original filename when the note was submitted as a TXT upload
-- `content` text — full note body (markdown)
+- `source` text, enum (`upload`, `paste`)
+- `original_filename` text, nullable — original filename when submitted as file upload
+- `content` text — full note body (plain text)
 - `summary` text, nullable — short blurb for list views
 - `created_by` uuid, FK to `users.id`
 - `created_at`, `updated_at`
 
+**interactions** (legacy, backfilled into contact_activities)
+- `id` uuid, PK
+- `user_id` uuid, FK to `users.id`
+- `company_id` uuid, FK to `companies.id`
+- `partner_id` uuid, nullable FK to `partners.id`
+- `sponsor_id` uuid, nullable FK to `sponsors.id`
+- `type` text, enum (`meeting`, `call`, `email`, `linkedin`, `in_person`, `other`)
+- `direction` text, enum (`inbound`, `outbound`), nullable
+- `subject` text, `notes` text
+- `contacted_at` timestamp
+- `follow_up_date` date, nullable
+- `source` text, `external_message_id` text, `external_thread_id` text
+- `created_at`, `updated_at`
+
+**contact_activities** (canonical contact timeline — unifies interactions and meeting_notes)
+- `id` uuid, PK
+- `legacy_interaction_id` uuid, nullable unique FK to `interactions.id`
+- `legacy_meeting_note_id` uuid, nullable unique FK to `meeting_notes.id`
+- `type` text, enum (`meeting`, `call`, `email`, `linkedin`, `in_person`, `note`, `other`)
+- `direction` text, enum (`inbound`, `outbound`), nullable
+- `subject` text, required
+- `content` text, nullable — full note/interaction body
+- `summary` text, nullable
+- `notes` text, nullable
+- `occurred_at` timestamp
+- `follow_up_date` date, nullable
+- `source` text, default `manual` — how the record was created
+- `source_url`, `original_filename`, `external_message_id`, `external_thread_id` text, nullable
+- `primary_company_id` uuid, nullable FK to `companies.id`
+- `primary_partner_id` uuid, nullable FK to `partners.id`
+- `primary_user_id` uuid, nullable FK to `users.id`
+- `sponsor_id` uuid, nullable FK to `sponsors.id`
+- `created_by` uuid, nullable FK to `users.id`
+- `created_at`, `updated_at`
+
 ### Join tables (v1)
 
+**Relationships — who knows whom:**
+- **users_companies** — (`user_id`, `company_id`). Associates a team member with a company.
+- **users_partners** — (`user_id`, `partner_id`). Associates a team member with a partner.
+- **users_events** — (`user_id`, `event_id`). Associates a team member with an event (e.g., event organizer).
+- **partners_events** — (`partner_id`, `event_id`, `event_role`). Links a partner to an event with their role (booth, speaker, workshop, sponsor, judge, mentor, student) and status (asked, interested, form_sent, form_submitted, confirmed, declined, attended).
+- **company_events** — (`company_id`, `event_id`, `event_role`). Links a company to an event with role and status.
+
+**Contact activity tags:**
+- **contact_activity_companies** — (`activity_id`, `company_id`). Tags an activity to one or more companies.
+- **contact_activity_partners** — (`activity_id`, `partner_id`). Tags an activity to one or more contacts.
+- **contact_activity_events** — (`activity_id`, `event_id`). Tags an activity to one or more events.
+- **contact_activity_attendees** — (`activity_id`, `user_id`). Tags BizTech members as POCs or attendees.
+
+**Legacy tags (for backfilled data):**
 - **meeting_note_companies** — (`meeting_note_id`, `company_id`). Tags a note to one or more companies.
 - **meeting_note_partners** — (`meeting_note_id`, `partner_id`). Tags a note to one or more contacts.
 - **meeting_note_events** — (`meeting_note_id`, `event_id`). Tags a note to one or more events.
-- **meeting_note_attendees** — (`meeting_note_id`, `user_id`). Tags BizTech members/executives as POCs or attendees for that conversation.
+- **meeting_note_attendees** — (`meeting_note_id`, `user_id`). Tags BizTech members as POCs or attendees.
 
 ### Email ops tables
 
@@ -143,16 +204,24 @@ One sign-in flow, multiple scopes added incrementally as features ship:
 
 Tokens are stored in a `google_oauth_tokens` table keyed by `user_id`, with encrypted refresh tokens. A helper at `lib/google/client.ts` wraps token refresh so callers never touch expiry logic directly.
 
-Workspace domain enforcement uses the `hd` claim: the Supabase Auth post-login hook rejects any account where `hd !== 'ubcbiztech.com'`.
+Workspace domain enforcement happens at the OAuth callback: `app/auth/callback/route.ts` verifies email suffix matches `@ubcbiztech.com` and validates the `hd` claim if present. A Supabase Auth post-login hook for further enforcement is planned for v1.1.
 
-### Meeting note ingestion
+### Contact activity ingestion
 
-There is no API or webhook integration with any note-taking tool. Users bring their own notes — written in Granola, Notion, Google Docs, or plain text — and submit them through one of two paths:
+Users log two types of contact activities: **interactions** (quick calls, emails, LinkedIn messages) and **notes** (longer meeting write-ups). Both feed into the canonical `contact_activities` table.
 
-- **TXT upload** — user exports or saves their notes as a `.txt` file and uploads it via the "New meeting note" form. The file content is read client-side, displayed in a preview, and stored as `content` on save. The original filename is stored in `original_filename`.
-- **Copy-paste** — user copies their note body directly into the text area on the form.
+**Meeting notes:**
+- No API or webhook integration with note-taking tools (Granola, Notion, Google Docs, plain text all supported).
+- Users submit via file upload (`.txt`) or copy-paste; the `source` column records the method.
+- File content is read client-side, previewed, and stored as `content` on save. Original filename preserved.
+- The form lets users tag notes to companies, partners, events, and attendees before saving.
 
-Either path lands in the same `meeting_notes` table row; the `source` column records which method was used. The form then lets the user tag the note to partners, events, and attendees before saving.
+**Interactions:**
+- Lightweight CRM activity log: type (meeting, call, email, etc.), direction (inbound/outbound), subject, and notes.
+- Linked to a user, company, and optionally a partner and sponsorship deal.
+- Can include external message/thread IDs for Gmail/LinkedIn/etc. sync later.
+
+Both paths backfill into `contact_activities` via migration; the app reads/writes the unified table.
 
 ### Slack (v2+)
 
@@ -168,22 +237,27 @@ The v1 goal is to make the Partnerships team able to manage partner accounts, ev
 **In scope:**
 
 - Google login restricted to `@ubcbiztech.com`.
-- Partner directory with search, filters, tags, alumni flag, archive/restore, and CSV export.
-- CRM events with dates, outreach start date, sponsorship goals, tier presets, and archive/restore.
-- Partner-event sponsorship pipeline with status, package tier, role, amount, follow-up date, and notes.
-- Dashboard metrics for revenue secured, open pipeline, goal progress, event pace, and action items.
-- Partner documents as metadata/link records.
-- Partner communications as manual log records, with source fields ready for synced email.
+- Company directory with search, filters, tags, alumni flag, in-kind sponsorships, archive/restore, and CSV export.
+- Partner directory with company association, role, contact info, and archive/restore.
+- CRM events with dates, outreach start date, sponsorship goals, confirmed-partner goals, tier presets, and archive/restore.
+- Partner-event participation tracking (role, status, form submission).
+- Cash sponsorship pipeline with status, package tier, role, amount, follow-up date, and notes.
+- In-kind sponsorship tracking with description, estimated value, and date range.
+- Dashboard metrics for cash secured, in-kind value, open pipeline, goal progress, event pace, and action items.
+- Partner documents as metadata/link records (Google Drive URLs, file names, status).
+- Contact activity log: manual meeting notes (file upload or paste), quick interactions (calls, emails, LinkedIn), taggable to companies, partners, events, and attendees.
 - Email Ops data model and UI path for templates, merge fields, mass email, Gmail sync status, and Gmail sync setup.
-- Meeting notes remain a later first-party note workflow, but they should be integrated with the same partner/event/contact model.
 - `users.role` column in place, every user defaulted to `member`; role-gated actions added only when needed.
+- Team field on users for multi-team organization (partnerships, experiences, mmd, internal, dev).
 
 **Out of scope for v1, lined up for v2+:**
 
-- Fully automated MOU/invoice generation.
+- Mass email send (templates exist, Gmail send action not yet built).
+- Fully automated MOU/invoice generation via Google Docs templates.
 - Slack notifications and DMs.
-- Weekly digest/background jobs.
+- Weekly digest/background jobs (Vercel Cron or Supabase `pg_cron`).
 - Rich Google Drive file picker/upload.
+- Workspace domain enforcement post-login hook (v1.1).
 - Admin-only privilege model beyond the starter `role` column.
 
 ## Roadmap
@@ -202,25 +276,30 @@ The v1 goal is to make the Partnerships team able to manage partner accounts, ev
 - **Supabase free-tier pause**: free projects pause after 7 days of inactivity. Internal CRM usage will normally prevent this; set up a weekly cron ping if it becomes an issue.
 - **File storage scale**: Drive on Workspace gives ample headroom for thousands of documents. No Supabase Storage used.
 
-## Repository layout (proposed)
+## Repository layout
 
 ```
-biztech-crm/
+biztech-partnerships/
   app/                    # Next.js App Router
     (auth)/
-    partners/
-    events/
-    meetings/
-    api/
+    auth/                 # OAuth callback, sign-out
+    companies/            # Company directory and detail pages
+    contact-log/          # Contact activity (meetings, interactions)
+    dashboard/            # Metrics and action items
+    events/               # Event management
+    login/                # Sign-in page
+    meetings/             # Meeting notes (legacy UI, feeds into contact-log)
+    outreach/             # Outreach planning (future)
+    partners/             # Partner directory and detail pages
+    pipeline/             # Sponsorship pipeline
+    api/                  # API routes (auth, integrations)
   components/             # shadcn/ui + app-specific
   lib/
-    db/                   # Drizzle schema + migrations
+    db/                   # Drizzle schema.ts
     google/               # OAuth client, Drive, Docs, Gmail wrappers
-    ingestion/            # TXT upload parser + paste normalization
-    slack/                # webhook + bot wrappers (v2+)
-  supabase/
-    migrations/
-    policies/             # RLS definitions
+    supabase/             # Supabase client (browser + server)
+  drizzle/
+    migrations/           # Schema migrations (Drizzle ORM)
   Architecture.md
   README.md
 ```

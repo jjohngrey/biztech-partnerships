@@ -16,6 +16,7 @@ type PanelMode = "closed" | "create" | "view" | "edit";
 type SortDirection = "asc" | "desc";
 type EventSortKey = "name" | "year" | "partners" | "start";
 type TierPresetDraft = { id: string; label: string; amount: number | null };
+type EventYearTab = { value: string; label: string; count: number };
 
 const eventRoles: Array<{ value: EventRole; label: string }> = [
   { value: "judge", label: "Judge" },
@@ -119,6 +120,30 @@ function sortValue(result: number, direction: SortDirection) {
   return direction === "asc" ? result : -result;
 }
 
+function academicYearStartYear(date: Date) {
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  return month >= 4 ? year : year - 1; // May (4) -> Apr (3)
+}
+
+function eventAcademicYearKey(event: Pick<CrmEventSummary, "startDate" | "year">) {
+  const parsed = new Date(`${event.startDate}T12:00:00`);
+  if (!Number.isNaN(parsed.getTime())) {
+    return String(academicYearStartYear(parsed));
+  }
+  if (typeof event.year === "number" && Number.isFinite(event.year)) {
+    return String(event.year);
+  }
+  return "unknown";
+}
+
+function eventAcademicYearLabel(startYearKey: string) {
+  if (startYearKey === "unknown") return "Unknown year";
+  const startYear = Number(startYearKey);
+  if (!Number.isFinite(startYear)) return "Unknown year";
+  return `${startYear}/${String(startYear + 1).slice(2)}`;
+}
+
 function SortHeader({
   label,
   sortKey,
@@ -142,7 +167,7 @@ function SortHeader({
       ].join(" ")}
     >
       {label}
-      {active ? ` ${direction === "asc" ? "↑" : "↓"}` : ""}
+      {active ? ` ${direction === "desc" ? "↓" : "↑"}` : ""}
     </button>
   );
 }
@@ -449,9 +474,33 @@ export function EventsDirectory({
 }) {
   const router = useRouter();
   const initialEvent = events.find((event) => event.id === initialEventId) ?? null;
+  const currentAcademicYearKey = String(academicYearStartYear(new Date()));
+  const yearCounts = new Map<string, number>();
+  for (const event of events) {
+    const key = eventAcademicYearKey(event);
+    yearCounts.set(key, (yearCounts.get(key) ?? 0) + 1);
+  }
+  const dynamicTabs: EventYearTab[] = Array.from(yearCounts.entries())
+    .sort(([left], [right]) => {
+      if (left === "unknown") return 1;
+      if (right === "unknown") return -1;
+      return Number(right) - Number(left);
+    })
+    .map(([value, count]) => ({
+      value,
+      label: eventAcademicYearLabel(value),
+      count,
+    }));
+  const fallbackYearTab = dynamicTabs[0]?.value ?? "unknown";
+  const initialYearTab = initialEvent
+    ? eventAcademicYearKey(initialEvent)
+    : dynamicTabs.some((tab) => tab.value === currentAcademicYearKey)
+      ? currentAcademicYearKey
+      : fallbackYearTab;
   const [query, setQuery] = useState("");
+  const [activeYearTab, setActiveYearTab] = useState(initialYearTab);
   const [sortKey, setSortKey] = useState<EventSortKey>("start");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [selectedId, setSelectedId] = useState<string | null>(initialEvent?.id ?? null);
   const [mode, setMode] = useState<PanelMode>(initialEvent ? "view" : "closed");
   const [partnerName, setPartnerName] = useState("");
@@ -465,6 +514,7 @@ export function EventsDirectory({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const selected = events.find((event) => event.id === selectedId) ?? null;
+
   const partnerMatch = selectedResponsePartnerId ? partners.find((partner) => partner.id === selectedResponsePartnerId) ?? null : getPartnerMatch(partners, partnerName);
   const pendingPartnerName = splitPartnerName(partnerName);
   const panelOpen = mode !== "closed";
@@ -476,7 +526,9 @@ export function EventsDirectory({
         }))
         .filter((role) => role.responses.length > 0)
     : [];
-  const filteredEvents = [...events]
+  const yearTabs: EventYearTab[] = dynamicTabs;
+  const tabFilteredEvents = events.filter((event) => eventAcademicYearKey(event) === activeYearTab);
+  const filteredEvents = [...tabFilteredEvents]
     .filter((event) =>
       [event.name, event.year].join(" ").toLowerCase().includes(query.trim().toLowerCase()),
     )
@@ -538,6 +590,12 @@ export function EventsDirectory({
       try {
         const created = await createEventAction(payload(data));
         form.reset();
+        setActiveYearTab(
+          eventAcademicYearKey({
+            startDate: created.startDate,
+            year: created.year,
+          }),
+        );
         setSelectedId(created.id);
         setMode("view");
         setSelectedDirectorIds([]);
@@ -611,6 +669,24 @@ export function EventsDirectory({
     <div className={["grid min-h-[100dvh] w-full max-w-full grid-cols-1 overflow-x-hidden bg-[#0d0d0f] xl:overflow-hidden", panelOpen ? "xl:grid-cols-[minmax(0,1fr)_minmax(400px,480px)]" : ""].join(" ")}>
       <section className={["min-w-0 bg-[#0d0d0f] px-3 py-4 sm:px-5 sm:py-5 xl:overflow-hidden", panelOpen ? "hidden xl:block" : ""].join(" ")}>
         <h2 className="text-[15px] font-medium text-zinc-100">Events</h2>
+        <div className="mt-4 inline-flex flex-wrap rounded-md border border-white/[0.09] bg-[#111113] p-0.5 text-[13px]">
+          {yearTabs.map((tab) => (
+            <button
+              key={tab.value}
+              type="button"
+              onClick={() => setActiveYearTab(tab.value)}
+              className={[
+                "h-7 rounded px-3 transition cursor-pointer",
+                activeYearTab === tab.value
+                  ? "bg-white/[0.08] text-zinc-100"
+                  : "text-zinc-400 hover:text-zinc-200",
+              ].join(" ")}
+            >
+              <span>{tab.label}</span>
+              <span className="ml-1.5 text-[12px] text-zinc-500">{tab.count}</span>
+            </button>
+          ))}
+        </div>
         <div className="mt-4 grid max-w-[760px] grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
           <input
             name="eventSearch"
