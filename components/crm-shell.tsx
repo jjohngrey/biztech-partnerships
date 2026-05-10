@@ -15,6 +15,7 @@ import {
   Settings,
   Sun,
   UsersRound,
+  type LucideIcon,
 } from "lucide-react";
 
 type CrmShellProps = {
@@ -23,7 +24,15 @@ type CrmShellProps = {
   children?: React.ReactNode;
 };
 
-const navSections = [
+type PrimarySectionKey = Exclude<NonNullable<CrmShellProps["activeSection"]>, "settings" | "home">;
+type NavItem = {
+  href: string;
+  label: string;
+  key: PrimarySectionKey;
+  icon: LucideIcon;
+};
+
+const navSections: Array<{ heading: string; items: NavItem[] }> = [
   {
     heading: "MAIN",
     items: [
@@ -46,7 +55,7 @@ const navSections = [
       { href: "/outreach", label: "Outreach", key: "outreach", icon: MailPlus },
     ],
   },
-] as const;
+] ;
 const primaryNavItems = navSections.flatMap((section) => section.items);
 
 const settingsNavItem = { href: "/settings", label: "Settings", key: "settings", icon: Settings } as const;
