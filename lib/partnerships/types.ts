@@ -521,8 +521,11 @@ export type EmailCampaignRecord = {
   senderName: string | null;
   subject: string;
   body: string;
-  status: "draft" | "sending" | "sent" | "failed";
+  status: "draft" | "queued" | "sending" | "sent" | "partial" | "failed";
   createdAtIso: string;
+  queuedAtIso: string | null;
+  scheduledAtIso: string | null;
+  lastAttemptedAtIso: string | null;
   sentAtIso: string | null;
   sends: Array<{
     id: string;
@@ -531,6 +534,7 @@ export type EmailCampaignRecord = {
     recipientEmail: string;
     status: "queued" | "sent" | "skipped" | "failed";
     error: string | null;
+    sentAtIso: string | null;
   }>;
 };
 
@@ -561,6 +565,11 @@ export type CreateEmailCampaignDraftInput = {
   subject: string;
   body: string;
   recipientIds: string[];
+  /**
+   * ISO timestamp the worker should hold off until before sending. Omit or
+   * pass null to send as soon as the next worker tick picks up the queue.
+   */
+  scheduledAtIso?: string | null;
 };
 
 export type MyContactPartner = {

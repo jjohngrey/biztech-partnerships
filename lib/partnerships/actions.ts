@@ -15,7 +15,6 @@ import {
   addPartnerEventRole,
   archivePartnerAccount,
   archiveEmailTemplate,
-  buildMergeValues,
   createCompanyInteraction,
   updateCompanyInteraction,
   createCompany,
@@ -31,18 +30,12 @@ import {
   deleteCompanyInteraction,
   deleteMeetingLog,
   deletePartnerDocument,
+  enqueueEmailCampaign,
   listEmailCampaigns,
-  listEmailRecipients,
-  listEvents,
-  listUsers,
   linkContactToCompany,
   logEventPartnerResponse,
-  logEmailInteraction,
   removeCompanyEventRole,
   removePartnerEventRole,
-  renderMergeTemplate,
-  updateEmailCampaignStatus,
-  updateEmailSendResult,
   updateCompany,
   updateCompanyEventStatus,
   updateContact,
@@ -68,7 +61,6 @@ import type {
   CreatePartnerDocumentInput,
   CreatePartnerInput,
   CreateSponsorshipInput,
-  CrmUserSummary,
   LogEventPartnerResponseInput,
   UpdateCompanyInput,
   UpdateContactInput,
@@ -321,7 +313,23 @@ export async function createEmailCampaignDraftAction(input: CreateEmailCampaignD
   return campaign;
 }
 
-export async function sendEmailCampaignAction(campaignId: string) {
+/**
+ * Hand a campaign off to the background worker. Does not actually call Gmail —
+ * the worker drains the queue in BATCH_SIZE chunks (see lib/partnerships/email-
+ * worker.ts and the route at /api/partnerships/email/send/process).
+ *
+ * Verifies the *signed-in user's* Gmail consent up front so the user gets the
+ * "needs consent" prompt right when they hit Send instead of the campaign
+ * silently failing in the worker. The actual worker uses the campaign's
+ * senderUserId, which is normally the same person, but doesn't have to be.
+ *
+ * `scheduledAtIso` is optional; null/undefined = send as soon as the next
+ * worker tick picks up the queue.
+ */
+export async function enqueueEmailCampaignAction(input: {
+  campaignId: string;
+  scheduledAtIso?: string | null;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -342,115 +350,38 @@ export async function sendEmailCampaignAction(campaignId: string) {
     };
   }
 
-  const [campaigns, recipients, events, users] = await Promise.all([
-    listEmailCampaigns(),
-    listEmailRecipients(),
-    listEvents(),
-    listUsers(),
-  ]);
-
-  const campaign = campaigns.find((item) => item.id === campaignId);
+  const campaigns = await listEmailCampaigns();
+  const campaign = campaigns.find((item) => item.id === input.campaignId);
   if (!campaign) throw new Error("Outreach draft was not found.");
 
-  const sends = campaign.sends.filter((send) => send.status === "queued");
-  if (!sends.length) throw new Error("This outreach draft has no queued recipients.");
-
-  await updateEmailCampaignStatus(campaign.id, "sending");
-
-  const recipientByPartnerId = new Map(recipients.map((recipient) => [recipient.id, recipient]));
-  const event = campaign.eventId ? events.find((item) => item.id === campaign.eventId) ?? null : null;
-  const fallbackSenderName = displayNameFromAuthUser(user);
-  const campaignSender =
-    (campaign.senderUserId ? users.find((item) => item.id === campaign.senderUserId) : null) ??
-    ({
-      id: crmUser.id,
-      firstName: fallbackSenderName.split(" ")[0] ?? fallbackSenderName,
-      lastName: fallbackSenderName.split(" ").slice(1).join(" "),
-      name: fallbackSenderName,
-      email: crmUser.email,
-      role: crmUser.role,
-      team: crmUser.team,
-    } satisfies CrmUserSummary);
-
-  let sentCount = 0;
-  let failedCount = 0;
-  let skippedCount = 0;
-  const results: Array<{ email: string; status: "sent" | "failed" | "skipped"; message: string }> = [];
-
-  for (const send of sends) {
-    const recipient = send.partnerId ? recipientByPartnerId.get(send.partnerId) : null;
-    if (!recipient) {
-      skippedCount += 1;
-      await updateEmailSendResult({
-        sendId: send.id,
-        status: "skipped",
-        error: "Recipient no longer has an email-ready partner record.",
-      });
-      results.push({
-        email: send.recipientEmail,
-        status: "skipped",
-        message: "Recipient no longer has an email-ready partner record.",
-      });
-      continue;
-    }
-
-    const values = await buildMergeValues({
-      recipient,
-      sender: campaignSender,
-      event,
-    });
-    const subject = renderMergeTemplate(campaign.subject, values);
-    const body = renderMergeTemplate(campaign.body, values);
-
-    try {
-      const response = await googleClient.gmail.users.messages.send({
-        userId: "me",
-        requestBody: {
-          raw: encodeRawEmail({
-            to: recipient.email,
-            subject,
-            body,
-          }),
-        },
-      });
-      const externalMessageId = response.data.id ?? null;
-      await updateEmailSendResult({
-        sendId: send.id,
-        status: "sent",
-        externalMessageId,
-      });
-      if (campaign.senderUserId && send.companyId) {
-        await logEmailInteraction({
-          companyId: send.companyId,
-          partnerId: send.partnerId,
-          userId: campaign.senderUserId,
-          subject,
-          notes: `Mail merge outreach draft ${campaign.id}`,
-          externalMessageId,
-        });
-      }
-      sentCount += 1;
-      results.push({ email: recipient.email, status: "sent", message: "Sent" });
-    } catch (cause) {
-      const message = cause instanceof Error ? cause.message : "Gmail send failed.";
-      failedCount += 1;
-      await updateEmailSendResult({
-        sendId: send.id,
-        status: "failed",
-        error: message,
-      });
-      results.push({ email: recipient.email, status: "failed", message });
-    }
+  const queuedSends = campaign.sends.filter((send) => send.status === "queued");
+  if (!queuedSends.length) {
+    throw new Error("This outreach draft has no queued recipients.");
   }
 
-  await updateEmailCampaignStatus(campaign.id, failedCount > 0 ? "failed" : "sent");
+  let scheduledAt: Date | null = null;
+  if (input.scheduledAtIso) {
+    const parsed = new Date(input.scheduledAtIso);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new Error("Scheduled send time is not a valid date.");
+    }
+    if (parsed.getTime() < Date.now() - 60_000) {
+      // Allow ~1 minute of clock drift but reject genuinely-past schedules.
+      throw new Error("Scheduled send time must be in the future.");
+    }
+    scheduledAt = parsed;
+  }
+
+  const queued = await enqueueEmailCampaign({
+    campaignId: campaign.id,
+    scheduledAt,
+  });
   revalidateCrmData();
 
   return {
-    kind: "sent" as const,
-    sentCount,
-    failedCount,
-    skippedCount,
-    results,
+    kind: "queued" as const,
+    campaignId: queued.id,
+    queuedRecipientCount: queuedSends.length,
+    scheduledAtIso: queued.scheduledAt?.toISOString() ?? null,
   };
 }

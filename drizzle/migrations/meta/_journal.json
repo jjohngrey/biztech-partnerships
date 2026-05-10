@@ -64,6 +64,13 @@
       "when": 1777652800000,
       "tag": "0008_contact_activities",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1777739200000,
+      "tag": "0009_email_send_queue",
+      "breakpoints": true
     }
   ]
 }

@@ -503,8 +503,17 @@ export const emailCampaigns = pgTable("email_campaigns", {
   }),
   subject: text("subject").notNull(),
   body: text("body").notNull(),
-  status: text("status", { enum: ["draft", "sending", "sent", "failed"] }).notNull().default("draft"),
+  // See drizzle/migrations/0009_email_send_queue.sql for the full state machine.
+  status: text("status", {
+    enum: ["draft", "queued", "sending", "sent", "partial", "failed"],
+  })
+    .notNull()
+    .default("draft"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  queuedAt: timestamp("queued_at", { withTimezone: true }),
+  lastAttemptedAt: timestamp("last_attempted_at", { withTimezone: true }),
+  // NULL = send ASAP once queued. Future timestamp = worker holds off until then.
+  scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
   sentAt: timestamp("sent_at", { withTimezone: true }),
 });
 

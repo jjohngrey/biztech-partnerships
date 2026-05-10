@@ -2099,6 +2099,9 @@ export async function listEmailCampaigns(): Promise<EmailCampaignRecord[]> {
       body: campaign.body,
       status: campaign.status as EmailCampaignRecord["status"],
       createdAtIso: campaign.createdAt.toISOString(),
+      queuedAtIso: campaign.queuedAt?.toISOString() ?? null,
+      scheduledAtIso: campaign.scheduledAt?.toISOString() ?? null,
+      lastAttemptedAtIso: campaign.lastAttemptedAt?.toISOString() ?? null,
       sentAtIso: campaign.sentAt?.toISOString() ?? null,
       sends: sendRows
         .filter((send) => send.campaignId === campaign.id)
@@ -2109,6 +2112,7 @@ export async function listEmailCampaigns(): Promise<EmailCampaignRecord[]> {
           recipientEmail: send.recipientEmail,
           status: send.status as EmailCampaignRecord["sends"][number]["status"],
           error: send.error,
+          sentAtIso: send.sentAt?.toISOString() ?? null,
         })),
     };
   });
@@ -2149,6 +2153,8 @@ export async function createEmailCampaignDraft(input: CreateEmailCampaignDraftIn
   const eligibleRecipients = recipientRows.filter((row) => row.contact.email?.trim());
   if (!eligibleRecipients.length) throw new Error("Selected recipients do not have email addresses.");
 
+  const scheduledAt = parseScheduledAt(input.scheduledAtIso);
+
   return db.transaction(async (tx) => {
     const [campaign] = await tx
       .insert(emailCampaigns)
@@ -2159,6 +2165,7 @@ export async function createEmailCampaignDraft(input: CreateEmailCampaignDraftIn
         subject,
         body,
         status: "draft",
+        scheduledAt,
       })
       .returning();
 
@@ -2183,15 +2190,53 @@ export async function createEmailCampaignDraft(input: CreateEmailCampaignDraftIn
   });
 }
 
+function parseScheduledAt(iso: string | null | undefined): Date | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    throw new Error("Scheduled send time is not a valid date.");
+  }
+  return date;
+}
+
+/**
+ * Flip a campaign into the worker queue. Idempotent for callers that hit
+ * "Send" twice — re-queuing a queued/sending campaign is a no-op except for
+ * refreshing queued_at and (optionally) the schedule.
+ */
+export async function enqueueEmailCampaign(input: {
+  campaignId: string;
+  scheduledAt?: Date | null;
+}) {
+  const now = new Date();
+  const [campaign] = await db
+    .update(emailCampaigns)
+    .set({
+      status: "queued",
+      queuedAt: now,
+      scheduledAt: input.scheduledAt ?? null,
+      sentAt: null,
+      lastAttemptedAt: null,
+    })
+    .where(eq(emailCampaigns.id, input.campaignId))
+    .returning();
+  return campaign;
+}
+
 export async function updateEmailCampaignStatus(
   campaignId: string,
   status: EmailCampaignRecord["status"],
+  options?: { lastAttemptedAt?: Date | null },
 ) {
+  const isTerminal = status === "sent" || status === "partial";
   const [campaign] = await db
     .update(emailCampaigns)
     .set({
       status,
-      sentAt: status === "sent" ? new Date() : null,
+      sentAt: isTerminal ? new Date() : null,
+      ...(options?.lastAttemptedAt !== undefined
+        ? { lastAttemptedAt: options.lastAttemptedAt }
+        : {}),
     })
     .where(eq(emailCampaigns.id, campaignId))
     .returning();
