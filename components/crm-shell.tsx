@@ -23,15 +23,31 @@ type CrmShellProps = {
   children?: React.ReactNode;
 };
 
-const primaryNavItems = [
-  { href: "/dashboard", label: "Dashboard", key: "dashboard", icon: Gauge },
-  { href: "/companies", label: "Companies", key: "companies", icon: Building2 },
-  { href: "/partners", label: "Partners", key: "partners", icon: UsersRound },
-  { href: "/events", label: "Events", key: "events", icon: CalendarDays },
-  { href: "/contact-log", label: "Contact History", key: "touchpoints", icon: MessageSquarePlus },
-  { href: "/pipeline", label: "Pipeline", key: "pipeline", icon: Handshake },
-  { href: "/outreach", label: "Outreach", key: "outreach", icon: MailPlus },
+const navSections = [
+  {
+    heading: "MAIN",
+    items: [
+      { href: "/dashboard", label: "Dashboard", key: "dashboard", icon: Gauge },
+      { href: "/events", label: "Events", key: "events", icon: CalendarDays },
+    ],
+  },
+  {
+    heading: "CONTACTS",
+    items: [
+      { href: "/companies", label: "Companies", key: "companies", icon: Building2 },
+      { href: "/partners", label: "Partners", key: "partners", icon: UsersRound },
+    ],
+  },
+  {
+    heading: "OUTREACH",
+    items: [
+      { href: "/pipeline", label: "Pipeline", key: "pipeline", icon: Handshake },
+      { href: "/contact-log", label: "Contact History", key: "touchpoints", icon: MessageSquarePlus },
+      { href: "/outreach", label: "Outreach", key: "outreach", icon: MailPlus },
+    ],
+  },
 ] as const;
+const primaryNavItems = navSections.flatMap((section) => section.items);
 
 const settingsNavItem = { href: "/settings", label: "Settings", key: "settings", icon: Settings } as const;
 type ThemeMode = "dark" | "light";
@@ -82,24 +98,33 @@ export function CrmShell({
             </div>
           </div>
 
-          <nav className="mt-7 space-y-0.5">
-            {primaryNavItems.map((item) => {
-              const active = activeSection === item.key;
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={[
-                    "flex h-8 items-center gap-2.5 rounded-md px-2 text-[13px] font-medium transition",
-                    active ? "bg-white/[0.075] text-white" : "text-zinc-500 hover:bg-white/[0.045] hover:text-zinc-200",
-                  ].join(" ")}
-                >
-                  <Icon className={["size-4 shrink-0", active ? "text-zinc-100" : "text-zinc-500"].join(" ")} strokeWidth={1.8} />
-                  {item.label}
-                </Link>
-              );
-            })}
+          <nav className="mt-7 space-y-4">
+            {navSections.map((section) => (
+              <div key={section.heading}>
+                <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
+                  {section.heading}
+                </p>
+                <div className="space-y-0.5">
+                  {section.items.map((item) => {
+                    const active = activeSection === item.key;
+                    const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={[
+                          "flex h-8 items-center gap-2.5 rounded-md px-2 text-[13px] font-medium transition",
+                          active ? "bg-white/[0.075] text-white" : "text-zinc-500 hover:bg-white/[0.045] hover:text-zinc-200",
+                        ].join(" ")}
+                      >
+                        <Icon className={["size-4 shrink-0", active ? "text-zinc-100" : "text-zinc-500"].join(" ")} strokeWidth={1.8} />
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </nav>
 
           <div className="mt-auto border-t border-white/[0.08] pt-4">

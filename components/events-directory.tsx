@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ArrowLeft, ChevronDown, Pencil, Plus, Trash2, X } from "lucide-react";
 import {
   createEventAction,
   logEventPartnerResponseAction,
@@ -90,7 +90,51 @@ function partnerGoalText(event: Pick<CrmEventSummary, "confirmedPartnerCount" | 
   if (event.confirmedPartnerGoal) {
     return `${event.confirmedPartnerCount}/${event.confirmedPartnerGoal} confirmed`;
   }
-  return `${event.confirmedPartnerCount} confirmed`;
+  return `No partner goal set`;
+}
+
+const roleTargetDefaults: Partial<Record<EventRole, number>> = {
+  speaker: 1,
+  judge: 10,
+  mentor: 10,
+};
+
+function partnerRoleProgress(event: Pick<CrmEventSummary, "partnerResponses">) {
+  const confirmedTotals = new Map<EventRole, number>();
+  const rolesSeen = new Set<EventRole>();
+  for (const response of event.partnerResponses) {
+    rolesSeen.add(response.eventRole);
+    if (response.eventStatus !== "confirmed" && response.eventStatus !== "attended") continue;
+    confirmedTotals.set(response.eventRole, (confirmedTotals.get(response.eventRole) ?? 0) + 1);
+  }
+  return Array.from(rolesSeen.values())
+    .map((role) => {
+      const confirmed = confirmedTotals.get(role) ?? 0;
+      const required = roleTargetDefaults[role] ?? confirmed;
+      return {
+        role,
+        label: eventRoleLabel(role),
+        confirmed,
+        required,
+      };
+    })
+    .sort((left, right) => left.label.localeCompare(right.label, undefined, { sensitivity: "base" }));
+}
+
+function roleProgressNoun(role: EventRole, required: number) {
+  if (role === "speaker") return required === 1 ? "keynote" : "keynotes";
+  const base = eventRoleLabel(role).toLowerCase();
+  if (required === 1 || base.endsWith("s")) return base;
+  return `${base}s`;
+}
+
+function directorSummary(directors: CrmUserSummary[]) {
+  if (directors.length === 0) return "Unassigned";
+  if (directors.length === 1) return directors[0]?.name ?? "Unassigned";
+  if (directors.length === 2) {
+    return [directors[0]?.name, directors[1]?.name].filter(Boolean).join(", ");
+  }
+  return [directors[0]?.name, directors[1]?.name].filter(Boolean).join(", ") + ` +${directors.length - 2}`;
 }
 
 function responseStatusTone(status: EventAttendanceStatus) {
@@ -162,7 +206,7 @@ function SortHeader({
     <button
       type="button"
       onClick={() => onSort(sortKey)}
-      className={["w-fit rounded-full px-2 py-1 text-left transition hover:bg-white/[0.055] hover:text-zinc-300 cursor-pointer",
+      className={["w-fit rounded-full py-1 text-left transition hover:bg-white/[0.055] hover:text-zinc-300 cursor-pointer",
         active ? "bg-white/[0.055] text-zinc-200" : "",
       ].join(" ")}
     >
@@ -508,6 +552,7 @@ export function EventsDirectory({
   const [selectedDirectorIds, setSelectedDirectorIds] = useState<string[]>(
     initialEvent?.directors.map((director) => director.id) ?? [],
   );
+  const [openPartnerBreakdownId, setOpenPartnerBreakdownId] = useState<string | null>(null);
   const [tierConfigs, setTierConfigs] = useState<TierPresetDraft[]>(
     initialEvent?.tierConfigs.map((preset) => ({ ...preset })) ?? [],
   );
@@ -665,6 +710,18 @@ export function EventsDirectory({
     });
   }
 
+  function openEvent(event: CrmEventSummary) {
+    setError(null);
+    setOpenPartnerBreakdownId(null);
+    setPartnerName("");
+    setSelectedResponsePartnerId("");
+    setSelectedDirectorIds(event.directors.map((director) => director.id));
+    setTierConfigs(event.tierConfigs.map((preset) => ({ ...preset })));
+    setSelectedId(event.id);
+    setMode("view");
+    window.history.replaceState(null, "", `/events?eventId=${event.id}`);
+  }
+
   return (
     <div className={["grid min-h-[100dvh] w-full max-w-full grid-cols-1 overflow-x-hidden bg-[#0d0d0f] xl:overflow-hidden", panelOpen ? "xl:grid-cols-[minmax(0,1fr)_minmax(400px,480px)]" : ""].join(" ")}>
       <section className={["min-w-0 bg-[#0d0d0f] px-3 py-4 sm:px-5 sm:py-5 xl:overflow-hidden", panelOpen ? "hidden xl:block" : ""].join(" ")}>
@@ -715,41 +772,91 @@ export function EventsDirectory({
         </div>
 
         <div className="mt-5 overflow-hidden rounded-md border border-white/[0.09] bg-[#111113]">
-          <div className="grid min-w-0 grid-cols-1 border-b border-white/[0.08] px-4 py-2.5 text-[12px] text-zinc-500 md:grid-cols-[minmax(140px,1fr)_64px_120px_140px]">
+          <div className="grid min-w-0 grid-cols-1 border-b border-white/[0.08] px-4 py-2.5 text-[12px] text-zinc-500 md:grid-cols-[minmax(140px,1fr)_120px_64px_150px_180px]">
             <span className="min-w-0"><SortHeader label="Name" sortKey="name" activeKey={sortKey} direction={sortDirection} onSort={sortEvents} /></span>
+            <span className="hidden min-w-0 md:block"><SortHeader label="Start date" sortKey="start" activeKey={sortKey} direction={sortDirection} onSort={sortEvents} /></span>
             <span className="hidden min-w-0 md:block"><SortHeader label="Year" sortKey="year" activeKey={sortKey} direction={sortDirection} onSort={sortEvents} /></span>
-            <span className="hidden min-w-0 md:block"><SortHeader label="Partners" sortKey="partners" activeKey={sortKey} direction={sortDirection} onSort={sortEvents} /></span>
-            <span className="hidden min-w-0 md:block"><SortHeader label="Start" sortKey="start" activeKey={sortKey} direction={sortDirection} onSort={sortEvents} /></span>
+            <span className="hidden min-w-0 md:block"><SortHeader label="Partners confirmed" sortKey="partners" activeKey={sortKey} direction={sortDirection} onSort={sortEvents} /></span>
+            <span className="hidden min-w-0 md:flex md:items-center">Experiences</span>
           </div>
           <div className="max-h-[62vh] overflow-auto">
             {filteredEvents.map((event) => (
-              <button
+              <div
                 key={event.id}
-                type="button"
-                onClick={() => {
-                  setError(null);
-                  setPartnerName("");
-                  setSelectedResponsePartnerId("");
-                  setSelectedDirectorIds(event.directors.map((director) => director.id));
-                  setTierConfigs(event.tierConfigs.map((preset) => ({ ...preset })));
-                  setSelectedId(event.id);
-                  setMode("view");
-                  window.history.replaceState(null, "", `/events?eventId=${event.id}`);
+                onClick={() => openEvent(event)}
+                onKeyDown={(eventKey) => {
+                  if (eventKey.key !== "Enter" && eventKey.key !== " ") return;
+                  eventKey.preventDefault();
+                  openEvent(event);
                 }}
-                className={["grid min-w-0 w-full grid-cols-1 items-center border-b border-white/[0.06] px-4 py-3.5 text-left text-[13px] text-zinc-300 transition hover:bg-white/[0.035] md:grid-cols-[minmax(140px,1fr)_64px_120px_140px] cursor-pointer",
+                role="button"
+                tabIndex={0}
+                className={["grid min-w-0 w-full grid-cols-1 items-center border-b border-white/[0.06] px-4 py-3.5 text-left text-[13px] text-zinc-300 transition hover:bg-white/[0.035] md:grid-cols-[minmax(140px,1fr)_120px_64px_150px_180px] cursor-pointer",
                   selected?.id === event.id && mode !== "closed" && mode !== "create" ? "bg-white/[0.055]" : "",
                 ].join(" ")}
               >
                 <span className="min-w-0">
                   <span className="block truncate font-medium text-zinc-100">{event.name}</span>
                   <span className="mt-1 block text-[12px] text-zinc-500 md:hidden">
-                    {[event.year, partnerGoalText(event), formatDate(event.startDate)].filter(Boolean).join(" · ")}
+                    {[formatDate(event.startDate), event.year, partnerGoalText(event), directorSummary(event.directors)].filter(Boolean).join(" · ")}
                   </span>
                 </span>
-                <span className="hidden min-w-0 truncate md:block">{event.year ?? ""}</span>
-                <span className="hidden min-w-0 truncate md:block">{partnerGoalText(event)}</span>
                 <span className="hidden min-w-0 truncate md:block">{formatDate(event.startDate)}</span>
-              </button>
+                <span className="hidden min-w-0 truncate md:block">{event.year ?? ""}</span>
+                <span className="hidden min-w-0 md:block">
+                  <div
+                    className="relative flex w-full items-center justify-between gap-1.5"
+                    onMouseLeave={() => {
+                      if (openPartnerBreakdownId === event.id) setOpenPartnerBreakdownId(null);
+                    }}
+                  >
+                    <span className="min-w-0 truncate text-zinc-300">{partnerGoalText(event)}</span>
+                    <button
+                      type="button"
+                      aria-label={`Show partner role breakdown for ${event.name}`}
+                      onClick={(eventClick) => {
+                        eventClick.stopPropagation();
+                        setOpenPartnerBreakdownId((current) => (current === event.id ? null : event.id));
+                      }}
+                      onMouseEnter={(eventMouse) => {
+                        eventMouse.stopPropagation();
+                        setOpenPartnerBreakdownId(event.id);
+                      }}
+                      onKeyDown={(eventKey) => eventKey.stopPropagation()}
+                      className="grid size-5 place-items-center rounded text-zinc-500 transition hover:bg-white/[0.05] hover:text-zinc-200 cursor-pointer"
+                    >
+                      <ChevronDown
+                        className={["size-3.5 transition-transform", openPartnerBreakdownId === event.id ? "rotate-180 text-zinc-200" : ""].join(" ")}
+                        strokeWidth={2}
+                      />
+                    </button>
+                    {openPartnerBreakdownId === event.id ? (
+                      <div
+                        className="absolute left-0 top-7 z-20 min-w-[220px] rounded-md border border-white/[0.09] bg-[#0d0e11] p-2 text-[12px] text-zinc-400 shadow-xl shadow-black/30"
+                        onClick={(eventClick) => eventClick.stopPropagation()}
+                        onKeyDown={(eventKey) => eventKey.stopPropagation()}
+                      >
+                        {partnerRoleProgress(event).length ? (
+                          <ul className="space-y-1">
+                            {partnerRoleProgress(event).map((item) => (
+                              <li key={`${event.id}-${item.role}`} className="flex items-center justify-around">
+                                <span className="truncate text-zinc-400">
+                                  {item.confirmed}/{item.required} {roleProgressNoun(item.role, item.required)}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p>No partner categories yet.</p>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                </span>
+                <span className="hidden min-w-0 md:flex md:items-center">
+                  <span className="truncate">{directorSummary(event.directors)}</span>
+                </span>
+              </div>
             ))}
           </div>
           <div className="border-t border-white/[0.08] px-4 py-4 text-[13px] text-zinc-500">
