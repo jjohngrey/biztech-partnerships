@@ -127,7 +127,7 @@ Supabase Postgres with row-level security. All tables enforce that the caller is
 
 - Any authenticated `@ubcbiztech.com` user can `SELECT` on all core tables.
 - `INSERT`/`UPDATE` allowed for authenticated users.
-- `DELETE` allowed only for the record's creator (or admin, once admin privileges are defined).
+- `DELETE` allowed for the record's owner (where tracked) or admins. Join tables are admin-only.
 - Policies are written once in SQL migrations and versioned with the app.
 
 ## Integrations

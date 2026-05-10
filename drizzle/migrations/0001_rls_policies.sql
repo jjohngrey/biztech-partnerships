@@ -113,11 +113,12 @@ CREATE POLICY sponsors_update_authenticated ON sponsors
   USING (true)
   WITH CHECK (true);
 
--- DELETE: admin only
-CREATE POLICY sponsors_delete_admin ON sponsors
+-- DELETE: owner or admin
+CREATE POLICY sponsors_delete_own ON sponsors
   FOR DELETE TO authenticated
   USING (
-    (SELECT role FROM users WHERE id = auth.uid()) = 'admin'
+    owner_user_id = auth.uid()
+    OR (SELECT role FROM users WHERE id = auth.uid()) = 'admin'
   );
 
 -- ---------------------------------------------------------------------------
@@ -139,11 +140,12 @@ CREATE POLICY in_kind_sponsors_update_authenticated ON in_kind_sponsors
   USING (true)
   WITH CHECK (true);
 
--- DELETE: admin only
-CREATE POLICY in_kind_sponsors_delete_admin ON in_kind_sponsors
+-- DELETE: owner or admin
+CREATE POLICY in_kind_sponsors_delete_own ON in_kind_sponsors
   FOR DELETE TO authenticated
   USING (
-    (SELECT role FROM users WHERE id = auth.uid()) = 'admin'
+    owner_user_id = auth.uid()
+    OR (SELECT role FROM users WHERE id = auth.uid()) = 'admin'
   );
 
 -- ---------------------------------------------------------------------------

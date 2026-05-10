@@ -233,12 +233,12 @@ CREATE POLICY meeting_note_companies_delete_admin ON meeting_note_companies FOR 
 CREATE POLICY email_templates_select_authenticated ON email_templates FOR SELECT TO authenticated USING (true);
 CREATE POLICY email_templates_insert_authenticated ON email_templates FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY email_templates_update_authenticated ON email_templates FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY email_templates_delete_admin ON email_templates FOR DELETE TO authenticated USING ((SELECT role FROM users WHERE id = auth.uid()) = 'admin');
+CREATE POLICY email_templates_delete_own ON email_templates FOR DELETE TO authenticated USING (created_by = auth.uid() OR (SELECT role FROM users WHERE id = auth.uid()) = 'admin');
 
 CREATE POLICY email_campaigns_select_authenticated ON email_campaigns FOR SELECT TO authenticated USING (true);
 CREATE POLICY email_campaigns_insert_authenticated ON email_campaigns FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY email_campaigns_update_authenticated ON email_campaigns FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY email_campaigns_delete_admin ON email_campaigns FOR DELETE TO authenticated USING ((SELECT role FROM users WHERE id = auth.uid()) = 'admin');
+CREATE POLICY email_campaigns_delete_own ON email_campaigns FOR DELETE TO authenticated USING (sender_user_id = auth.uid() OR (SELECT role FROM users WHERE id = auth.uid()) = 'admin');
 
 CREATE POLICY email_sends_select_authenticated ON email_sends FOR SELECT TO authenticated USING (true);
 CREATE POLICY email_sends_insert_authenticated ON email_sends FOR INSERT TO authenticated WITH CHECK (true);
