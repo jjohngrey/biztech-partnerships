@@ -353,6 +353,10 @@ export function PipelineDirectory({
   const [editCompanyName, setEditCompanyName] = useState("");
   const [createEventName, setCreateEventName] = useState("");
   const [editEventName, setEditEventName] = useState("");
+  const [tierValue, setTierValue] = useState(initialRecord?.tier ?? "");
+  const [amountValue, setAmountValue] = useState(
+    initialRecord?.amount ? String(initialRecord.amount / 100) : "",
+  );
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [localRecords, setLocalRecords] = useState(records);
   const [savingRecordIds, setSavingRecordIds] = useState<Set<string>>(new Set());
@@ -378,6 +382,9 @@ export function PipelineDirectory({
   const editCompanyMatch = getCompanyMatch(companies, editCompanyValue);
   const activeCompanyId = panelMode === "create" ? createCompanyMatch?.id ?? "" : editCompanyMatch?.id ?? selected?.partnerId ?? "";
   const contactOptions = activeCompanyId ? partners.filter((partner) => partner.companyId === activeCompanyId) : [];
+  const activeEventName = panelMode === "create" ? createEventName : editEventName || selected?.eventName || "";
+  const activeEvent = getEventMatch(events, activeEventName);
+  const tierPresets = activeEvent?.tierConfigs ?? [];
 
   useEffect(() => {
     setLocalRecords(records);
@@ -436,6 +443,8 @@ export function PipelineDirectory({
     setEditCompanyName("");
     setCreateEventName("");
     setEditEventName("");
+    setTierValue("");
+    setAmountValue("");
     setError(null);
     window.history.replaceState(null, "", "/pipeline");
   }
@@ -642,6 +651,8 @@ export function PipelineDirectory({
                 setEditCompanyName("");
                 setCreateEventName("");
                 setEditEventName("");
+                setTierValue("");
+                setAmountValue("");
                 setPanelMode("create");
                 setError(null);
                 window.history.replaceState(null, "", "/pipeline");
@@ -714,6 +725,8 @@ export function PipelineDirectory({
                               setSelectedId(record.id);
                               setEditCompanyName(record.partnerName);
                               setEditEventName(record.eventName ?? "");
+                              setTierValue(record.tier ?? "");
+                              setAmountValue(record.amount ? String(record.amount / 100) : "");
                               setPanelMode("edit");
                               window.history.replaceState(null, "", `/pipeline?conversationId=${record.id}`);
                             }}
@@ -851,11 +864,54 @@ export function PipelineDirectory({
               <div className="grid gap-4">
                 <label className="grid gap-1.5 text-[12px] font-medium text-zinc-400">
                   Package
-                  <input name="tier" defaultValue={selected?.tier ?? ""} className={inputClass()} />
+                  {tierPresets.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {tierPresets.map((preset) => {
+                        const active = tierValue.trim().toLowerCase() === preset.label.trim().toLowerCase();
+                        return (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            onClick={() => {
+                              setTierValue(preset.label);
+                              if (preset.amount !== null) {
+                                setAmountValue(String(preset.amount / 100));
+                              }
+                            }}
+                            className={[
+                              "inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[12px] transition cursor-pointer",
+                              active
+                                ? "border-zinc-300/40 bg-white/[0.08] text-zinc-100"
+                                : "border-white/[0.08] bg-white/[0.02] text-zinc-300 hover:border-white/[0.18] hover:bg-white/[0.05] hover:text-zinc-100",
+                            ].join(" ")}
+                          >
+                            <span>{preset.label}</span>
+                            {preset.amount !== null ? (
+                              <span className="text-zinc-500">{formatCurrency(preset.amount)}</span>
+                            ) : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                  <input
+                    name="tier"
+                    value={tierValue}
+                    onChange={(event) => setTierValue(event.target.value)}
+                    className={inputClass()}
+                  />
                 </label>
                 <label className="grid gap-1.5 text-[12px] font-medium text-zinc-400">
                   Ask amount CAD
-                  <input name="amount" type="number" min="0" step="1" defaultValue={selected?.amount ? selected.amount / 100 : ""} className={inputClass()} />
+                  <input
+                    name="amount"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={amountValue}
+                    onChange={(event) => setAmountValue(event.target.value)}
+                    className={inputClass()}
+                  />
                 </label>
               </div>
               <label className="grid gap-1.5 text-[12px] font-medium text-zinc-400">

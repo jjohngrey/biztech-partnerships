@@ -15,6 +15,7 @@ import type { CrmEventSummary, CrmUserSummary, EventAttendanceStatus, EventRole,
 type PanelMode = "closed" | "create" | "view" | "edit";
 type SortDirection = "asc" | "desc";
 type EventSortKey = "name" | "year" | "partners" | "start";
+type TierPresetDraft = { id: string; label: string; amount: number | null };
 
 const eventRoles: Array<{ value: EventRole; label: string }> = [
   { value: "judge", label: "Judge" },
@@ -240,6 +241,74 @@ function PartnerCombo({
   );
 }
 
+function TierPresetEditor({
+  presets,
+  onChange,
+}: {
+  presets: TierPresetDraft[];
+  onChange: (next: TierPresetDraft[]) => void;
+}) {
+  function update(index: number, patch: Partial<Omit<TierPresetDraft, "id">>) {
+    onChange(presets.map((preset, i) => (i === index ? { ...preset, ...patch } : preset)));
+  }
+  function remove(index: number) {
+    onChange(presets.filter((_, i) => i !== index));
+  }
+  function add() {
+    onChange([...presets, { id: crypto.randomUUID(), label: "", amount: null }]);
+  }
+  return (
+    <div className="grid gap-2">
+      {presets.length === 0 ? (
+        <p className="text-[12px] text-zinc-500">
+          Add named tiers (e.g. Gold, Silver) with default amounts. Selecting a tier on a sponsorship will pre-fill the ask.
+        </p>
+      ) : null}
+      {presets.map((preset, index) => (
+        <div key={preset.id} className="grid grid-cols-[minmax(0,1fr)_minmax(0,140px)_auto] gap-2">
+          <input
+            value={preset.label}
+            onChange={(event) => update(index, { label: event.target.value })}
+            placeholder="Tier name (e.g. Gold)"
+            className={inputClass()}
+          />
+          <input
+            type="number"
+            min="0"
+            step="1"
+            value={preset.amount === null ? "" : preset.amount / 100}
+            onChange={(event) => {
+              const raw = event.target.value.trim();
+              if (!raw) return update(index, { amount: null });
+              const numeric = Number(raw);
+              if (!Number.isFinite(numeric) || numeric < 0) return;
+              update(index, { amount: Math.round(numeric * 100) });
+            }}
+            placeholder="Amount CAD"
+            className={inputClass()}
+          />
+          <button
+            type="button"
+            onClick={() => remove(index)}
+            aria-label={`Remove tier ${preset.label || index + 1}`}
+            className="grid size-9 place-items-center rounded-md border border-white/[0.1] text-zinc-400 transition hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-200 cursor-pointer"
+          >
+            <Trash2 className="size-4" strokeWidth={1.8} />
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={add}
+        className="inline-flex h-8 w-fit items-center gap-1.5 rounded-md border border-white/[0.1] bg-white/[0.02] px-2.5 text-[12px] font-medium text-zinc-300 transition hover:bg-white/[0.05] hover:text-white cursor-pointer"
+      >
+        <Plus className="size-3.5" strokeWidth={1.8} />
+        Add tier
+      </button>
+    </div>
+  );
+}
+
 function DirectorMultiSelect({
   directors,
   selectedIds,
@@ -390,6 +459,9 @@ export function EventsDirectory({
   const [selectedDirectorIds, setSelectedDirectorIds] = useState<string[]>(
     initialEvent?.directors.map((director) => director.id) ?? [],
   );
+  const [tierConfigs, setTierConfigs] = useState<TierPresetDraft[]>(
+    initialEvent?.tierConfigs.map((preset) => ({ ...preset })) ?? [],
+  );
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const selected = events.find((event) => event.id === selectedId) ?? null;
@@ -439,6 +511,9 @@ export function EventsDirectory({
     if (!parsedYear.ok) throw new Error("Year must be a whole number.");
     if (!parsedGoal.ok) throw new Error("Sponsorship goal must be a valid non-negative number.");
     if (!parsedPartnerGoal.ok) throw new Error("Partner goal must be a whole number.");
+    const cleanedTierConfigs = tierConfigs
+      .map((preset) => ({ id: preset.id, label: preset.label.trim(), amount: preset.amount }))
+      .filter((preset) => preset.label.length > 0);
     return {
       name: String(data.get("name") ?? ""),
       year: parsedYear.value,
@@ -450,6 +525,7 @@ export function EventsDirectory({
       notes: String(data.get("notes") ?? ""),
       archived: data.get("archived") === "on",
       directorUserIds: selectedDirectorIds,
+      tierConfigs: cleanedTierConfigs,
     };
   }
 
@@ -465,6 +541,7 @@ export function EventsDirectory({
         setSelectedId(created.id);
         setMode("view");
         setSelectedDirectorIds([]);
+        setTierConfigs([]);
         window.history.replaceState(null, "", `/events?eventId=${created.id}`);
         router.refresh();
       } catch (cause) {
@@ -549,6 +626,7 @@ export function EventsDirectory({
               setPartnerName("");
               setSelectedResponsePartnerId("");
               setSelectedDirectorIds([]);
+              setTierConfigs([]);
               setSelectedId(null);
               setMode("create");
               window.history.replaceState(null, "", "/events");
@@ -577,6 +655,7 @@ export function EventsDirectory({
                   setPartnerName("");
                   setSelectedResponsePartnerId("");
                   setSelectedDirectorIds(event.directors.map((director) => director.id));
+                  setTierConfigs(event.tierConfigs.map((preset) => ({ ...preset })));
                   setSelectedId(event.id);
                   setMode("view");
                   window.history.replaceState(null, "", `/events?eventId=${event.id}`);
@@ -763,6 +842,9 @@ export function EventsDirectory({
                       selectedIds={selectedDirectorIds}
                       onChange={setSelectedDirectorIds}
                     />
+                  </Field>
+                  <Field label="Tier presets">
+                    <TierPresetEditor presets={tierConfigs} onChange={setTierConfigs} />
                   </Field>
                   <Field label="Notes"><textarea name="notes" rows={4} defaultValue={mode === "edit" ? selected?.notes ?? "" : ""} className={inputClass("h-auto py-2")} /></Field>
                   <label className="flex items-center gap-2 text-[13px] text-zinc-300">

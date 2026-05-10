@@ -450,6 +450,7 @@ export async function listEvents(options?: { includeArchived?: boolean }): Promi
         outreachStartDate: event.outreachStartDate,
         sponsorshipGoal: event.sponsorshipGoal,
         confirmedPartnerGoal: event.confirmedPartnerGoal,
+        tierConfigs: event.tierConfigs ?? [],
         notes: event.notes,
         archived: event.archived,
         securedValue: sumAmounts(

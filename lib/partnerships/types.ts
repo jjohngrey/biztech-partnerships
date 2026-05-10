@@ -96,6 +96,7 @@ export type CrmEventSummary = {
   outreachStartDate: string | null;
   sponsorshipGoal: number | null;
   confirmedPartnerGoal: number | null;
+  tierConfigs: Array<{ id: string; label: string; amount: number | null }>;
   notes: string | null;
   archived: boolean;
   securedValue: number;
