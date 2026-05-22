@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, desc, eq, inArray, ne, or } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, ne, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   companies,
@@ -25,6 +25,8 @@ import {
   users,
   usersEvents,
   usersPartners,
+  usersYears,
+  years,
   type NewSponsor,
 } from "@/lib/db/schema";
 import type {
@@ -32,6 +34,7 @@ import type {
   AddPartnerEventRoleInput,
   CompanyDirectoryRecord,
   CompanyInteractionRecord,
+  CompanyKind,
   CreateCompanyInteractionInput,
   CreateMeetingLogInput,
   CreateCompanyInput,
@@ -46,6 +49,7 @@ import type {
   CrmUserSummary,
   CrmUserRole,
   CrmUserTeam,
+  CrmYear,
   CrmDashboard,
   CrmEventSummary,
   CrmStatus,
@@ -60,6 +64,8 @@ import type {
   MeetingNoteDetail,
   MeetingNotePartnerOption,
   MyContactPartner,
+  PaginatedResult,
+  PaginationOptions,
   PartnerAccount,
   PartnerContact,
   PartnerDirectoryRecord,
@@ -112,7 +118,10 @@ function toContact(row: typeof partners.$inferSelect): PartnerContact {
   };
 }
 
-function toUserSummary(row: typeof users.$inferSelect): CrmUserSummary {
+function toUserSummary(
+  row: typeof users.$inferSelect,
+  yearIds: string[] = [],
+): CrmUserSummary {
   const name = `${row.first_name} ${row.last_name}`.trim();
   return {
     id: row.id,
@@ -122,6 +131,7 @@ function toUserSummary(row: typeof users.$inferSelect): CrmUserSummary {
     email: row.email,
     role: row.role,
     team: row.team,
+    yearIds,
   };
 }
 
@@ -230,30 +240,81 @@ async function findOrCreateCompanyByName(nameValue: string) {
   return company;
 }
 
+export async function listYears(): Promise<CrmYear[]> {
+  const rows = await db.select().from(years).orderBy(asc(years.label));
+  return rows.map((row) => ({ id: row.id, label: row.label }));
+}
+
+async function loadYearIdsByUser(): Promise<Map<string, string[]>> {
+  const rows = await db
+    .select({ userId: usersYears.userId, yearId: usersYears.yearId, label: years.label })
+    .from(usersYears)
+    .innerJoin(years, eq(usersYears.yearId, years.id))
+    .orderBy(asc(years.label));
+  const map = new Map<string, string[]>();
+  for (const row of rows) {
+    const list = map.get(row.userId);
+    if (list) list.push(row.yearId);
+    else map.set(row.userId, [row.yearId]);
+  }
+  return map;
+}
+
 export async function listUsers(): Promise<CrmUserSummary[]> {
-  const rows = await db.select().from(users).orderBy(asc(users.first_name), asc(users.last_name));
-  return rows.map(toUserSummary);
+  const [rows, yearIdsByUser] = await Promise.all([
+    db.select().from(users).orderBy(asc(users.first_name), asc(users.last_name)),
+    loadYearIdsByUser(),
+  ]);
+  return rows.map((row) => toUserSummary(row, yearIdsByUser.get(row.id) ?? []));
+}
+
+async function syncDirectorYears(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  userId: string,
+  yearIds: string[] | undefined,
+) {
+  if (!yearIds) return;
+  const uniqueYearIds = Array.from(new Set(yearIds.filter(Boolean)));
+  await tx.delete(usersYears).where(eq(usersYears.userId, userId));
+  if (uniqueYearIds.length) {
+    await tx
+      .insert(usersYears)
+      .values(uniqueYearIds.map((yearId) => ({ userId, yearId })))
+      .onConflictDoNothing();
+  }
 }
 
 export async function createDirector(input: CreateDirectorInput) {
-  const [director] = await db
-    .insert(users)
-    .values({
-      id: randomUUID(),
-      ...normalizeDirectorInput(input),
-    })
-    .returning();
-  return toUserSummary(director);
+  const id = randomUUID();
+  const director = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(users)
+      .values({
+        id,
+        ...normalizeDirectorInput(input),
+      })
+      .returning();
+    await syncDirectorYears(tx, row.id, input.yearIds);
+    return row;
+  });
+  return toUserSummary(director, Array.from(new Set((input.yearIds ?? []).filter(Boolean))));
 }
 
 export async function updateDirector(input: UpdateDirectorInput) {
-  const [director] = await db
-    .update(users)
-    .set(normalizeDirectorInput(input))
-    .where(eq(users.id, input.id))
-    .returning();
-  if (!director) throw new Error("BizTech Director was not found.");
-  return toUserSummary(director);
+  const director = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(users)
+      .set(normalizeDirectorInput(input))
+      .where(eq(users.id, input.id))
+      .returning();
+    if (!row) throw new Error("BizTech Director was not found.");
+    await syncDirectorYears(tx, row.id, input.yearIds);
+    return row;
+  });
+  const yearIds = input.yearIds
+    ? Array.from(new Set(input.yearIds.filter(Boolean)))
+    : (await loadYearIdsByUser()).get(director.id) ?? [];
+  return toUserSummary(director, yearIds);
 }
 
 async function syncPartnerDirectors(
@@ -799,6 +860,7 @@ export async function listMyContactPartners(userId: string): Promise<MyContactPa
       partnerName: [partner.firstName, partner.lastName].filter(Boolean).join(" "),
       companyId: company.id,
       companyName: company.name,
+      email: partner.email,
       lastContactedAt: partnerLatest.get(partner.id)!.toISOString(),
     }))
     .sort((a, b) => b.lastContactedAt.localeCompare(a.lastContactedAt));
@@ -2073,6 +2135,396 @@ export async function listEmailRecipients(): Promise<EmailRecipientRecord[]> {
         latestStatus: companyDeals[0]?.status ?? null,
       };
     });
+}
+
+const IN_KIND_TAG = "in-kind";
+const PREVIOUS_TAG = "previous-sponsor";
+
+export async function listCompanyDirectoryPage(
+  opts: PaginationOptions & { kind?: CompanyKind } = {},
+): Promise<PaginatedResult<CompanyDirectoryRecord> & { kindCounts: { sponsors: number; inKind: number; previous: number } }> {
+  const { page = 1, pageSize = 25, search = "", kind } = opts;
+  const offset = (page - 1) * pageSize;
+
+  const kindFilter =
+    kind === "in_kind"
+      ? sql`${companies.tags} @> ARRAY[${IN_KIND_TAG}]::text[]`
+      : kind === "previous"
+        ? sql`${companies.tags} @> ARRAY[${PREVIOUS_TAG}]::text[]`
+        : kind === "sponsors"
+          ? and(
+              sql`NOT (${companies.tags} @> ARRAY[${IN_KIND_TAG}]::text[])`,
+              sql`NOT (${companies.tags} @> ARRAY[${PREVIOUS_TAG}]::text[])`,
+            )
+          : undefined;
+
+  const baseWhere = and(eq(companies.archived, false), search ? ilike(companies.name, `%${search}%`) : undefined);
+  const pageWhere = and(baseWhere, kindFilter);
+
+  const [kindCountsResult, countResult, paginatedRows] = await Promise.all([
+    db
+      .select({
+        sponsors: sql<number>`COUNT(CASE WHEN NOT (${companies.tags} @> ARRAY[${IN_KIND_TAG}]::text[]) AND NOT (${companies.tags} @> ARRAY[${PREVIOUS_TAG}]::text[]) THEN 1 END)::int`,
+        inKind: sql<number>`COUNT(CASE WHEN ${companies.tags} @> ARRAY[${IN_KIND_TAG}]::text[] THEN 1 END)::int`,
+        previous: sql<number>`COUNT(CASE WHEN ${companies.tags} @> ARRAY[${PREVIOUS_TAG}]::text[] THEN 1 END)::int`,
+      })
+      .from(companies)
+      .where(baseWhere),
+    db.select({ count: sql<number>`count(*)::int` }).from(companies).where(pageWhere),
+    db.select().from(companies).where(pageWhere).orderBy(asc(companies.name)).limit(pageSize).offset(offset),
+  ]);
+
+  const total = countResult[0]?.count ?? 0;
+  const companyIds = paginatedRows.map((r) => r.id);
+  const kindCounts = {
+    sponsors: kindCountsResult[0]?.sponsors ?? 0,
+    inKind: kindCountsResult[0]?.inKind ?? 0,
+    previous: kindCountsResult[0]?.previous ?? 0,
+  };
+
+  if (companyIds.length === 0) {
+    return { data: [], total, page, pageSize, totalPages: Math.ceil(total / pageSize), kindCounts };
+  }
+
+  const [allContacts, allSponsorships, attendanceRows, documentRows, communicationRows, dealRows] = await Promise.all([
+    db.select().from(partners).where(inArray(partners.companyId, companyIds)).orderBy(desc(partners.isPrimary), asc(partners.firstName)),
+    db.select().from(sponsors).where(and(inArray(sponsors.companyId, companyIds), eq(sponsors.archived, false))),
+    db
+      .select({
+        companyId: companyEvents.companyId,
+        eventId: companyEvents.eventId,
+        eventRole: companyEvents.eventRole,
+        eventStatus: companyEvents.eventStatus,
+        eventName: events.name,
+        eventArchived: events.archived,
+      })
+      .from(companyEvents)
+      .innerJoin(events, eq(companyEvents.eventId, events.id))
+      .where(inArray(companyEvents.companyId, companyIds))
+      .orderBy(desc(events.startDate), asc(companyEvents.eventRole)),
+    db
+      .select({
+        document: partnerDocuments,
+        eventName: events.name,
+        partnerFirstName: partners.firstName,
+        partnerLastName: partners.lastName,
+      })
+      .from(partnerDocuments)
+      .leftJoin(events, eq(partnerDocuments.eventId, events.id))
+      .leftJoin(partners, eq(partnerDocuments.partnerId, partners.id))
+      .where(inArray(partnerDocuments.companyId, companyIds))
+      .orderBy(desc(partnerDocuments.updatedAt)),
+    db
+      .select({
+        activity: contactActivities,
+        user: users,
+        partnerFirstName: partners.firstName,
+        partnerLastName: partners.lastName,
+      })
+      .from(contactActivities)
+      .leftJoin(users, eq(contactActivities.primaryUserId, users.id))
+      .leftJoin(partners, eq(contactActivities.primaryPartnerId, partners.id))
+      .where(inArray(contactActivities.primaryCompanyId, companyIds))
+      .orderBy(desc(contactActivities.occurredAt)),
+    db
+      .select({
+        sponsor: sponsors,
+        company: companies,
+        event: events,
+        contact: partners,
+        owner: users,
+      })
+      .from(sponsors)
+      .innerJoin(companies, eq(sponsors.companyId, companies.id))
+      .leftJoin(events, eq(sponsors.eventId, events.id))
+      .leftJoin(partners, eq(sponsors.primaryContactId, partners.id))
+      .leftJoin(users, eq(sponsors.ownerUserId, users.id))
+      .where(and(inArray(sponsors.companyId, companyIds), eq(sponsors.archived, false)))
+      .orderBy(desc(sponsors.updatedAt)),
+  ]);
+
+  const data = paginatedRows.map((company) => {
+    const contacts = allContacts.filter((c) => c.companyId === company.id).map(toContact);
+    const companySponsorships = allSponsorships.filter((s) => s.companyId === company.id);
+    const primaryContact =
+      contacts.find((c) => c.isPrimary && !c.archived) ?? contacts.find((c) => !c.archived) ?? null;
+    const latest = [...companySponsorships].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())[0];
+    const openRows = companySponsorships.filter((row) => openStatuses.has(row.status as CrmStatus));
+    const securedRows = companySponsorships.filter((row) => securedStatuses.has(row.status as CrmStatus));
+
+    const activeDeals = dealRows
+      .filter(({ company: c, event: e }) => c.id === company.id && !e?.archived)
+      .map(({ sponsor: s, event: e, contact: c, owner: o }) => ({
+        id: s.id,
+        eventName: e?.name ?? null,
+        status: s.status as CrmStatus,
+        amount: s.amount,
+        followUpDate: s.followUpDate,
+        primaryContactName: c ? [c.firstName, c.lastName].filter(Boolean).join(" ") : null,
+      }));
+
+    return {
+      id: company.id,
+      name: company.name,
+      website: company.website,
+      linkedin: company.linkedin,
+      tier: company.tier,
+      tags: company.tags,
+      notes: company.notes,
+      isAlumni: company.isAlumni,
+      archived: company.archived,
+      primaryContact,
+      contacts,
+      sponsorshipCount: companySponsorships.length,
+      pipelineValue: sumAmounts(openRows),
+      securedValue: sumAmounts(securedRows),
+      latestStatus: (latest?.status as CrmStatus | undefined) ?? null,
+      nextFollowUpDate:
+        companySponsorships.map((r) => r.followUpDate).filter((v): v is string => Boolean(v)).sort()[0] ?? null,
+      activeContactsCount: contacts.filter((c) => !c.archived).length,
+      activeDeals,
+      eventAttendances: attendanceRows
+        .filter((row) => row.companyId === company.id && !row.eventArchived)
+        .map((row) => ({
+          eventId: row.eventId,
+          eventName: row.eventName,
+          eventRole: row.eventRole as CompanyDirectoryRecord["eventAttendances"][number]["eventRole"],
+          eventStatus: row.eventStatus as CompanyDirectoryRecord["eventAttendances"][number]["eventStatus"],
+        })),
+      documents: documentRows
+        .filter((row) => row.document.companyId === company.id)
+        .map((row) => ({
+          id: row.document.id,
+          companyId: row.document.companyId,
+          partnerId: row.document.partnerId,
+          partnerName: [row.partnerFirstName, row.partnerLastName].filter(Boolean).join(" ") || null,
+          eventId: row.document.eventId,
+          eventName: row.eventName,
+          title: row.document.title,
+          type: row.document.type,
+          status: row.document.status,
+          url: row.document.url,
+          fileName: row.document.fileName,
+          notes: row.document.notes,
+          updatedAtIso: row.document.updatedAt.toISOString(),
+        })),
+      communications: communicationRows
+        .filter((row) => row.activity.primaryCompanyId === company.id)
+        .map((row) => ({
+          id: row.activity.id,
+          companyId: row.activity.primaryCompanyId ?? company.id,
+          partnerId: row.activity.primaryPartnerId,
+          partnerName: [row.partnerFirstName, row.partnerLastName].filter(Boolean).join(" ") || null,
+          userId: row.activity.primaryUserId ?? row.activity.createdBy ?? "",
+          userName: row.user ? toUserSummary(row.user).name : "No director",
+          type: contactActivityTypeToInteractionType(row.activity.type),
+          direction: row.activity.direction as CompanyInteractionRecord["direction"],
+          subject: row.activity.subject,
+          notes: row.activity.notes ?? row.activity.summary,
+          contactedAtIso: row.activity.occurredAt.toISOString(),
+          followUpDate: row.activity.followUpDate,
+        })),
+      updatedAtIso: company.updatedAt.toISOString(),
+    } satisfies CompanyDirectoryRecord;
+  });
+
+  return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize), kindCounts };
+}
+
+export async function listPartnerDirectoryPage(
+  opts: PaginationOptions = {},
+): Promise<PaginatedResult<PartnerDirectoryRecord>> {
+  const { page = 1, pageSize = 25, search = "" } = opts;
+  const offset = (page - 1) * pageSize;
+
+  const searchFilter = search
+    ? or(
+        ilike(partners.firstName, `%${search}%`),
+        ilike(partners.lastName, `%${search}%`),
+        ilike(partners.email, `%${search}%`),
+        ilike(companies.name, `%${search}%`),
+      )
+    : undefined;
+
+  const baseFilter = and(eq(partners.archived, false), eq(companies.archived, false), searchFilter);
+
+  const [countResult, paginatedContactRows] = await Promise.all([
+    db.select({ count: sql<number>`count(*)::int` }).from(partners).innerJoin(companies, eq(partners.companyId, companies.id)).where(baseFilter),
+    db
+      .select({ partner: partners, company: companies })
+      .from(partners)
+      .innerJoin(companies, eq(partners.companyId, companies.id))
+      .where(baseFilter)
+      .orderBy(asc(partners.firstName), asc(partners.lastName))
+      .limit(pageSize)
+      .offset(offset),
+  ]);
+
+  const total = countResult[0]?.count ?? 0;
+  const contactIds = paginatedContactRows.map((r) => r.partner.id);
+  const companyIds = [...new Set(paginatedContactRows.map((r) => r.partner.companyId))];
+
+  if (contactIds.length === 0) {
+    return { data: [], total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+  }
+
+  const [dealRows, attendanceRows, directorRows] = await Promise.all([
+    db
+      .select({
+        sponsor: sponsors,
+        company: companies,
+        event: events,
+        contact: partners,
+        owner: users,
+      })
+      .from(sponsors)
+      .innerJoin(companies, eq(sponsors.companyId, companies.id))
+      .leftJoin(events, eq(sponsors.eventId, events.id))
+      .leftJoin(partners, eq(sponsors.primaryContactId, partners.id))
+      .leftJoin(users, eq(sponsors.ownerUserId, users.id))
+      .where(and(inArray(sponsors.companyId, companyIds), eq(sponsors.archived, false)))
+      .orderBy(desc(sponsors.updatedAt)),
+    db
+      .select({
+        partnerId: partnersEvents.partnerId,
+        eventId: partnersEvents.eventId,
+        eventRole: partnersEvents.eventRole,
+        eventStatus: partnersEvents.eventStatus,
+        eventName: events.name,
+        eventArchived: events.archived,
+      })
+      .from(partnersEvents)
+      .innerJoin(events, eq(partnersEvents.eventId, events.id))
+      .where(inArray(partnersEvents.partnerId, contactIds))
+      .orderBy(desc(events.startDate), asc(partnersEvents.eventRole)),
+    db
+      .select({ partnerId: usersPartners.partnerId, user: users })
+      .from(usersPartners)
+      .innerJoin(users, eq(usersPartners.userId, users.id))
+      .where(inArray(usersPartners.partnerId, contactIds))
+      .orderBy(asc(users.first_name), asc(users.last_name)),
+  ]);
+
+  const data = paginatedContactRows.map(({ partner: contact, company }) => {
+    const companyDeals = dealRows
+      .filter(({ company: c, event: e }) => c.id === contact.companyId && !e?.archived)
+      .map(({ sponsor: s, event: e, contact: c, owner: o }) => ({
+        id: s.id,
+        partnerId: s.companyId,
+        partnerName: company.name,
+        eventId: s.eventId ?? null,
+        eventName: e?.name ?? null,
+        primaryContactId: s.primaryContactId,
+        primaryContactName: c ? [c.firstName, c.lastName].filter(Boolean).join(" ") : null,
+        ownerUserId: s.ownerUserId,
+        ownerName: o ? toUserSummary(o).name : null,
+        amount: s.amount,
+        tier: s.tier,
+        status: s.status as CrmStatus,
+        role: s.role,
+        followUpDate: s.followUpDate,
+        notes: s.notes,
+        updatedAt: s.updatedAt,
+      }));
+    const latest = companyDeals[0];
+    const nextFollowUpDate =
+      companyDeals
+        .map((d) => d.followUpDate)
+        .filter((v): v is string => Boolean(v))
+        .sort()[0] ?? null;
+
+    return {
+      ...toContact(contact),
+      companyId: contact.companyId,
+      companyName: company.name,
+      companyTier: company.tier ?? null,
+      companyArchived: company.archived,
+      latestStatus: latest?.status ?? null,
+      nextFollowUpDate,
+      eventAttendances: attendanceRows
+        .filter((row) => row.partnerId === contact.id && !row.eventArchived)
+        .map((row) => ({
+          eventId: row.eventId,
+          eventName: row.eventName,
+          eventRole: row.eventRole as PartnerDirectoryRecord["eventAttendances"][number]["eventRole"],
+          eventStatus: row.eventStatus as PartnerDirectoryRecord["eventAttendances"][number]["eventStatus"],
+        })),
+      directors: directorRows.filter((row) => row.partnerId === contact.id).map((row) => toUserSummary(row.user)),
+      updatedAtIso: contact.updatedAt.toISOString(),
+    } satisfies PartnerDirectoryRecord;
+  });
+
+  return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+}
+
+export async function listEmailRecipientsPage(
+  opts: PaginationOptions = {},
+): Promise<PaginatedResult<EmailRecipientRecord>> {
+  const { page = 1, pageSize = 25, search = "" } = opts;
+  const offset = (page - 1) * pageSize;
+
+  const searchFilter = search
+    ? or(
+        ilike(partners.firstName, `%${search}%`),
+        ilike(partners.lastName, `%${search}%`),
+        ilike(partners.email, `%${search}%`),
+        ilike(companies.name, `%${search}%`),
+      )
+    : undefined;
+
+  const baseFilter = and(
+    eq(partners.archived, false),
+    eq(companies.archived, false),
+    sql`${partners.email} IS NOT NULL AND trim(${partners.email}) != ''`,
+    searchFilter,
+  );
+
+  const [countResult, paginatedRows] = await Promise.all([
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(partners)
+      .innerJoin(companies, eq(partners.companyId, companies.id))
+      .where(baseFilter),
+    db
+      .select({ partner: partners, company: companies })
+      .from(partners)
+      .innerJoin(companies, eq(partners.companyId, companies.id))
+      .where(baseFilter)
+      .orderBy(asc(companies.name), asc(partners.firstName), asc(partners.lastName))
+      .limit(pageSize)
+      .offset(offset),
+  ]);
+
+  const total = countResult[0]?.count ?? 0;
+
+  if (paginatedRows.length === 0) {
+    return { data: [], total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+  }
+
+  const companyIds = [...new Set(paginatedRows.map((r) => r.partner.companyId))];
+  const dealRows = await db
+    .select({ companyId: sponsors.companyId, status: sponsors.status })
+    .from(sponsors)
+    .where(and(inArray(sponsors.companyId, companyIds), eq(sponsors.archived, false)))
+    .orderBy(desc(sponsors.updatedAt));
+
+  const latestStatusByCompany = new Map<string, CrmStatus>();
+  for (const deal of dealRows) {
+    if (!latestStatusByCompany.has(deal.companyId)) {
+      latestStatusByCompany.set(deal.companyId, deal.status as CrmStatus);
+    }
+  }
+
+  const data = paginatedRows.map(({ partner: contact, company }) => ({
+    id: contact.id,
+    companyId: contact.companyId,
+    companyName: company.name,
+    contactName: [contact.firstName, contact.lastName].filter(Boolean).join(" "),
+    email: contact.email ?? "",
+    latestStatus: latestStatusByCompany.get(contact.companyId) ?? null,
+  }));
+
+  return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
 }
 
 export async function listEmailCampaigns(): Promise<EmailCampaignRecord[]> {

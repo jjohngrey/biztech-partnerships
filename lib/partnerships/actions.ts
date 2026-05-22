@@ -4,10 +4,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db, contactActivities } from "@/lib/db";
-import {
-  displayNameFromAuthUser,
-  resolveCrmUserForAuthUser,
-} from "@/lib/auth/crm-user";
+import { resolveCrmUserForAuthUser } from "@/lib/auth/crm-user";
 import { getAuthedClient } from "@/lib/google/client";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -71,18 +68,6 @@ import type {
   UpdateSponsorshipInput,
 } from "./types";
 import { CRM_DATA_TAG } from "./cached";
-
-function encodeRawEmail(input: { to: string; subject: string; body: string }) {
-  const message = [
-    `To: ${input.to}`,
-    `Subject: ${input.subject}`,
-    "MIME-Version: 1.0",
-    'Content-Type: text/plain; charset="UTF-8"',
-    "",
-    input.body,
-  ].join("\r\n");
-  return Buffer.from(message).toString("base64url");
-}
 
 const crmDataPaths = ["/", "/dashboard", "/companies", "/partners", "/events", "/meetings", "/contact-log", "/touchpoints", "/pipeline", "/outreach", "/settings"];
 

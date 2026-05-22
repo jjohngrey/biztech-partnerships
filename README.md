@@ -139,6 +139,50 @@ Architecture.md mentions a Supabase Auth post-login hook as a further layer — 
 
 **Hot reload isn't working.** Restart `pnpm dev`. Also check that you're editing files under the `app/` or `lib/` tree (not `.next/`).
 
+## Mass email send worker (V2)
+
+Mass email does **not** send in the request that the user clicks "Queue send". That would block on Gmail for every recipient and blow past Vercel's serverless timeout on any sizeable batch. Instead:
+
+1. **Queue.** Hitting "Queue send" on an outreach draft flips the campaign to `queued` (optionally with a future `scheduled_at`) and returns immediately. The compose form also has an optional "Schedule send" datetime — leave it blank to send as soon as the worker next runs.
+2. **Drain.** A background worker at `POST /api/partnerships/email/send/process` drains the queue `BATCH_SIZE` recipients at a time (default 10), sleeping briefly between messages, and stops a sender once they hit the daily cap (default 100/day — deliberately well under Gmail's 2,000 to stay clear of spam heuristics). Tunables live in `lib/partnerships/email-quota.ts`.
+3. **Finish.** When a campaign has no `queued` recipients left, the worker flips it to `sent` (all delivered) or `partial` (at least one failed). The Outreach drafts list shows live per-campaign progress (`X of Y sent`, plus failed/skipped counts).
+
+The worker sends as the campaign's `sender_user_id` using that user's stored Google refresh token, so it works without a live browser session.
+
+### Triggering the worker
+
+The endpoint requires `PARTNERSHIPS_EMAIL_WORKER_SECRET` (see `.env.local.example`), passed as the `x-crm-worker-secret` header. Each call processes one chunk, so something needs to ping it on a schedule. **Supabase `pg_cron` is the free, recommended option** (Vercel Hobby cron is daily-only):
+
+```sql
+-- One-time setup in the Supabase SQL editor.
+create extension if not exists pg_cron;
+create extension if not exists pg_net;
+
+-- Drain the queue every minute. A 100-recipient blast finishes in ~10 minutes.
+select cron.schedule(
+  'drain-email-queue',
+  '* * * * *',
+  $$
+  select net.http_post(
+    url     := 'https://your-deployment.vercel.app/api/partnerships/email/send/process',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'x-crm-worker-secret', 'YOUR_WORKER_SECRET'
+    )
+  );
+  $$
+);
+```
+
+To smoke-test locally without cron, just call it yourself:
+
+```bash
+curl -X POST http://localhost:3000/api/partnerships/email/send/process \
+  -H "x-crm-worker-secret: $PARTNERSHIPS_EMAIL_WORKER_SECRET"
+```
+
+> **Security note.** Both the worker endpoint and the Gmail-sync ingest endpoint use a static shared secret. The V1 audit flagged upgrading these to HMAC-signed payloads (timestamp + signature) before the URLs are exposed anywhere beyond pg_cron — still open.
+
 ## Contributing
 
 Branch from `main`, open a PR, request a review from another partnerships-CRM contributor. Keep PRs small — the roadmap is sliced into intentionally narrow milestones so that each one is reviewable in under an hour.
@@ -164,9 +208,9 @@ When adding a new *public* page: extend the `isPublic` check in `lib/supabase/mi
 ## Roadmap pointers
 
 - **V1** *(next)* — CRM data model, partners/events CRUD, partner-event pipeline, dashboard aggregations, document/communication logs, and migration-safe UI shell.
-- **V2** — email templates, mail merge, Gmail send, Gmail sync ingest, and campaign/send logs.
+- **V2** — email templates, mail merge, Gmail send, Gmail sync ingest, and campaign/send logs. Mass send runs through a queued background worker with per-sender daily caps and optional scheduled-send times (see "Mass email send worker" above) — the first background job, pulled forward from V4 because synchronous send couldn't survive Vercel's timeout.
 - **V3** — Google Sheets/CSV import-export, Drive-backed documents, MOU/invoice generation.
-- **V4+** — Slack reminders, scheduled follow-ups, weekly digest, and background jobs.
+- **V4+** — Slack reminders, scheduled follow-ups, weekly digest, and remaining background jobs.
 
 Full plan with rationale in [Architecture.md](./Architecture.md).
 

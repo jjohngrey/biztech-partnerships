@@ -1,17 +1,23 @@
+import { redirect } from "next/navigation";
 import { CrmShell } from "@/components/crm-shell";
 import { SettingsDirectory } from "@/components/settings-directory";
 import { requireDisplayUser } from "@/lib/auth/session-display";
-import { listCachedUsers } from "@/lib/partnerships/cached";
+import { listCachedUsers, listCachedYears } from "@/lib/partnerships/cached";
 
 export default async function SettingsPage() {
-  const [{ displayName }, directors] = await Promise.all([
+  const [{ displayName, role }, directors, availableYears] = await Promise.all([
     requireDisplayUser(),
     listCachedUsers(),
+    listCachedYears(),
   ]);
 
+  if (role !== "admin") {
+    redirect("/dashboard");
+  }
+
   return (
-    <CrmShell displayName={displayName} activeSection="settings">
-      <SettingsDirectory directors={directors} />
+    <CrmShell displayName={displayName} activeSection="settings" isAdmin>
+      <SettingsDirectory directors={directors} availableYears={availableYears} />
     </CrmShell>
   );
 }

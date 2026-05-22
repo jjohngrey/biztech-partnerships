@@ -18,5 +18,6 @@ export async function requireDisplayUser() {
     id: crmUser.id,
     displayName: crmUser.name,
     email: crmUser.email,
+    role: crmUser.role,
   };
 }

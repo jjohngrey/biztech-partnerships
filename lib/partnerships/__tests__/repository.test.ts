@@ -75,6 +75,7 @@ describe("buildMergeValues", () => {
     email: "jess@biztech.org",
     role: "member",
     team: "partnerships",
+    yearIds: [],
   };
 
   const event: CrmEventSummary = {

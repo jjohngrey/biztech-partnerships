@@ -15,7 +15,7 @@ export default async function PipelinePage({
   searchParams?: Promise<{ conversationId?: string }>;
 }) {
   const params = await searchParams;
-  const [{ displayName }, records, partners, users, companies, events] = await Promise.all([
+  const [{ displayName, role }, records, partners, users, companies, events] = await Promise.all([
     requireDisplayUser(),
     listCachedCurrentPipeline(),
     listCachedPartnerDirectory(),
@@ -28,6 +28,7 @@ export default async function PipelinePage({
     <CrmShell
       displayName={displayName}
       activeSection="pipeline"
+      isAdmin={role === "admin"}
     >
       <PipelineDirectory
         records={records}

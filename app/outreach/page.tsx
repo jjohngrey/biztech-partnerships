@@ -5,18 +5,25 @@ import { headers } from "next/headers";
 import {
   getCachedEmailSyncSummary,
   listCachedEmailCampaigns,
-  listCachedEmailRecipients,
+  listCachedEmailRecipientsPage,
   listCachedEmailTemplates,
   listCachedEvents,
   listCachedUsers,
 } from "@/lib/partnerships/cached";
 
-export default async function OutreachPage() {
-  const [{ displayName }, templates, recipients, campaigns, events, users, syncSummary] =
+type OutreachPageProps = {
+  searchParams?: Promise<{ page?: string; search?: string }>;
+};
+
+export default async function OutreachPage({ searchParams }: OutreachPageProps) {
+  const params = await searchParams;
+  const page = Math.max(1, Number(params?.page ?? 1));
+  const search = params?.search ?? "";
+  const [{ displayName, role }, templates, recipientsResult, campaigns, events, users, syncSummary] =
     await Promise.all([
       requireDisplayUser(),
       listCachedEmailTemplates(),
-      listCachedEmailRecipients(),
+      listCachedEmailRecipientsPage({ page, search }),
       listCachedEmailCampaigns(),
       listCachedEvents(),
       listCachedUsers(),
@@ -34,10 +41,11 @@ export default async function OutreachPage() {
     <CrmShell
       displayName={displayName}
       activeSection="outreach"
+      isAdmin={role === "admin"}
     >
       <OutreachDirectory
         templates={templates}
-        recipients={recipients}
+        recipientsResult={recipientsResult}
         campaigns={campaigns}
         events={events}
         users={users}

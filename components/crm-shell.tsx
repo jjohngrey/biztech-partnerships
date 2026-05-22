@@ -21,6 +21,7 @@ import {
 type CrmShellProps = {
   displayName: string;
   activeSection?: "dashboard" | "companies" | "partners" | "events" | "touchpoints" | "pipeline" | "outreach" | "settings" | "home";
+  isAdmin?: boolean;
   children?: React.ReactNode;
 };
 
@@ -64,6 +65,7 @@ type ThemeMode = "dark" | "light";
 export function CrmShell({
   displayName,
   activeSection = "home",
+  isAdmin = false,
   children,
 }: CrmShellProps) {
   const [theme, setTheme] = useState<ThemeMode>("dark");
@@ -146,26 +148,28 @@ export function CrmShell({
                 <p className="truncate text-[11px] text-zinc-500">BizTech Director</p>
               </div>
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-1.5">
+            <div className={["mt-3 gap-1.5", isAdmin ? "grid grid-cols-2" : "flex"].join(" ")}>
               <button
                 type="button"
                 onClick={toggleTheme}
-                className="flex h-8 items-center justify-center gap-1.5 rounded-md border border-white/[0.08] cursor-pointer px-2 text-[12px] font-medium text-zinc-500 transition hover:bg-white/[0.045] hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500">
+                className="flex h-8 items-center justify-center gap-1.5 rounded-md border border-white/[0.08] cursor-pointer px-2 text-[12px] font-medium text-zinc-500 transition hover:bg-white/[0.045] hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 flex-1">
                 <ThemeIcon className="size-3.5" strokeWidth={1.8} />
                 {theme === "dark" ? "Light" : "Dark"}
               </button>
-              <Link
-                href={settingsNavItem.href}
-                className={[
-                  "flex h-8 items-center justify-center gap-1.5 rounded-md border border-white/[0.08] px-2 text-[12px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500",
-                  activeSection === settingsNavItem.key
-                    ? "bg-white/[0.075] text-white"
-                    : "text-zinc-500 hover:bg-white/[0.045] hover:text-zinc-200",
-                ].join(" ")}
-              >
-                <Settings className="size-3.5" strokeWidth={1.8} />
-                Settings
-              </Link>
+              {isAdmin && (
+                <Link
+                  href={settingsNavItem.href}
+                  className={[
+                    "flex h-8 items-center justify-center gap-1.5 rounded-md border border-white/[0.08] px-2 text-[12px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500",
+                    activeSection === settingsNavItem.key
+                      ? "bg-white/[0.075] text-white"
+                      : "text-zinc-500 hover:bg-white/[0.045] hover:text-zinc-200",
+                  ].join(" ")}
+                >
+                  <Settings className="size-3.5" strokeWidth={1.8} />
+                  Settings
+                </Link>
+              )}
             </div>
             <form action="/auth/signout" method="post" className="mt-1.5">
               <button
@@ -206,20 +210,22 @@ export function CrmShell({
                     </Link>
                   );
                 })}
-                <Link
-                  href={settingsNavItem.href}
-                  className={[
-                    "inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-white/[0.08] text-[12px] font-medium transition",
-                    activeSection === settingsNavItem.key
-                      ? "bg-white/[0.08] text-white"
-                      : "bg-white/[0.03] text-zinc-400 hover:bg-white/[0.055] hover:text-zinc-200",
-                  ].join(" ")}
-                  title={settingsNavItem.label}
-                  aria-label={settingsNavItem.label}
-                >
-                  <Settings className="size-3.5 shrink-0" strokeWidth={1.8} />
-                  <span className="sr-only">{settingsNavItem.label}</span>
-                </Link>
+                {isAdmin && (
+                  <Link
+                    href={settingsNavItem.href}
+                    className={[
+                      "inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-white/[0.08] text-[12px] font-medium transition",
+                      activeSection === settingsNavItem.key
+                        ? "bg-white/[0.08] text-white"
+                        : "bg-white/[0.03] text-zinc-400 hover:bg-white/[0.055] hover:text-zinc-200",
+                    ].join(" ")}
+                    title={settingsNavItem.label}
+                    aria-label={settingsNavItem.label}
+                  >
+                    <Settings className="size-3.5 shrink-0" strokeWidth={1.8} />
+                    <span className="sr-only">{settingsNavItem.label}</span>
+                  </Link>
+                )}
                 <button
                   type="button"
                   onClick={toggleTheme}

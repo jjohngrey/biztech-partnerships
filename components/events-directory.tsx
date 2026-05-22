@@ -40,7 +40,7 @@ const eventStatuses: Array<{ value: EventAttendanceStatus; label: string }> = [
 
 function inputClass(extra = "") {
   return [
-    "h-9 w-full min-w-0 max-w-full rounded-md border border-white/[0.09] bg-[#0d0e11] px-3 text-[13px] text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-zinc-400/70 focus:ring-2 focus:ring-zinc-400/15",
+    "h-9 w-full min-w-0 max-w-full rounded-md border border-white/9 bg-[#0d0e11] px-3 text-[13px] text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-zinc-400/70 focus:ring-2 focus:ring-zinc-400/15",
     extra,
   ].join(" ");
 }
@@ -141,7 +141,7 @@ function responseStatusTone(status: EventAttendanceStatus) {
   if (status === "confirmed" || status === "attended") return "bg-emerald-500/10 text-emerald-200";
   if (status === "declined") return "bg-red-500/10 text-red-200";
   if (status === "form_sent" || status === "form_submitted") return "bg-white/[0.075] text-zinc-300";
-  return "bg-white/[0.055] text-zinc-400";
+  return "bg-white/5.5 text-zinc-400";
 }
 
 function parseOptionalInteger(value: string) {
@@ -206,8 +206,8 @@ function SortHeader({
     <button
       type="button"
       onClick={() => onSort(sortKey)}
-      className={["w-fit rounded-full py-1 text-left transition hover:bg-white/[0.055] hover:text-zinc-300 cursor-pointer",
-        active ? "bg-white/[0.055] text-zinc-200" : "",
+      className={["w-fit rounded-full py-1 text-left transition hover:bg-white/5.5 hover:text-zinc-300 cursor-pointer",
+        active ? "bg-white/5.5 text-zinc-200" : "",
       ].join(" ")}
     >
       {label}
@@ -279,7 +279,7 @@ function PartnerCombo({
         className={inputClass("w-full")}
       />
       {open ? (
-        <div className="absolute left-0 right-0 top-11 z-30 max-h-72 overflow-auto rounded-md border border-white/[0.1] bg-[#15161a] shadow-2xl shadow-black/40">
+        <div className="absolute left-0 right-0 top-11 z-30 max-h-72 overflow-auto rounded-md border border-white/10 bg-[#15161a] shadow-2xl shadow-black/40">
           {filtered.map((partner) => (
             <button
               key={partner.id}
@@ -290,7 +290,7 @@ function PartnerCombo({
                 onChange(partner.name);
                 setOpen(false);
               }}
-              className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-white/[0.05] cursor-pointer"
+              className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-white/5 cursor-pointer"
             >
               <span className="min-w-0">
                 <span className="block truncate text-[13px] font-medium text-zinc-100">{partner.name}</span>
@@ -300,7 +300,7 @@ function PartnerCombo({
             </button>
           ))}
           {!match && value.trim() ? (
-            <div className="border-t border-white/[0.08] px-3 py-2.5 text-[13px] text-zinc-300">
+            <div className="border-t border-white/8 px-3 py-2.5 text-[13px] text-zinc-300">
               Create person &quot;{value.trim()}&quot;
             </div>
           ) : null}
@@ -360,7 +360,7 @@ function TierPresetEditor({
             type="button"
             onClick={() => remove(index)}
             aria-label={`Remove tier ${preset.label || index + 1}`}
-            className="grid size-9 place-items-center rounded-md border border-white/[0.1] text-zinc-400 transition hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-200 cursor-pointer"
+            className="grid size-9 place-items-center rounded-md border border-white/10 text-zinc-400 transition hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-200 cursor-pointer"
           >
             <Trash2 className="size-4" strokeWidth={1.8} />
           </button>
@@ -369,7 +369,7 @@ function TierPresetEditor({
       <button
         type="button"
         onClick={add}
-        className="inline-flex h-8 w-fit items-center gap-1.5 rounded-md border border-white/[0.1] bg-white/[0.02] px-2.5 text-[12px] font-medium text-zinc-300 transition hover:bg-white/[0.05] hover:text-white cursor-pointer"
+        className="inline-flex h-8 w-fit items-center gap-1.5 rounded-md border border-white/10 bg-white/2 px-2.5 text-[12px] font-medium text-zinc-300 transition hover:bg-white/5 hover:text-white cursor-pointer"
       >
         <Plus className="size-3.5" strokeWidth={1.8} />
         Add tier
@@ -444,8 +444,8 @@ function DirectorMultiSelect({
           <span className="ml-2 text-zinc-500">▾</span>
         </button>
         {open ? (
-          <div className="absolute left-0 right-0 top-11 z-30 max-h-72 overflow-auto rounded-md border border-white/[0.1] bg-[#15161a] shadow-2xl shadow-black/40">
-            <div className="border-b border-white/[0.08] p-2">
+          <div className="absolute left-0 right-0 top-11 z-30 max-h-72 overflow-auto rounded-md border border-white/10 bg-[#15161a] shadow-2xl shadow-black/40">
+            <div className="border-b border-white/8 p-2">
               <input
                 ref={searchInputRef}
                 value={query}
@@ -465,7 +465,7 @@ function DirectorMultiSelect({
                     type="button"
                     onMouseDown={(event) => event.preventDefault()}
                     onClick={() => toggle(director.id)}
-                    className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-white/[0.05] cursor-pointer"
+                    className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-white/5 cursor-pointer"
                   >
                     <span className="min-w-0">
                       <span className="block truncate text-[13px] font-medium text-zinc-100">{director.name}</span>
@@ -723,10 +723,10 @@ export function EventsDirectory({
   }
 
   return (
-    <div className={["grid min-h-[100dvh] w-full max-w-full grid-cols-1 overflow-x-hidden bg-[#0d0d0f] xl:overflow-hidden", panelOpen ? "xl:grid-cols-[minmax(0,1fr)_minmax(400px,480px)]" : ""].join(" ")}>
+    <div className={["grid min-h-dvh w-full max-w-full grid-cols-1 overflow-x-hidden bg-[#0d0d0f] xl:overflow-hidden", panelOpen ? "xl:grid-cols-[minmax(0,1fr)_minmax(400px,480px)]" : ""].join(" ")}>
       <section className={["min-w-0 bg-[#0d0d0f] px-3 py-4 sm:px-5 sm:py-5 xl:overflow-hidden", panelOpen ? "hidden xl:block" : ""].join(" ")}>
         <h2 className="text-[15px] font-medium text-zinc-100">Events</h2>
-        <div className="mt-4 inline-flex flex-wrap rounded-md border border-white/[0.09] bg-[#111113] p-0.5 text-[13px]">
+        <div className="mt-4 inline-flex flex-wrap rounded-md border border-white/9 bg-[#111113] p-0.5 text-[13px]">
           {yearTabs.map((tab) => (
             <button
               key={tab.value}
@@ -735,7 +735,7 @@ export function EventsDirectory({
               className={[
                 "h-7 rounded px-3 transition cursor-pointer",
                 activeYearTab === tab.value
-                  ? "bg-white/[0.08] text-zinc-100"
+                  ? "bg-white/8 text-zinc-100"
                   : "text-zinc-400 hover:text-zinc-200",
               ].join(" ")}
             >
@@ -744,7 +744,7 @@ export function EventsDirectory({
             </button>
           ))}
         </div>
-        <div className="mt-4 grid max-w-[760px] grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+        <div className="mt-4 grid max-w-190 grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
           <input
             name="eventSearch"
             value={query}
@@ -771,8 +771,8 @@ export function EventsDirectory({
           </button>
         </div>
 
-        <div className="mt-5 overflow-hidden rounded-md border border-white/[0.09] bg-[#111113]">
-          <div className="grid min-w-0 grid-cols-1 border-b border-white/[0.08] px-4 py-2.5 text-[12px] text-zinc-500 md:grid-cols-[minmax(140px,1fr)_120px_64px_150px_180px]">
+        <div className="mt-5 overflow-hidden rounded-md border border-white/9 bg-[#111113]">
+          <div className="grid min-w-0 grid-cols-1 border-b border-white/8 px-4 py-2.5 text-[12px] text-zinc-500 md:grid-cols-[minmax(140px,1fr)_120px_64px_150px_180px]">
             <span className="min-w-0"><SortHeader label="Name" sortKey="name" activeKey={sortKey} direction={sortDirection} onSort={sortEvents} /></span>
             <span className="hidden min-w-0 md:block"><SortHeader label="Start date" sortKey="start" activeKey={sortKey} direction={sortDirection} onSort={sortEvents} /></span>
             <span className="hidden min-w-0 md:block"><SortHeader label="Year" sortKey="year" activeKey={sortKey} direction={sortDirection} onSort={sortEvents} /></span>
@@ -791,8 +791,8 @@ export function EventsDirectory({
                 }}
                 role="button"
                 tabIndex={0}
-                className={["grid min-w-0 w-full grid-cols-1 items-center border-b border-white/[0.06] px-4 py-3.5 text-left text-[13px] text-zinc-300 transition hover:bg-white/[0.035] md:grid-cols-[minmax(140px,1fr)_120px_64px_150px_180px] cursor-pointer",
-                  selected?.id === event.id && mode !== "closed" && mode !== "create" ? "bg-white/[0.055]" : "",
+                className={["grid min-w-0 w-full grid-cols-1 items-center border-b border-white/6 px-4 py-3.5 text-left text-[13px] text-zinc-300 transition hover:bg-white/[0.035] md:grid-cols-[minmax(140px,1fr)_120px_64px_150px_180px] cursor-pointer",
+                  selected?.id === event.id && mode !== "closed" && mode !== "create" ? "bg-white/5.5" : "",
                 ].join(" ")}
               >
                 <span className="min-w-0">
@@ -823,7 +823,7 @@ export function EventsDirectory({
                         setOpenPartnerBreakdownId(event.id);
                       }}
                       onKeyDown={(eventKey) => eventKey.stopPropagation()}
-                      className="grid size-5 place-items-center rounded text-zinc-500 transition hover:bg-white/[0.05] hover:text-zinc-200 cursor-pointer"
+                      className="grid size-5 place-items-center rounded text-zinc-500 transition hover:bg-white/5 hover:text-zinc-200 cursor-pointer"
                     >
                       <ChevronDown
                         className={["size-3.5 transition-transform", openPartnerBreakdownId === event.id ? "rotate-180 text-zinc-200" : ""].join(" ")}
@@ -832,7 +832,7 @@ export function EventsDirectory({
                     </button>
                     {openPartnerBreakdownId === event.id ? (
                       <div
-                        className="absolute left-0 top-7 z-20 min-w-[220px] rounded-md border border-white/[0.09] bg-[#0d0e11] p-2 text-[12px] text-zinc-400 shadow-xl shadow-black/30"
+                        className="absolute left-0 top-7 z-20 min-w-55 rounded-md border border-white/9 bg-[#0d0e11] p-2 text-[12px] text-zinc-400 shadow-xl shadow-black/30"
                         onClick={(eventClick) => eventClick.stopPropagation()}
                         onKeyDown={(eventKey) => eventKey.stopPropagation()}
                       >
@@ -859,15 +859,15 @@ export function EventsDirectory({
               </div>
             ))}
           </div>
-          <div className="border-t border-white/[0.08] px-4 py-4 text-[13px] text-zinc-500">
+          <div className="border-t border-white/8 px-4 py-4 text-[13px] text-zinc-500">
             {filteredEvents.length} events
           </div>
         </div>
       </section>
 
       {panelOpen ? (
-        <aside className="flex h-[calc(100dvh-50px)] w-full max-w-[100dvw] min-w-0 flex-col overflow-hidden border-l border-white/[0.08] bg-[#111113] xl:h-[100dvh]">
-          <div className="flex h-14 shrink-0 min-w-0 items-center gap-3 border-b border-white/[0.08] px-5">
+        <aside className="flex h-[calc(100dvh-50px)] w-full max-w-dvw min-w-0 flex-col overflow-hidden border-l border-white/8 bg-[#111113] xl:h-dvh">
+          <div className="flex h-14 shrink-0 min-w-0 items-center gap-3 border-b border-white/8 px-5">
             <div className="flex min-w-0 flex-1 items-center gap-4">
               <button
                 type="button"
@@ -892,7 +892,7 @@ export function EventsDirectory({
                     setError(null);
                     setMode("edit");
                   }}
-                  className="hidden h-8 shrink-0 items-center gap-1.5 rounded-md border border-white/[0.1] px-2.5 text-[12px] font-medium text-zinc-300 transition hover:bg-white/[0.05] hover:text-white sm:inline-flex cursor-pointer"
+                  className="hidden h-8 shrink-0 items-center gap-1.5 rounded-md border border-white/10 px-2.5 text-[12px] font-medium text-zinc-300 transition hover:bg-white/5 hover:text-white sm:inline-flex cursor-pointer"
                 >
                   <Pencil className="size-3.5" strokeWidth={1.8} />
                   Edit event
@@ -908,7 +908,7 @@ export function EventsDirectory({
                   setSelectedResponsePartnerId("");
                   window.history.replaceState(null, "", "/events");
                 }}
-                className="grid size-7 shrink-0 place-items-center rounded-md border border-white/[0.12] bg-white/[0.055] text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:hidden cursor-pointer"
+                className="grid size-7 shrink-0 place-items-center rounded-md border border-white/12 bg-white/5.5 text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:hidden cursor-pointer"
               >
                 <X className="size-4" strokeWidth={1.8} />
               </button>
@@ -923,7 +923,7 @@ export function EventsDirectory({
                 setSelectedResponsePartnerId("");
                 window.history.replaceState(null, "", "/events");
               }}
-              className="hidden size-8 shrink-0 place-items-center rounded-md border border-white/[0.12] bg-white/[0.055] text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:grid cursor-pointer"
+              className="hidden size-8 shrink-0 place-items-center rounded-md border border-white/12 bg-white/5.5 text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:grid cursor-pointer"
             >
               <X className="size-5" strokeWidth={1.8} />
             </button>
@@ -932,7 +932,7 @@ export function EventsDirectory({
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="min-h-0 flex-1 min-w-0 space-y-4 overflow-auto px-5 py-5">
               {mode !== "create" && selected ? (
-                <section className="rounded-md border border-white/[0.09] bg-[#0d0e11] p-4">
+                <section className="rounded-md border border-white/9 bg-[#0d0e11] p-4">
                   <div className="flex min-w-0 items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate text-[14px] font-medium text-zinc-100">{selected.name}</p>
@@ -940,12 +940,12 @@ export function EventsDirectory({
                         {[selected.year, formatDate(selected.startDate), partnerGoalText(selected)].filter(Boolean).join(" · ")}
                       </p>
                     </div>
-                    <span className="shrink-0 rounded-full bg-white/[0.055] px-2 py-1 text-[12px] text-zinc-400">
+                    <span className="shrink-0 rounded-full bg-white/5.5 px-2 py-1 text-[12px] text-zinc-400">
                       {selected.partnerResponses.length} people
                     </span>
                   </div>
                   {selected.directors.length ? (
-                    <div className="mt-4 rounded-md border border-white/[0.08] bg-white/[0.018] p-3">
+                    <div className="mt-4 rounded-md border border-white/8 bg-white/[0.018] p-3">
                       <p className="text-[12px] font-medium text-zinc-300">BizTech directors</p>
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         {selected.directors.map((director) => (
@@ -962,12 +962,12 @@ export function EventsDirectory({
                   <div className="mt-4 grid gap-2">
                     {selectedRoleGroups.length ? (
                       selectedRoleGroups.map((group) => (
-                        <div key={group.value} className="rounded-md border border-white/[0.08] bg-white/[0.018]">
-                          <div className="flex items-center justify-between gap-3 border-b border-white/[0.06] px-3 py-2">
+                        <div key={group.value} className="rounded-md border border-white/8 bg-white/[0.018]">
+                          <div className="flex items-center justify-between gap-3 border-b border-white/6 px-3 py-2">
                             <p className="text-[12px] font-medium text-zinc-300">{group.label}</p>
                             <span className="text-[12px] text-zinc-500">{group.responses.length}</span>
                           </div>
-                          <div className="divide-y divide-white/[0.055]">
+                          <div className="divide-y divide-white/5.5">
                             {group.responses.map((response) => (
                               <div key={`summary-${response.partnerId}-${response.eventRole}`} className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 px-3 py-2.5 text-[13px]">
                                 <span className="min-w-0">
@@ -988,7 +988,7 @@ export function EventsDirectory({
                         </div>
                       ))
                     ) : (
-                      <p className="rounded-md border border-white/[0.08] px-3 py-3 text-[13px] text-zinc-500">No people linked to this event yet.</p>
+                      <p className="rounded-md border border-white/8 px-3 py-3 text-[13px] text-zinc-500">No people linked to this event yet.</p>
                     )}
                   </div>
                   {mode === "view" ? (
@@ -998,7 +998,7 @@ export function EventsDirectory({
                         setError(null);
                         setMode("edit");
                       }}
-                      className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-md border border-white/[0.1] px-2.5 text-[12px] font-medium text-zinc-300 transition hover:bg-white/[0.05] hover:text-white sm:hidden cursor-pointer"
+                      className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-md border border-white/10 px-2.5 text-[12px] font-medium text-zinc-300 transition hover:bg-white/5 hover:text-white sm:hidden cursor-pointer"
                     >
                       <Pencil className="size-3.5" strokeWidth={1.8} />
                       Edit event details
@@ -1037,7 +1037,7 @@ export function EventsDirectory({
                 </form>
               ) : null}
               {mode !== "create" && selected ? (
-                <div className="rounded-md border border-white/[0.09] bg-[#0d0e11] p-4">
+                <div className="rounded-md border border-white/9 bg-[#0d0e11] p-4">
                   <div className="grid gap-1">
                     <p className="text-[13px] font-medium text-zinc-200">People at this event</p>
                     <p className="text-[12px] text-zinc-500">
@@ -1071,7 +1071,7 @@ export function EventsDirectory({
                       </Field>
                     </div>
                     {partnerName.trim() && !partnerMatch ? (
-                      <div key={partnerName} className="grid gap-3 rounded-md border border-white/[0.08] bg-white/[0.025] p-3">
+                      <div key={partnerName} className="grid gap-3 rounded-md border border-white/8 bg-white/2.5 p-3">
                         <div className="grid gap-3 sm:grid-cols-2">
                           <Field label="New partner first name"><input name="firstName" defaultValue={pendingPartnerName.firstName} className={inputClass()} /></Field>
                           <Field label="New partner last name"><input name="lastName" defaultValue={pendingPartnerName.lastName} className={inputClass()} /></Field>
@@ -1089,9 +1089,9 @@ export function EventsDirectory({
                       Add person to event
                     </button>
                   </form>
-                  <div className="mt-4 w-full max-w-[760px] overflow-hidden rounded-md border border-white/[0.08]">
+                  <div className="mt-4 w-full max-w-190 overflow-hidden rounded-md border border-white/8">
                     {selected.partnerResponses.length ? (
-                      <div className="divide-y divide-white/[0.06]">
+                      <div className="divide-y divide-white/6">
                         <div className="hidden grid-cols-[minmax(0,1fr)_132px_132px_auto] gap-3 px-3 py-2 text-[11px] font-medium uppercase tracking-[0.02em] text-zinc-500 sm:grid">
                           <span>Partner</span>
                           <span>Role</span>
@@ -1164,7 +1164,7 @@ export function EventsDirectory({
               {error && <p className="rounded-md border border-red-400/20 bg-red-400/10 px-3 py-2 text-[13px] text-red-200">{error}</p>}
             </div>
             {mode === "create" || mode === "edit" ? (
-              <div className="shrink-0 border-t border-white/[0.08] bg-[#0d0e11] px-5 py-4">
+              <div className="shrink-0 border-t border-white/8 bg-[#0d0e11] px-5 py-4">
                 <button form="event-detail-form" type="submit" disabled={isPending} className="h-9 rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer">
                   {mode === "create" ? "Create event" : "Save changes"}
                 </button>

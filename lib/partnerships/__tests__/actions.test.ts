@@ -103,6 +103,7 @@ const CRM_USER: CrmUserSummary = {
   email: "jess@biztech.org",
   role: "member",
   team: "partnerships",
+  yearIds: [],
 };
 
 function makeCampaign(overrides: Partial<EmailCampaignRecord> = {}): EmailCampaignRecord {

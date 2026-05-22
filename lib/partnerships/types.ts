@@ -50,10 +50,16 @@ export type CrmUserSummary = {
   email: string;
   role: CrmUserRole;
   team: CrmUserTeam;
+  yearIds: string[];
 };
 
 export type CrmUserRole = "admin" | "member";
 export type CrmUserTeam = "partnerships" | "experiences" | "mmd" | "internal" | "dev";
+
+export type CrmYear = {
+  id: string;
+  label: string;
+};
 
 export type CreateDirectorInput = {
   firstName: string;
@@ -61,6 +67,7 @@ export type CreateDirectorInput = {
   email: string;
   role?: CrmUserRole;
   team?: CrmUserTeam;
+  yearIds?: string[];
 };
 
 export type UpdateDirectorInput = CreateDirectorInput & {
@@ -577,5 +584,25 @@ export type MyContactPartner = {
   partnerName: string;
   companyId: string;
   companyName: string;
+  email: string | null;
   lastContactedAt: string;
+};
+
+export type CompanyKind = "sponsors" | "in_kind" | "previous";
+
+export type PaginationOptions = {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+};
+
+export type PaginationMeta = {
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
+export type PaginatedResult<T> = PaginationMeta & {
+  data: T[];
 };

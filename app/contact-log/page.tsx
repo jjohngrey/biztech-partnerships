@@ -16,7 +16,7 @@ export default async function ContactLogPage({
   searchParams?: Promise<{ activity?: string; create?: string; company?: string; contact?: string; event?: string }>;
 }) {
   const params = await searchParams;
-  const [{ id: currentUserId, displayName }, touchpoints, meetings, companies, partners, users, events] = await Promise.all([
+  const [{ id: currentUserId, displayName, role }, touchpoints, meetings, companies, partners, users, events] = await Promise.all([
     requireDisplayUser(),
     listCachedTouchpoints(),
     listCachedMeetingLogs(),
@@ -30,6 +30,7 @@ export default async function ContactLogPage({
     <CrmShell
       displayName={displayName}
       activeSection="touchpoints"
+      isAdmin={role === "admin"}
     >
       <TouchpointsDirectory
         touchpoints={touchpoints}

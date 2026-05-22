@@ -244,6 +244,29 @@ export const usersPartners = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.partnerId] })],
 );
 
+// ---------------------------------------------------------------------------
+// years — BizTech operating years ("24/25", "25/26"). A user can be associated
+// with multiple years via users_years.
+// ---------------------------------------------------------------------------
+export const years = pgTable("years", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  label: text("label").notNull().unique(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const usersYears = pgTable(
+  "users_years",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    yearId: uuid("year_id")
+      .notNull()
+      .references(() => years.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.yearId] })],
+);
+
 export const usersCompanies = pgTable(
   "users_companies",
   {
@@ -571,6 +594,12 @@ export type NewUsersPartner = typeof usersPartners.$inferInsert;
 
 export type UsersCompany = typeof usersCompanies.$inferSelect;
 export type NewUsersCompany = typeof usersCompanies.$inferInsert;
+
+export type Year = typeof years.$inferSelect;
+export type NewYear = typeof years.$inferInsert;
+
+export type UsersYear = typeof usersYears.$inferSelect;
+export type NewUsersYear = typeof usersYears.$inferInsert;
 
 export type Interaction = typeof interactions.$inferSelect;
 export type NewInteraction = typeof interactions.$inferInsert;

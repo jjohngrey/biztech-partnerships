@@ -17,6 +17,7 @@ function userSummaryFromRow(row: typeof users.$inferSelect): CrmUserSummary {
     email: row.email,
     role: row.role,
     team: row.team,
+    yearIds: [],
   };
 }
 

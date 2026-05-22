@@ -2,22 +2,25 @@ import { CrmShell } from "@/components/crm-shell";
 import { CompaniesClient } from "./companies-client";
 import { requireDisplayUser } from "@/lib/auth/session-display";
 import {
-  listCachedCompanyDirectory,
+  listCachedCompanyDirectoryPage,
   listCachedEvents,
   listCachedMeetingLogs,
   listCachedPartnerDirectory,
   listCachedUsers,
 } from "@/lib/partnerships/cached";
+import type { CompanyKind } from "@/lib/partnerships/types";
 
 type CompaniesPageProps = {
-  searchParams?: Promise<{ companyId?: string }>;
+  searchParams?: Promise<{ companyId?: string; page?: string; kind?: string }>;
 };
 
 export default async function CompaniesPage({ searchParams }: CompaniesPageProps) {
   const params = await searchParams;
-  const [{ displayName }, companies, events, users, partners, meetings] = await Promise.all([
+  const page = Math.max(1, Number(params?.page ?? 1));
+  const kind = (params?.kind ?? "sponsors") as CompanyKind;
+  const [{ displayName, role }, companiesResult, events, users, partners, meetings] = await Promise.all([
     requireDisplayUser(),
-    listCachedCompanyDirectory(),
+    listCachedCompanyDirectoryPage({ page, kind }),
     listCachedEvents(),
     listCachedUsers(),
     listCachedPartnerDirectory(),
@@ -28,14 +31,16 @@ export default async function CompaniesPage({ searchParams }: CompaniesPageProps
     <CrmShell
       displayName={displayName}
       activeSection="companies"
+      isAdmin={role === "admin"}
     >
       <CompaniesClient
-        companies={companies}
+        companiesResult={companiesResult}
         events={events}
         users={users}
         partners={partners}
         meetings={meetings}
         initialCompanyId={params?.companyId}
+        initialKind={kind}
       />
     </CrmShell>
   );

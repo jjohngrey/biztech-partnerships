@@ -71,6 +71,13 @@
       "when": 1777739200000,
       "tag": "0009_email_send_queue",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1779667200000,
+      "tag": "0010_user_years",
+      "breakpoints": true
     }
   ]
 }

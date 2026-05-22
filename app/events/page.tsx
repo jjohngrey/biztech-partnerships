@@ -9,7 +9,7 @@ export default async function EventsPage({
   searchParams?: Promise<{ eventId?: string }>;
 }) {
   const params = await searchParams;
-  const [{ displayName }, events, partners, directors] = await Promise.all([
+  const [{ displayName, role }, events, partners, directors] = await Promise.all([
     requireDisplayUser(),
     listCachedEvents(),
     listCachedPartnerDirectory(),
@@ -20,6 +20,7 @@ export default async function EventsPage({
     <CrmShell
       displayName={displayName}
       activeSection="events"
+      isAdmin={role === "admin"}
     >
       <EventsDirectory
         events={events}

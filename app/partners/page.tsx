@@ -4,19 +4,20 @@ import { requireDisplayUser } from "@/lib/auth/session-display";
 import {
   listCachedCompanyDirectory,
   listCachedEvents,
-  listCachedPartnerDirectory,
+  listCachedPartnerDirectoryPage,
   listCachedUsers,
 } from "@/lib/partnerships/cached";
 
 type PartnersPageProps = {
-  searchParams?: Promise<{ partnerId?: string }>;
+  searchParams?: Promise<{ partnerId?: string; page?: string }>;
 };
 
 export default async function PartnersPage({ searchParams }: PartnersPageProps) {
   const params = await searchParams;
-  const [{ displayName }, partners, companies, events, users] = await Promise.all([
+  const page = Math.max(1, Number(params?.page ?? 1));
+  const [{ displayName, role }, partnersResult, companies, events, users] = await Promise.all([
     requireDisplayUser(),
-    listCachedPartnerDirectory(),
+    listCachedPartnerDirectoryPage({ page }),
     listCachedCompanyDirectory(),
     listCachedEvents(),
     listCachedUsers(),
@@ -26,9 +27,11 @@ export default async function PartnersPage({ searchParams }: PartnersPageProps) 
     <CrmShell
       displayName={displayName}
       activeSection="partners"
+      isAdmin={role === "admin"}
     >
       <PartnersDirectory
-        partners={partners}
+        partners={partnersResult.data}
+        paginationMeta={partnersResult}
         companies={companies}
         events={events}
         users={users}

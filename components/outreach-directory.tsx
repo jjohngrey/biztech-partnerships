@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState, useTransition, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState, useTransition, type FormEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Archive, FileDown, HelpCircle, Plus, X } from "lucide-react";
 import {
   archiveEmailTemplateAction,
@@ -17,11 +17,13 @@ import type {
   EmailRecipientRecord,
   EmailSyncSummary,
   EmailTemplateRecord,
+  PaginatedResult,
 } from "@/lib/partnerships/types";
+import { Pagination } from "@/components/pagination";
 
 type OutreachDirectoryProps = {
   templates: EmailTemplateRecord[];
-  recipients: EmailRecipientRecord[];
+  recipientsResult: PaginatedResult<EmailRecipientRecord>;
   campaigns: EmailCampaignRecord[];
   events: CrmEventSummary[];
   users: CrmUserSummary[];
@@ -66,7 +68,7 @@ function blankTemplate(): TemplateForm {
 
 function inputClass(extra = "") {
   return [
-    "h-9 w-full min-w-0 max-w-full rounded-md border border-white/[0.09] bg-[#0d0e11] px-3 text-[13px] text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-zinc-400/70 focus:ring-2 focus:ring-zinc-400/15",
+    "h-9 w-full min-w-0 max-w-full rounded-md border border-white/9 bg-[#0d0e11] px-3 text-[13px] text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-zinc-400/70 focus:ring-2 focus:ring-zinc-400/15",
     extra,
   ].join(" ");
 }
@@ -196,7 +198,7 @@ function pickEventForTemplate(
 
 export function OutreachDirectory({
   templates,
-  recipients,
+  recipientsResult,
   campaigns,
   events,
   users,
@@ -204,12 +206,15 @@ export function OutreachDirectory({
   syncIngestUrl,
 }: OutreachDirectoryProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const recipients = recipientsResult.data;
   const initialTemplate = templates[0] ?? null;
   const initialEvent = pickEventForTemplate(events, initialTemplate) ?? events[0] ?? null;
   const [templateQuery, setTemplateQuery] = useState("");
   const [recipientQuery, setRecipientQuery] = useState("");
   const [activeTab, setActiveTab] = useState<OutreachTab>("compose");
   const [templateForm, setTemplateForm] = useState<TemplateForm>(blankTemplate);
+  const [templateView, setTemplateView] = useState<"edit" | "preview">("edit");
   const [composerTemplateId, setComposerTemplateId] = useState(initialTemplate?.id ?? "");
   const [composerSubject, setComposerSubject] = useState(initialTemplate?.subjectTemplate ?? "");
   const [composerBody, setComposerBody] = useState(initialTemplate?.bodyTemplate ?? "");
@@ -222,6 +227,15 @@ export function OutreachDirectory({
   const [error, setError] = useState<string | null>(null);
   const [consentUrl, setConsentUrl] = useState<string | null>(null);
   const [syncHelpOpen, setSyncHelpOpen] = useState(false);
+  const [toasts, setToasts] = useState<{ id: number; message: string }[]>([]);
+
+  function pushToast(toastMessage: string) {
+    const id = Date.now() + Math.random();
+    setToasts((current) => [...current, { id, message: toastMessage }]);
+    setTimeout(() => {
+      setToasts((current) => current.filter((toast) => toast.id !== id));
+    }, 3000);
+  }
 
   const filteredTemplates = useMemo(() => {
     const query = templateQuery.trim().toLowerCase();
@@ -234,15 +248,23 @@ export function OutreachDirectory({
     );
   }, [templateQuery, templates]);
 
-  const filteredRecipients = useMemo(() => {
-    const query = recipientQuery.trim().toLowerCase();
-    return recipients.filter((recipient) =>
-      [recipient.companyName, recipient.contactName, recipient.email]
-        .join(" ")
-        .toLowerCase()
-        .includes(query),
-    );
-  }, [recipientQuery, recipients]);
+  // Recipients are server-filtered; push search changes to URL with debounce
+  useEffect(() => {
+    const current = searchParams.get("search") ?? "";
+    if (recipientQuery.trim() === current) return;
+    const timer = setTimeout(() => {
+      const url = new URL(window.location.href);
+      url.searchParams.set("search", recipientQuery.trim());
+      url.searchParams.set("page", "1");
+      router.push(url.pathname + url.search);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [recipientQuery, router, searchParams]);
+
+  // Clear selection when the loaded page changes
+  useEffect(() => {
+    setSelectedRecipientIds([]);
+  }, [recipientsResult.page]);
 
   const selectedRecipients = useMemo(
     () => recipients.filter((recipient) => selectedRecipientIds.includes(recipient.id)),
@@ -287,6 +309,16 @@ export function OutreachDirectory({
   const previewBody = previewRecipient
     ? renderMergeTemplate(composerBody, previewValues, { preserveMissing: true })
     : composerBody;
+  const templatePreviewSubject = renderMergeTemplate(
+    templateForm.subjectTemplate,
+    previewValues,
+    { preserveMissing: true },
+  );
+  const templatePreviewBody = renderMergeTemplate(
+    templateForm.bodyTemplate,
+    previewValues,
+    { preserveMissing: true },
+  );
   const canCreateDraft =
     selectedRecipientIds.length > 0 &&
     composerSubject.trim().length > 0 &&
@@ -329,6 +361,7 @@ function syncPartnershipEmails() {
 
   function loadTemplate(template: EmailTemplateRecord) {
     setActiveTab("templates");
+    setTemplateView("edit");
     setTemplateForm({
       id: template.id,
       name: template.name,
@@ -379,7 +412,7 @@ function syncPartnershipEmails() {
   }
 
   function selectFilteredRecipients() {
-    setSelectedRecipientIds(Array.from(new Set(filteredRecipients.map((recipient) => recipient.id))));
+    setSelectedRecipientIds(recipients.map((recipient) => recipient.id));
   }
 
   function clearSelectedRecipients() {
@@ -401,7 +434,7 @@ function syncPartnershipEmails() {
             subjectTemplate: templateForm.subjectTemplate,
             bodyTemplate: templateForm.bodyTemplate,
           });
-          setMessage("Template updated.");
+          pushToast("Template updated.");
         } else {
           const created = await createEmailTemplateAction({
             name: templateForm.name,
@@ -416,7 +449,7 @@ function syncPartnershipEmails() {
             subjectTemplate: created.subjectTemplate,
             bodyTemplate: created.bodyTemplate,
           });
-          setMessage("Template created.");
+          pushToast("Template created.");
         }
         router.refresh();
       } catch (cause) {
@@ -432,8 +465,9 @@ function syncPartnershipEmails() {
     setConsentUrl(null);
     startTransition(async () => {
       await archiveEmailTemplateAction(templateForm.id!, true);
+      setTemplateView("edit");
       setTemplateForm(blankTemplate());
-      setMessage("Template archived.");
+      pushToast("Template archived.");
       router.refresh();
     });
   }
@@ -521,13 +555,13 @@ function syncPartnershipEmails() {
   ];
 
   return (
-    <div className="min-h-[100dvh] w-full max-w-full overflow-x-hidden bg-[#0d0d0f] px-3 py-4 text-zinc-100 sm:px-5 sm:py-5">
-      <div className="border-b border-white/[0.08] pb-3">
+    <div className="max-h-screen w-full max-w-full overflow-x-hidden bg-[#0d0d0f] px-3 py-4 text-zinc-100 sm:px-5 sm:py-5">
+      <div className="border-b border-white/8 pb-3">
         <div className="flex min-w-0 flex-col items-start gap-3 lg:flex-row lg:items-center lg:justify-between">
           <h2 className="min-w-0 truncate text-[15px] font-medium text-zinc-100">Outreach</h2>
           <a
             href="/api/partnerships/export"
-            className="inline-flex h-8 w-fit shrink-0 items-center justify-center gap-2 rounded-md border border-white/[0.09] px-3 text-[12px] font-medium text-zinc-400 transition hover:bg-white/[0.045] hover:text-zinc-100"
+            className="inline-flex h-8 w-fit shrink-0 items-center justify-center gap-2 rounded-md border border-white/9 px-3 text-[12px] font-medium text-zinc-400 transition hover:bg-white/4.5 hover:text-zinc-100"
           >
             <FileDown className="size-4" strokeWidth={1.8} />
             Export CRM CSV
@@ -542,8 +576,8 @@ function syncPartnershipEmails() {
               onClick={() => setActiveTab(tab.id)}
               className={["inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[12px] font-medium transition sm:gap-2 sm:px-3 cursor-pointer",
                 activeTab === tab.id
-                  ? "bg-white/[0.09] text-zinc-100"
-                  : "text-zinc-500 hover:bg-white/[0.045] hover:text-zinc-200",
+                  ? "bg-white/9 text-zinc-100"
+                  : "text-zinc-500 hover:bg-white/4.5 hover:text-zinc-200",
               ].join(" ")}
             >
               {tab.label}
@@ -559,7 +593,7 @@ function syncPartnershipEmails() {
       </div>
 
       {(message || error || consentUrl) && (
-        <div className="mt-3 flex flex-wrap items-center gap-3 rounded-md border border-white/[0.08] bg-[#111113] px-3 py-2">
+        <div className="mt-3 flex flex-wrap items-center gap-3 rounded-md border border-white/8 bg-[#111113] px-3 py-2">
           {message && <p className="text-[13px] text-zinc-400">{message}</p>}
           {error && <p className="text-[13px] text-red-300">{error}</p>}
           {consentUrl && (
@@ -572,8 +606,8 @@ function syncPartnershipEmails() {
 
       {activeTab === "compose" && (
         <form onSubmit={submitCampaign} className="mt-4 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-          <section className="min-w-0 rounded-md border border-white/[0.09] bg-[#111113]">
-            <div className="border-b border-white/[0.08] px-4 py-3">
+          <section className="min-w-0 rounded-md border border-white/9 bg-[#111113]">
+            <div className="border-b border-white/8 px-4 py-3">
               <p className="text-[13px] font-medium text-zinc-200">Draft email</p>
             </div>
             <div className="space-y-4 p-4">
@@ -615,20 +649,20 @@ function syncPartnershipEmails() {
                   className={inputClass()}
                 />
               </label>
-              <div className="grid min-w-0 gap-2 rounded-md border border-white/[0.08] bg-[#0d0e11] px-3 py-2 xl:hidden">
+              <div className="grid min-w-0 gap-2 rounded-md border border-white/8 bg-[#0d0e11] px-3 py-2 xl:hidden">
                 <p className="text-[12px] text-zinc-500">
                   <span className="font-medium text-zinc-300">{selectedRecipientIds.length}</span> recipients selected
                 </p>
                 <div className="grid min-w-0 grid-cols-2 gap-1.5 sm:flex sm:w-auto sm:items-center">
-                  <button type="button" onClick={selectFilteredRecipients} className="h-7 min-w-0 truncate rounded-md border border-white/[0.08] px-2 text-[12px] text-zinc-500 transition hover:bg-white/[0.055] hover:text-zinc-200 sm:border-0 cursor-pointer">
+                  <button type="button" onClick={selectFilteredRecipients} className="h-7 min-w-0 truncate rounded-md border border-white/8 px-2 text-[12px] text-zinc-500 transition hover:bg-white/5.5 hover:text-zinc-200 sm:border-0 cursor-pointer">
                     Select visible
                   </button>
-                  <button type="button" onClick={clearSelectedRecipients} className="h-7 min-w-0 truncate rounded-md border border-white/[0.08] px-2 text-[12px] text-zinc-500 transition hover:bg-white/[0.055] hover:text-zinc-200 sm:border-0 cursor-pointer">
+                  <button type="button" onClick={clearSelectedRecipients} className="h-7 min-w-0 truncate rounded-md border border-white/8 px-2 text-[12px] text-zinc-500 transition hover:bg-white/5.5 hover:text-zinc-200 sm:border-0 cursor-pointer">
                     Clear
                   </button>
                 </div>
                 {previewRecipient && (
-                  <div className="min-w-0 border-t border-white/[0.08] pt-2">
+                  <div className="min-w-0 border-t border-white/8 pt-2">
                     <p className="truncate text-[12px] text-zinc-500">
                       Previewing {previewRecipient.contactName} · {previewRecipient.companyName}
                     </p>
@@ -645,7 +679,7 @@ function syncPartnershipEmails() {
                         type="button"
                         disabled={!canCreateDraft}
                         onClick={exportPreview}
-                        className="h-8 rounded-md border border-white/[0.09] px-2 text-[12px] font-medium text-zinc-400 transition hover:bg-white/[0.045] hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer">
+                        className="h-8 rounded-md border border-white/9 px-2 text-[12px] font-medium text-zinc-400 transition hover:bg-white/4.5 hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer">
                         Export CSV
                       </button>
                     </div>
@@ -661,13 +695,13 @@ function syncPartnershipEmails() {
                   Body
                   <textarea value={composerBody} onChange={(event) => setComposerBody(event.target.value)} required rows={12} className={inputClass("h-auto py-2")} />
                 </label>
-                <div className="min-w-0 rounded-md border border-white/[0.08] bg-[#0d0e11] p-4">
+                <div className="min-w-0 rounded-md border border-white/8 bg-[#0d0e11] p-4">
                   <div className="grid min-w-0 gap-1">
                     <p className="text-[13px] font-medium text-zinc-200">Preview</p>
                     <p className="min-w-0 max-w-full truncate text-[12px] text-zinc-500">{previewRecipient ? previewRecipient.email : "No recipient selected"}</p>
                   </div>
                   <p className="mt-3 truncate text-[13px] font-medium text-zinc-100">{previewSubject || "No subject"}</p>
-                  <pre className="mt-3 max-h-[360px] overflow-auto whitespace-pre-wrap rounded-md bg-white/[0.035] p-3 text-[12px] leading-5 text-zinc-400">{previewBody || (previewRecipient ? "No body" : "Choose a template or write a draft to preview it.")}</pre>
+                  <pre className="mt-3 max-h-90 overflow-auto whitespace-pre-wrap rounded-md bg-white/[0.035] p-3 text-[12px] leading-5 text-zinc-400">{previewBody || (previewRecipient ? "No body" : "Choose a template or write a draft to preview it.")}</pre>
                   {mergeIssueTokens.length > 0 && selectedRecipientIds.length > 0 && (
                     <div className="mt-3 rounded-md border border-amber-300/15 bg-amber-300/10 px-3 py-2 text-[12px] leading-5 text-amber-100">
                       Missing merge values: {mergeIssueTokens.join(", ")}
@@ -687,24 +721,24 @@ function syncPartnershipEmails() {
                   disabled={!canCreateDraft}
                   title={mergeIssueTokens.length ? "Resolve missing merge values before exporting." : undefined}
                   onClick={exportPreview}
-                  className="h-9 rounded-md border border-white/[0.09] px-3 text-[13px] font-medium text-zinc-400 transition hover:bg-white/[0.045] hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer">
+                  className="h-9 rounded-md border border-white/9 px-3 text-[13px] font-medium text-zinc-400 transition hover:bg-white/4.5 hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer">
                   Export preview CSV
                 </button>
               </div>
             </div>
           </section>
 
-          <section className="min-w-0 rounded-md border border-white/[0.09] bg-[#111113]">
-            <div className="flex items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-3">
+          <section className="min-w-0 rounded-md border border-white/9 bg-[#111113]">
+            <div className="flex items-center justify-between gap-3 border-b border-white/8 px-4 py-3">
               <div className="min-w-0">
                 <p className="text-[13px] font-medium text-zinc-200">Recipients</p>
                 <p className="mt-0.5 text-[12px] text-zinc-500">{selectedRecipientIds.length} selected</p>
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
-                <button type="button" onClick={selectFilteredRecipients} className="h-7 rounded-md px-2 text-[12px] text-zinc-500 transition hover:bg-white/[0.055] hover:text-zinc-200 cursor-pointer">
+                <button type="button" onClick={selectFilteredRecipients} className="h-7 rounded-md px-2 text-[12px] text-zinc-500 transition hover:bg-white/5.5 hover:text-zinc-200 cursor-pointer">
                   Select visible
                 </button>
-                <button type="button" onClick={clearSelectedRecipients} className="h-7 rounded-md px-2 text-[12px] text-zinc-500 transition hover:bg-white/[0.055] hover:text-zinc-200 cursor-pointer">
+                <button type="button" onClick={clearSelectedRecipients} className="h-7 rounded-md px-2 text-[12px] text-zinc-500 transition hover:bg-white/5.5 hover:text-zinc-200 cursor-pointer">
                   Clear
                 </button>
               </div>
@@ -716,9 +750,9 @@ function syncPartnershipEmails() {
                 className={inputClass("w-full")}
                 placeholder="Search contacts..."
               />
-              <div className="mt-3 max-h-[420px] overflow-auto rounded-md border border-white/[0.08] xl:max-h-[calc(100dvh-260px)]">
-                {filteredRecipients.map((recipient) => (
-                  <label key={recipient.id} className="flex cursor-pointer items-start gap-3 border-b border-white/[0.06] px-3 py-3 transition hover:bg-white/[0.035]">
+              <div className="mt-3 max-h-105 overflow-auto rounded-md border border-white/8 xl:max-h-[calc(100dvh-260px)]">
+                {recipients.map((recipient) => (
+                  <label key={recipient.id} className="flex cursor-pointer items-start gap-3 border-b border-white/6 px-3 py-3 transition hover:bg-white/[0.035]">
                     <input
                       type="checkbox"
                       checked={selectedRecipientIds.includes(recipient.id)}
@@ -731,8 +765,16 @@ function syncPartnershipEmails() {
                     </span>
                   </label>
                 ))}
-                {!filteredRecipients.length && <p className="px-3 py-4 text-[13px] text-zinc-500">No email-ready contacts.</p>}
+                {!recipients.length && <p className="px-3 py-4 text-[13px] text-zinc-500">No email-ready contacts.</p>}
               </div>
+              <Pagination
+                {...recipientsResult}
+                onPageChange={(p) => {
+                  const url = new URL(window.location.href);
+                  url.searchParams.set("page", String(p));
+                  router.push(url.pathname + url.search);
+                }}
+              />
             </div>
           </section>
         </form>
@@ -740,19 +782,22 @@ function syncPartnershipEmails() {
 
       {activeTab === "templates" && (
         <section className="mt-4 grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
-          <div className="min-w-0 rounded-md border border-white/[0.09] bg-[#111113]">
-            <div className="flex items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-3">
+          <div className="min-w-0 rounded-md border border-white/9 bg-[#111113]">
+            <div className="flex items-center justify-between gap-3 border-b border-white/8 px-4 py-3">
               <p className="text-[13px] font-medium text-zinc-200">Templates</p>
               <button
                 type="button"
-                onClick={() => setTemplateForm(blankTemplate())}
-                className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-[12px] text-zinc-400 transition hover:bg-white/[0.055] hover:text-zinc-100 cursor-pointer"
+                onClick={() => {
+                  setTemplateView("edit");
+                  setTemplateForm(blankTemplate());
+                }}
+                className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-[12px] text-zinc-400 transition hover:bg-white/5.5 hover:text-zinc-100 cursor-pointer"
               >
                 <Plus className="size-3.5" strokeWidth={1.8} />
                 New
               </button>
             </div>
-            <div className="border-b border-white/[0.08] p-3">
+            <div className="border-b border-white/8 p-3">
               <input
                 value={templateQuery}
                 onChange={(event) => setTemplateQuery(event.target.value)}
@@ -766,8 +811,8 @@ function syncPartnershipEmails() {
                   key={template.id}
                   type="button"
                   onClick={() => loadTemplate(template)}
-                  className={["block w-full border-b border-white/[0.06] px-4 py-3 text-left transition hover:bg-white/[0.035] cursor-pointer",
-                    templateForm.id === template.id ? "bg-white/[0.055]" : "",
+                  className={["block w-full border-b border-white/6 px-4 py-3 text-left transition hover:bg-white/[0.035] cursor-pointer",
+                    templateForm.id === template.id ? "bg-white/5.5" : "",
                   ].join(" ")}
                 >
                   <span className="block truncate text-[13px] font-medium text-zinc-100">{template.name}</span>
@@ -780,10 +825,37 @@ function syncPartnershipEmails() {
             </div>
           </div>
 
-          <form onSubmit={submitTemplate} className="min-w-0 rounded-md border border-white/[0.09] bg-[#111113]">
-            <div className="border-b border-white/[0.08] px-4 py-3">
+          <form onSubmit={submitTemplate} className="min-w-0 rounded-md border border-white/9 bg-[#111113]">
+            <div className="flex items-center justify-between gap-3 border-b border-white/8 px-4 py-3">
               <p className="text-[13px] font-medium text-zinc-200">{templateForm.id ? "Edit template" : "New template"}</p>
+              <div className="flex items-center gap-1 rounded-md border border-white/9 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setTemplateView("edit")}
+                  className={[
+                    "h-7 rounded-[5px] px-2.5 text-[12px] font-medium transition cursor-pointer",
+                    templateView === "edit"
+                      ? "bg-zinc-700 text-white"
+                      : "text-zinc-400 hover:bg-white/4.5 hover:text-zinc-100",
+                  ].join(" ")}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTemplateView("preview")}
+                  className={[
+                    "h-7 rounded-[5px] px-2.5 text-[12px] font-medium transition cursor-pointer",
+                    templateView === "preview"
+                      ? "bg-zinc-700 text-white"
+                      : "text-zinc-400 hover:bg-white/4.5 hover:text-zinc-100",
+                  ].join(" ")}
+                >
+                  Preview
+                </button>
+              </div>
             </div>
+            {templateView === "edit" ? (
             <div className="space-y-3 p-4">
               <div className="grid gap-3 md:grid-cols-2">
                 <label className={labelClass()}>
@@ -829,7 +901,7 @@ function syncPartnershipEmails() {
                     key={token}
                     type="button"
                     onClick={() => appendToken(token)}
-                    className="rounded-md border border-white/[0.08] px-2 py-1 text-[11px] text-zinc-500 transition hover:bg-white/[0.045] hover:text-zinc-200"
+                    className="rounded-md border border-white/8 px-2 py-1 text-[11px] text-zinc-500 transition hover:bg-white/4.5 hover:text-zinc-200"
                   >
                     {token}
                   </button>
@@ -852,7 +924,7 @@ function syncPartnershipEmails() {
                         bodyTemplate: templateForm.bodyTemplate,
                       });
                     }}
-                    className="h-8 rounded-md border border-white/[0.09] px-3 text-[12px] font-medium text-zinc-400 transition hover:bg-white/[0.045] hover:text-zinc-100 cursor-pointer"
+                    className="h-8 rounded-md border border-white/9 px-3 text-[12px] font-medium text-zinc-400 transition hover:bg-white/4.5 hover:text-zinc-100 cursor-pointer"
                   >
                     Use in draft
                   </button>
@@ -868,51 +940,106 @@ function syncPartnershipEmails() {
                 )}
               </div>
             </div>
+            ) : (
+            <div className="space-y-3 p-4">
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-zinc-500">Subject</p>
+                <p className="mt-1 text-[13px] text-zinc-100">
+                  {templatePreviewSubject || <span className="text-zinc-600">No subject yet</span>}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-zinc-500">Body</p>
+                {templateForm.bodyTemplate ? (
+                  <pre className="mt-1 whitespace-pre-wrap wrap-break-word font-sans text-[13px] text-zinc-200">
+                    {templatePreviewBody}
+                  </pre>
+                ) : (
+                  <p className="mt-1 text-[13px] text-zinc-600">No body yet</p>
+                )}
+              </div>
+              {previewRecipient ? (
+                <p className="text-[12px] text-zinc-500">
+                  Previewing for <span className="text-zinc-300">{previewRecipient.contactName || previewRecipient.email}</span>
+                  {previewRecipient.companyName ? ` · ${previewRecipient.companyName}` : ""}
+                  {selectedEvent ? ` · ${selectedEvent.name}` : ""}
+                </p>
+              ) : (
+                <p className="text-[12px] text-zinc-500">
+                  Select a recipient on the Compose tab to see merged values. Unresolved tokens are shown as <code className="rounded bg-white/6 px-1 py-0.5 text-zinc-300">{`{{token}}`}</code>.
+                </p>
+              )}
+            </div>
+            )}
           </form>
         </section>
       )}
 
       {activeTab === "compose" && campaigns.length > 0 && (
-        <section className="mt-4 rounded-md border border-white/[0.09] bg-[#111113]">
-          <div className="border-b border-white/[0.08] px-4 py-3">
+        <section className="mt-4 rounded-md border border-white/9 bg-[#111113]">
+          <div className="border-b border-white/8 px-4 py-3">
             <p className="text-[13px] font-medium text-zinc-200">Outreach drafts</p>
           </div>
-          <div className="divide-y divide-white/[0.06]">
-            {campaigns.map((campaign) => (
-              <div key={campaign.id} className="grid gap-3 px-4 py-3 text-[13px] text-zinc-400 md:grid-cols-[minmax(0,1fr)_120px_110px_90px_100px] md:items-center">
-                <span className="min-w-0">
-                  <span className="block truncate font-medium text-zinc-100">{campaign.subject}</span>
-                  <span className="block truncate text-[12px] text-zinc-500">
-                    {campaign.eventName ?? "No event"} · {campaign.senderName ?? "No BizTech Director"}
-                    {campaign.scheduledAtIso
-                      ? ` · scheduled ${new Date(campaign.scheduledAtIso).toLocaleString("en-CA")}`
-                      : ""}
+          <div className="divide-y divide-white/6">
+            {campaigns.map((campaign) => {
+              const sentCount = campaign.sends.filter((send) => send.status === "sent").length;
+              const failedCount = campaign.sends.filter((send) => send.status === "failed").length;
+              const skippedCount = campaign.sends.filter((send) => send.status === "skipped").length;
+              const queuedCount = campaign.sends.filter((send) => send.status === "queued").length;
+              const total = campaign.sends.length;
+              const inFlight = campaign.status === "queued" || campaign.status === "sending";
+              const terminal = campaign.status === "sent" || campaign.status === "partial";
+              const buttonLabel = inFlight
+                ? campaign.status === "queued"
+                  ? "Queued"
+                  : "Sending…"
+                : terminal
+                  ? "Done"
+                  : "Queue send";
+              return (
+                <div key={campaign.id} className="grid gap-3 px-4 py-3 text-[13px] text-zinc-400 md:grid-cols-[minmax(0,1fr)_140px_110px_90px_100px] md:items-center">
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium text-zinc-100">{campaign.subject}</span>
+                    <span className="block truncate text-[12px] text-zinc-500">
+                      {campaign.eventName ?? "No event"} · {campaign.senderName ?? "No BizTech Director"}
+                      {campaign.scheduledAtIso
+                        ? ` · scheduled ${new Date(campaign.scheduledAtIso).toLocaleString("en-CA")}`
+                        : ""}
+                    </span>
                   </span>
-                </span>
-                <span>{campaign.sends.length} recipients</span>
-                <span>{new Date(campaign.createdAtIso).toLocaleDateString("en-CA")}</span>
-                <span className="rounded-md bg-white/[0.055] px-2 py-1 text-center text-[12px] capitalize text-zinc-300">{campaign.status}</span>
-                <button
-                  type="button"
-                  disabled={isPending || campaign.status === "sent" || campaign.sends.every((send) => send.status !== "queued")}
-                  onClick={() => {
-                    const queued = campaign.sends.filter((send) => send.status === "queued").length;
-                    if (!window.confirm(`Queue this outreach draft for ${queued} recipient${queued === 1 ? "" : "s"}?`)) return;
-                    sendCampaign(campaign.id, campaign.scheduledAtIso);
-                  }}
-                  className="h-8 rounded-md border border-white/[0.09] px-2.5 text-[12px] font-medium text-zinc-400 transition hover:bg-white/[0.045] hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
-                >
-                  Queue send
-                </button>
-              </div>
-            ))}
+                  <span className="text-[12px]">
+                    {sentCount} of {total} sent
+                    {queuedCount > 0 ? ` · ${queuedCount} queued` : ""}
+                    {failedCount > 0 ? (
+                      <span className="block text-red-300">{failedCount} failed</span>
+                    ) : null}
+                    {skippedCount > 0 ? (
+                      <span className="block text-zinc-500">{skippedCount} skipped</span>
+                    ) : null}
+                  </span>
+                  <span>{new Date(campaign.createdAtIso).toLocaleDateString("en-CA")}</span>
+                  <span className="rounded-md bg-white/5.5 px-2 py-1 text-center text-[12px] capitalize text-zinc-300">{campaign.status}</span>
+                  <button
+                    type="button"
+                    disabled={isPending || inFlight || terminal || queuedCount === 0}
+                    onClick={() => {
+                      if (!window.confirm(`Queue this outreach draft for ${queuedCount} recipient${queuedCount === 1 ? "" : "s"}?`)) return;
+                      sendCampaign(campaign.id, campaign.scheduledAtIso);
+                    }}
+                    className="h-8 rounded-md border border-white/9 px-2.5 text-[12px] font-medium text-zinc-400 transition hover:bg-white/4.5 hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
+                  >
+                    {buttonLabel}
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </section>
       )}
 
       {activeTab === "sync" && (
-        <section className="mt-4 rounded-md border border-white/[0.09] bg-[#111113]">
-          <div className="flex min-w-0 flex-col gap-2 border-b border-white/[0.08] px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+        <section className="mt-4 rounded-md border border-white/9 bg-[#111113]">
+          <div className="flex min-w-0 flex-col gap-2 border-b border-white/8 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
               <p className="text-[13px] font-medium text-zinc-200">Gmail sync</p>
               <p className="mt-0.5 text-[12px] text-zinc-500">Turns email replies into contact history when the company or person already exists.</p>
@@ -920,31 +1047,31 @@ function syncPartnershipEmails() {
             <button
               type="button"
               onClick={() => setSyncHelpOpen(true)}
-              className="inline-flex h-8 w-fit items-center justify-center gap-1.5 rounded-md border border-white/[0.09] px-3 text-[12px] font-medium text-zinc-400 transition hover:bg-white/[0.045] hover:text-zinc-100 cursor-pointer"
+              className="inline-flex h-8 w-fit items-center justify-center gap-1.5 rounded-md border border-white/9 px-3 text-[12px] font-medium text-zinc-400 transition hover:bg-white/4.5 hover:text-zinc-100 cursor-pointer"
             >
               <HelpCircle className="size-3.5" strokeWidth={1.8} />
               How to sync
             </button>
           </div>
           <div className="grid gap-3 p-4 md:grid-cols-3">
-            <div className="rounded-md border border-white/[0.08] bg-[#0d0e11] p-3">
+            <div className="rounded-md border border-white/8 bg-[#0d0e11] p-3">
               <p className="text-[12px] text-zinc-500">Last email</p>
               <p className="mt-2 truncate text-[13px] font-medium text-zinc-100">
                 {formatSyncTime(syncSummary.lastSyncedAtIso)}
               </p>
             </div>
-            <div className="rounded-md border border-white/[0.08] bg-[#0d0e11] p-3">
+            <div className="rounded-md border border-white/8 bg-[#0d0e11] p-3">
               <p className="text-[12px] text-zinc-500">Logged emails</p>
               <p className="mt-2 text-[13px] font-medium text-zinc-100">{syncSummary.syncedMessageCount}</p>
             </div>
-            <div className="rounded-md border border-white/[0.08] bg-[#0d0e11] p-3">
+            <div className="rounded-md border border-white/8 bg-[#0d0e11] p-3">
               <p className="text-[12px] text-zinc-500">Matched records</p>
               <p className="mt-2 text-[13px] font-medium text-zinc-100">
                 {syncSummary.linkedCompanyCount} companies · {syncSummary.linkedPartnerCount} people
               </p>
             </div>
           </div>
-          <div className="grid gap-3 border-t border-white/[0.08] p-4 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-end">
+          <div className="grid gap-3 border-t border-white/8 p-4 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-end">
             <label className={labelClass()}>
               Webhook URL
               <input readOnly value={syncIngestUrl} className={inputClass("w-full")} />
@@ -952,7 +1079,7 @@ function syncPartnershipEmails() {
             <button
               type="button"
               onClick={() => copyText(syncIngestUrl, "Webhook URL copied.")}
-              className="h-9 rounded-md border border-white/[0.09] px-3 text-[13px] font-medium text-zinc-400 transition hover:bg-white/[0.045] hover:text-zinc-100 cursor-pointer"
+              className="h-9 rounded-md border border-white/9 px-3 text-[13px] font-medium text-zinc-400 transition hover:bg-white/4.5 hover:text-zinc-100 cursor-pointer"
             >
               Copy URL
             </button>
@@ -969,17 +1096,17 @@ function syncPartnershipEmails() {
 
       {syncHelpOpen && (
         <div className="fixed inset-0 z-50 grid min-w-0 place-items-center bg-black/60 px-4 py-6 backdrop-blur-sm">
-          <div className="flex h-[calc(100dvh-132px)] w-[calc(100dvw-32px)] max-w-[560px] flex-col overflow-hidden rounded-md border border-white/[0.1] bg-[#111113] shadow-2xl shadow-black/50">
-            <div className="flex min-w-0 shrink-0 items-center gap-3 border-b border-white/[0.08] px-4 py-3">
+          <div className="flex h-[calc(100dvh-132px)] w-[calc(100dvw-32px)] max-w-140 flex-col overflow-hidden rounded-md border border-white/10 bg-[#111113] shadow-2xl shadow-black/50">
+            <div className="flex min-w-0 shrink-0 items-center gap-3 border-b border-white/8 px-4 py-3">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[14px] font-medium text-zinc-100">Sync Gmail contact history</p>
-                <p className="mt-0.5 break-words text-[12px] text-zinc-500">Syncs outreach replies into contact history when Gmail can match the people involved.</p>
+                <p className="mt-0.5 wrap-break-word text-[12px] text-zinc-500">Syncs outreach replies into contact history when Gmail can match the people involved.</p>
               </div>
               <button
                 type="button"
                 aria-label="Close sync help"
                 onClick={() => setSyncHelpOpen(false)}
-                className="grid size-8 shrink-0 place-items-center rounded-md text-zinc-500 transition hover:bg-white/[0.055] hover:text-zinc-100 cursor-pointer"
+                className="grid size-8 shrink-0 place-items-center rounded-md text-zinc-500 transition hover:bg-white/5.5 hover:text-zinc-100 cursor-pointer"
               >
                 <X className="size-4" strokeWidth={1.8} />
               </button>
@@ -991,21 +1118,21 @@ function syncPartnershipEmails() {
               </p>
 
               <ol className="space-y-3 text-[13px] leading-5 text-zinc-400">
-                <li className="rounded-md border border-white/[0.08] bg-[#0d0e11] p-3">
+                <li className="rounded-md border border-white/8 bg-[#0d0e11] p-3">
                   <span className="font-medium text-zinc-200">1. Copy the webhook URL.</span>
-                  <p className="mt-1 text-zinc-500">Paste it into the script where <code className="rounded bg-white/[0.06] px-1 text-zinc-300">INGEST_URL</code> appears.</p>
+                  <p className="mt-1 text-zinc-500">Paste it into the script where <code className="rounded bg-white/6 px-1 text-zinc-300">INGEST_URL</code> appears.</p>
                 </li>
-                <li className="rounded-md border border-white/[0.08] bg-[#0d0e11] p-3">
+                <li className="rounded-md border border-white/8 bg-[#0d0e11] p-3">
                   <span className="font-medium text-zinc-200">2. Copy the Apps Script.</span>
                   <p className="mt-1 text-zinc-500">Open Google Apps Script from the Gmail account being synced, paste the script, then save it.</p>
                 </li>
-                <li className="rounded-md border border-white/[0.08] bg-[#0d0e11] p-3">
+                <li className="rounded-md border border-white/8 bg-[#0d0e11] p-3">
                   <span className="font-medium text-zinc-200">3. Add the ingest secret.</span>
-                  <p className="mt-1 text-zinc-500">Replace <code className="rounded bg-white/[0.06] px-1 text-zinc-300">paste-secret-here</code> with the app&apos;s <code className="rounded bg-white/[0.06] px-1 text-zinc-300">PARTNERSHIPS_EMAIL_INGEST_SECRET</code>.</p>
+                  <p className="mt-1 text-zinc-500">Replace <code className="rounded bg-white/6 px-1 text-zinc-300">paste-secret-here</code> with the app&apos;s <code className="rounded bg-white/6 px-1 text-zinc-300">PARTNERSHIPS_EMAIL_INGEST_SECRET</code>.</p>
                 </li>
-                <li className="rounded-md border border-white/[0.08] bg-[#0d0e11] p-3">
+                <li className="rounded-md border border-white/8 bg-[#0d0e11] p-3">
                   <span className="font-medium text-zinc-200">4. Run once, then schedule.</span>
-                  <p className="mt-1 text-zinc-500">Run <code className="rounded bg-white/[0.06] px-1 text-zinc-300">syncPartnershipEmails</code> manually first. If the expected contact history appears, add a time-based trigger.</p>
+                  <p className="mt-1 text-zinc-500">Run <code className="rounded bg-white/6 px-1 text-zinc-300">syncPartnershipEmails</code> manually first. If the expected contact history appears, add a time-based trigger.</p>
                 </li>
               </ol>
 
@@ -1015,16 +1142,16 @@ function syncPartnershipEmails() {
                   readOnly
                   value={syncScriptTemplate}
                   rows={10}
-                  className={inputClass("h-auto min-h-[220px] w-full font-mono text-[12px] leading-5")}
+                  className={inputClass("h-auto min-h-55 w-full font-mono text-[12px] leading-5")}
                 />
               </label>
             </div>
 
-            <div className="flex shrink-0 flex-wrap gap-2 border-t border-white/[0.08] px-4 py-3">
+            <div className="flex shrink-0 flex-wrap gap-2 border-t border-white/8 px-4 py-3">
               <button
                 type="button"
                 onClick={() => copyText(syncIngestUrl, "Webhook URL copied.")}
-                className="h-8 rounded-md border border-white/[0.09] px-3 text-[12px] font-medium text-zinc-400 transition hover:bg-white/[0.045] hover:text-zinc-100 cursor-pointer"
+                className="h-8 rounded-md border border-white/9 px-3 text-[12px] font-medium text-zinc-400 transition hover:bg-white/4.5 hover:text-zinc-100 cursor-pointer"
               >
                 Copy URL
               </button>
@@ -1037,6 +1164,20 @@ function syncPartnershipEmails() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {toasts.length > 0 && (
+        <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+          {toasts.map((toast) => (
+            <div
+              key={toast.id}
+              role="status"
+              className="pointer-events-auto rounded-md border border-white/10 bg-[#111113] px-3 py-2 text-[13px] text-zinc-200 shadow-lg"
+            >
+              {toast.message}
+            </div>
+          ))}
         </div>
       )}
     </div>

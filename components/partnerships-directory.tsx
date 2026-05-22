@@ -24,17 +24,23 @@ import {
 import type {
   CompanyDirectoryRecord,
   CompanyInteractionRecord,
+  CompanyKind,
   CrmEventSummary,
   CrmUserSummary,
   EventAttendanceStatus,
   EventRole,
   MeetingLogRecord,
+  PaginationMeta,
   PartnerDirectoryRecord,
   PartnerEventAttendance,
 } from "@/lib/partnerships/types";
+import { Pagination } from "@/components/pagination";
 
 type CompaniesPageProps = {
   companies: CompanyDirectoryRecord[];
+  paginationMeta: PaginationMeta;
+  kindCounts: { sponsors: number; inKind: number; previous: number };
+  initialKind?: CompanyKind;
   events: CrmEventSummary[];
   users: CrmUserSummary[];
   partners: PartnerDirectoryRecord[];
@@ -44,6 +50,7 @@ type CompaniesPageProps = {
 
 type PartnersPageProps = {
   partners: PartnerDirectoryRecord[];
+  paginationMeta: PaginationMeta;
   companies: CompanyDirectoryRecord[];
   events: CrmEventSummary[];
   users: CrmUserSummary[];
@@ -54,7 +61,6 @@ type PanelMode = "closed" | "create" | "view" | "edit";
 type SortDirection = "asc" | "desc";
 type PartnerSortKey = "name" | "company" | "role" | "events";
 type CompanySortKey = "name" | "partners" | "events";
-type CompanyKind = "sponsors" | "in_kind" | "previous";
 
 const IN_KIND_TAG = "in-kind";
 const PREVIOUS_TAG = "previous-sponsor";
@@ -228,7 +234,7 @@ function Avatar({ name, size = "md" }: { name: string; size?: "sm" | "md" | "lg"
     size === "lg" ? "size-10 text-base" : size === "sm" ? "size-6 text-[10px]" : "size-8 text-xs";
   return (
     <div
-      className={`${sizeClass} grid shrink-0 place-items-center rounded-full border border-white/[0.08] bg-zinc-700/80 font-semibold text-zinc-100`}
+      className={`${sizeClass} grid shrink-0 place-items-center rounded-full border border-white/8 bg-zinc-700/80 font-semibold text-zinc-100`}
     >
       {initials(name)}
     </div>
@@ -253,7 +259,7 @@ function ContactRequirementHint() {
 
 function inputClass(extra = "") {
   return [
-    "h-9 w-full min-w-0 max-w-full rounded-md border border-white/[0.09] bg-[#0d0e11] px-3 text-[13px] text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-zinc-400/70 focus:ring-2 focus:ring-zinc-400/15",
+    "h-9 w-full min-w-0 max-w-full rounded-md border border-white/9 bg-[#0d0e11] px-3 text-[13px] text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-zinc-400/70 focus:ring-2 focus:ring-zinc-400/15",
     extra,
   ].join(" ");
 }
@@ -284,8 +290,8 @@ function SortHeader<T extends string>({
     <button
       type="button"
       onClick={() => onSort(sortKey)}
-      className={["-ml-2 w-fit rounded-full px-2 py-1 text-left transition hover:bg-white/[0.055] hover:text-zinc-300 cursor-pointer",
-        active ? "bg-white/[0.055] text-zinc-200" : "",
+      className={["-ml-2 w-fit rounded-full px-2 py-1 text-left transition hover:bg-white/5.5 hover:text-zinc-300 cursor-pointer",
+        active ? "bg-white/5.5 text-zinc-200" : "",
       ].join(" ")}
     >
       {label}
@@ -346,7 +352,7 @@ function CompanyCombo({
         className={inputClass("w-full")}
       />
       {open && (
-        <div className="absolute left-0 right-0 top-11 z-30 overflow-hidden rounded-md border border-white/[0.1] bg-[#15161a] shadow-2xl shadow-black/40">
+        <div className="absolute left-0 right-0 top-11 z-30 overflow-hidden rounded-md border border-white/10 bg-[#15161a] shadow-2xl shadow-black/40">
           {filtered.map((company) => (
             <button
               key={company.id}
@@ -356,7 +362,7 @@ function CompanyCombo({
                 onChange(company.name);
                 setOpen(false);
               }}
-              className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-white/[0.05] cursor-pointer"
+              className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-white/5 cursor-pointer"
             >
               <Avatar name={company.name} />
               <span className="min-w-0">
@@ -372,7 +378,7 @@ function CompanyCombo({
               type="button"
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => setOpen(false)}
-              className="block w-full border-t border-white/[0.08] px-3 py-2.5 text-left text-[13px] text-zinc-300 transition hover:bg-white/[0.05] cursor-pointer"
+              className="block w-full border-t border-white/8 px-3 py-2.5 text-left text-[13px] text-zinc-300 transition hover:bg-white/5 cursor-pointer"
             >
               Create company &quot;{value.trim()}&quot;
             </button>
@@ -418,7 +424,7 @@ function EventCombo({
         className={inputClass("w-full")}
       />
       {open && (
-        <div className="absolute left-0 right-0 top-11 z-30 overflow-hidden rounded-md border border-white/[0.1] bg-[#15161a] shadow-2xl shadow-black/40">
+        <div className="absolute left-0 right-0 top-11 z-30 overflow-hidden rounded-md border border-white/10 bg-[#15161a] shadow-2xl shadow-black/40">
           {filtered.map((event) => (
             <button
               key={event.id}
@@ -428,7 +434,7 @@ function EventCombo({
                 onChange(event.name);
                 setOpen(false);
               }}
-              className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-white/[0.05] cursor-pointer"
+              className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-white/5 cursor-pointer"
             >
               <span className="truncate text-[13px] font-medium text-zinc-100">{event.name}</span>
               <span className="shrink-0 text-[12px] text-zinc-500">{event.year ?? ""}</span>
@@ -445,7 +451,7 @@ function EventCombo({
 
 function EmptyPanel({ label }: { label: string }) {
   return (
-    <div className="grid min-h-[100dvh] place-items-center border-l border-white/[0.08] bg-[#111113]/60 px-8 text-center text-sm text-zinc-500">
+    <div className="grid min-h-dvh place-items-center border-l border-white/8 bg-[#111113]/60 px-8 text-center text-sm text-zinc-500">
       {label}
     </div>
   );
@@ -459,11 +465,11 @@ function DirectorCheckboxes({
   selectedIds?: string[];
 }) {
   return (
-    <div className="rounded-md border border-white/[0.08] bg-[#101114] p-3">
+    <div className="rounded-md border border-white/8 bg-[#101114] p-3">
       <p className="text-[12px] font-medium text-zinc-300">BizTech Directors POC</p>
       <div className="mt-3 grid gap-2">
         {users.map((user) => (
-          <label key={user.id} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-zinc-300 hover:bg-white/[0.04]">
+          <label key={user.id} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-zinc-300 hover:bg-white/4">
             <input
               name="directorUserIds"
               value={user.id}
@@ -480,7 +486,7 @@ function DirectorCheckboxes({
   );
 }
 
-export function PartnersDirectory({ partners, companies, events, users, initialPartnerId }: PartnersPageProps) {
+export function PartnersDirectory({ partners, paginationMeta, companies, events, users, initialPartnerId }: PartnersPageProps) {
   const router = useRouter();
   const initialPartner = partners.find((partner) => partner.id === initialPartnerId) ?? null;
   const [selectedId, setSelectedId] = useState<string | null>(initialPartner?.id ?? null);
@@ -641,11 +647,11 @@ export function PartnersDirectory({ partners, companies, events, users, initialP
   const partnerTableMin = "min-w-0";
 
   return (
-    <div className={["grid min-h-[100dvh] w-full max-w-full grid-cols-1 overflow-x-hidden bg-[#0d0d0f] xl:overflow-hidden", panelOpen ? "xl:grid-cols-[minmax(0,1fr)_minmax(400px,480px)]" : ""].join(" ")}>
+    <div className={["grid min-h-dvh w-full max-w-full grid-cols-1 overflow-x-hidden bg-[#0d0d0f] xl:overflow-hidden", panelOpen ? "xl:grid-cols-[minmax(0,1fr)_minmax(400px,480px)]" : ""].join(" ")}>
       <section className={["min-w-0 bg-[#0d0d0f] px-3 py-4 sm:px-5 sm:py-5 xl:overflow-hidden", panelOpen ? "hidden xl:block" : ""].join(" ")}>
         <h2 className="text-[15px] font-medium text-zinc-100">Partners</h2>
 
-        <div className="mt-4 grid max-w-[760px] grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+        <div className="mt-4 grid max-w-190 grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
           <input
             name="partnerSearch"
             value={query}
@@ -670,9 +676,9 @@ export function PartnersDirectory({ partners, companies, events, users, initialP
           </button>
         </div>
 
-        <div className="mt-5 overflow-hidden rounded-md border border-white/[0.09] bg-[#111113]">
-          <div className={`grid ${partnerTableMin} ${partnerGrid} border-b border-white/[0.08] px-4 py-2.5 text-[12px] text-zinc-500`}>
-            <span className="pl-[52px]">
+        <div className="mt-5 overflow-hidden rounded-md border border-white/9 bg-[#111113]">
+          <div className={`grid ${partnerTableMin} ${partnerGrid} border-b border-white/8 px-4 py-2.5 text-[12px] text-zinc-500`}>
+            <span className="pl-13">
               <SortHeader label="Name" sortKey="name" activeKey={sortKey} direction={sortDirection} onSort={sortPartners} />
             </span>
             <span className={panelOpen ? "min-w-0" : "hidden min-w-0 md:block"}>
@@ -697,8 +703,8 @@ export function PartnersDirectory({ partners, companies, events, users, initialP
                     setEventName("");
                   }}
                   className={[
-                    `grid ${partnerTableMin} w-full ${partnerGrid} items-center border-b border-white/[0.06] px-4 py-3.5 text-left text-[13px] text-zinc-300 transition hover:bg-white/[0.035] cursor-pointer`,
-                    selectedRow ? "bg-white/[0.055]" : "",
+                    `grid ${partnerTableMin} w-full ${partnerGrid} items-center border-b border-white/6 px-4 py-3.5 text-left text-[13px] text-zinc-300 transition hover:bg-white/[0.035] cursor-pointer`,
+                    selectedRow ? "bg-white/5.5" : "",
                   ].join(" ")}
                 >
                   <span className="flex min-w-0 items-center gap-3">
@@ -724,15 +730,20 @@ export function PartnersDirectory({ partners, companies, events, users, initialP
               );
             })}
           </div>
-          <div className="border-t border-white/[0.08] px-4 py-4 text-[13px] text-zinc-500">
-            {filteredPartners.length} partners
-          </div>
+          <Pagination
+            {...paginationMeta}
+            onPageChange={(p) => {
+              const url = new URL(window.location.href);
+              url.searchParams.set("page", String(p));
+              router.push(url.pathname + url.search);
+            }}
+          />
         </div>
       </section>
 
       {panelOpen ? (
-        <aside className="flex h-[calc(100dvh-50px)] w-full max-w-[100dvw] min-w-0 flex-col overflow-hidden border-l border-white/[0.08] bg-[#111113] xl:h-[100dvh]">
-          <div className="flex h-14 shrink-0 min-w-0 items-center gap-2 border-b border-white/[0.08] px-3 sm:px-5">
+        <aside className="flex h-[calc(100dvh-50px)] w-full max-w-dvw min-w-0 flex-col overflow-hidden border-l border-white/8 bg-[#111113] xl:h-dvh">
+          <div className="flex h-14 shrink-0 min-w-0 items-center gap-2 border-b border-white/8 px-3 sm:px-5">
             <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
               <button
                 type="button"
@@ -758,7 +769,7 @@ export function PartnersDirectory({ partners, companies, events, users, initialP
                   setEventName("");
                   resetPartnerUrl();
                 }}
-                className="grid size-7 shrink-0 place-items-center rounded-md border border-white/[0.12] bg-white/[0.055] text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:hidden cursor-pointer"
+                className="grid size-7 shrink-0 place-items-center rounded-md border border-white/12 bg-white/5.5 text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:hidden cursor-pointer"
               >
                 <X className="size-4" strokeWidth={1.8} />
               </button>
@@ -770,7 +781,7 @@ export function PartnersDirectory({ partners, companies, events, users, initialP
                   setError(null);
                   setMode("edit");
                 }}
-                className="hidden h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-white/[0.09] px-2.5 text-[12px] font-medium text-zinc-300 transition hover:bg-white/[0.055] hover:text-white md:inline-flex cursor-pointer"
+                className="hidden h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-white/9 px-2.5 text-[12px] font-medium text-zinc-300 transition hover:bg-white/5.5 hover:text-white md:inline-flex cursor-pointer"
               >
                 <Pencil className="size-3.5" strokeWidth={1.8} />
                 Edit
@@ -785,7 +796,7 @@ export function PartnersDirectory({ partners, companies, events, users, initialP
                 setEventName("");
                 resetPartnerUrl();
               }}
-              className="hidden size-8 shrink-0 place-items-center rounded-md border border-white/[0.12] bg-white/[0.055] text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:grid cursor-pointer"
+              className="hidden size-8 shrink-0 place-items-center rounded-md border border-white/12 bg-white/5.5 text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:grid cursor-pointer"
             >
               <X className="size-5" strokeWidth={1.8} />
             </button>
@@ -812,7 +823,7 @@ export function PartnersDirectory({ partners, companies, events, users, initialP
                   Primary contact for company
                 </label>
                 <DirectorCheckboxes users={users} />
-                <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/[0.09] bg-[#0d0e11] p-4">
+                <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/9 bg-[#0d0e11] p-4">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-[13px] font-medium text-zinc-200">Log event attendance</p>
                     <span className="shrink-0 text-[12px] text-zinc-500">Optional</span>
@@ -841,7 +852,7 @@ export function PartnersDirectory({ partners, companies, events, users, initialP
                 </div>
                 {error && <p className="rounded-md border border-red-400/20 bg-red-400/10 px-3 py-2 text-[13px] text-red-200">{error}</p>}
               </div>
-              <div className="shrink-0 border-t border-white/[0.08] bg-[#0d0e11] px-5 py-4">
+              <div className="shrink-0 border-t border-white/8 bg-[#0d0e11] px-5 py-4">
                 <button disabled={isPending} className="h-9 rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer">
                   Save person
                 </button>
@@ -850,7 +861,7 @@ export function PartnersDirectory({ partners, companies, events, users, initialP
           ) : mode === "view" && selected ? (
             <div className="min-h-0 flex-1 min-w-0 overflow-x-hidden overflow-y-auto px-5 py-5">
               <div className="grid gap-4">
-                <section className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/[0.09] bg-[#0d0e11] p-4">
+                <section className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/9 bg-[#0d0e11] p-4">
                   <div className="flex items-start gap-3">
                     <Avatar name={selected.name} size="lg" />
                     <div className="min-w-0 flex-1">
@@ -884,7 +895,7 @@ export function PartnersDirectory({ partners, companies, events, users, initialP
                   <div className="mt-4 flex flex-wrap items-center gap-2">
                     <a
                       href={contactLogCreateHref({ companyName: selected.companyName, contactName: selected.name })}
-                      className="inline-flex h-8 items-center gap-1.5 rounded-md border border-white/[0.09] px-2.5 text-[12px] font-medium text-zinc-300 transition hover:bg-white/[0.055] hover:text-white"
+                      className="inline-flex h-8 items-center gap-1.5 rounded-md border border-white/9 px-2.5 text-[12px] font-medium text-zinc-300 transition hover:bg-white/5.5 hover:text-white"
                     >
                       <MessageSquarePlus className="size-3.5" strokeWidth={1.8} />
                       Log contact
@@ -895,7 +906,7 @@ export function PartnersDirectory({ partners, companies, events, users, initialP
                         setError(null);
                         setMode("edit");
                       }}
-                      className="inline-flex h-8 items-center gap-1.5 rounded-md border border-white/[0.09] px-2.5 text-[12px] font-medium text-zinc-300 transition hover:bg-white/[0.055] hover:text-white cursor-pointer"
+                      className="inline-flex h-8 items-center gap-1.5 rounded-md border border-white/9 px-2.5 text-[12px] font-medium text-zinc-300 transition hover:bg-white/5.5 hover:text-white cursor-pointer"
                     >
                       <Pencil className="size-3.5" strokeWidth={1.8} />
                       Edit person
@@ -903,10 +914,10 @@ export function PartnersDirectory({ partners, companies, events, users, initialP
                   </div>
                 </section>
 
-                <section className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/[0.09] bg-[#101114] p-4">
+                <section className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/9 bg-[#101114] p-4">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-[13px] font-medium text-zinc-200">Linked company</p>
-                    <a href={`/companies?companyId=${selected.companyId}`} className="shrink-0 rounded-md border border-white/[0.09] px-2 py-1 text-[11px] text-zinc-400 transition hover:bg-white/[0.055] hover:text-white">
+                    <a href={`/companies?companyId=${selected.companyId}`} className="shrink-0 rounded-md border border-white/9 px-2 py-1 text-[11px] text-zinc-400 transition hover:bg-white/5.5 hover:text-white">
                       Open
                     </a>
                   </div>
@@ -919,7 +930,7 @@ export function PartnersDirectory({ partners, companies, events, users, initialP
                   </div>
                 </section>
 
-                <section className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/[0.09] bg-[#0d0e11] p-4">
+                <section className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/9 bg-[#0d0e11] p-4">
                   <div className="flex min-w-0 flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-[13px] font-medium text-zinc-200">Log event attendance</p>
                     <p className="text-[12px] text-zinc-500">{selected.eventAttendances.length} linked</p>
@@ -981,7 +992,7 @@ export function PartnersDirectory({ partners, companies, events, users, initialP
                             ))}
                           </select>
                           <span className="inline-flex shrink-0 items-center gap-1">
-                            <a href={`/events?eventId=${attendance.eventId}`} className="grid size-8 place-items-center rounded-md text-zinc-500 transition hover:bg-white/[0.055] hover:text-white" aria-label={`Open ${attendance.eventName}`}>
+                            <a href={`/events?eventId=${attendance.eventId}`} className="grid size-8 place-items-center rounded-md text-zinc-500 transition hover:bg-white/5.5 hover:text-white" aria-label={`Open ${attendance.eventName}`}>
                               <ExternalLink className="size-4" strokeWidth={1.8} />
                             </a>
                             <button
@@ -1043,10 +1054,10 @@ export function PartnersDirectory({ partners, companies, events, users, initialP
                   <DirectorCheckboxes users={users} selectedIds={selected.directors.map((director) => director.id)} />
                 </form>
 
-                <div className="mt-6 min-w-0 max-w-full overflow-hidden rounded-md border border-white/[0.09] bg-[#101114] p-4">
+                <div className="mt-6 min-w-0 max-w-full overflow-hidden rounded-md border border-white/9 bg-[#101114] p-4">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-[12px] text-zinc-500">Linked company</p>
-                    <a href={`/companies?companyId=${selected.companyId}`} className="shrink-0 rounded-md border border-white/[0.09] px-2 py-1 text-[11px] text-zinc-400 transition hover:bg-white/[0.055] hover:text-white">
+                    <a href={`/companies?companyId=${selected.companyId}`} className="shrink-0 rounded-md border border-white/9 px-2 py-1 text-[11px] text-zinc-400 transition hover:bg-white/5.5 hover:text-white">
                       Open
                     </a>
                   </div>
@@ -1059,7 +1070,7 @@ export function PartnersDirectory({ partners, companies, events, users, initialP
                   </div>
                 </div>
 
-                <div className="mt-6 min-w-0 max-w-full overflow-hidden rounded-md border border-white/[0.09] bg-[#0d0e11] p-4">
+                <div className="mt-6 min-w-0 max-w-full overflow-hidden rounded-md border border-white/9 bg-[#0d0e11] p-4">
                   <p className="text-[13px] font-medium text-zinc-200">Event attendance</p>
                   <form onSubmit={submitEventRole} className="mt-4 grid gap-3">
                     <div className="grid gap-3">
@@ -1117,7 +1128,7 @@ export function PartnersDirectory({ partners, companies, events, users, initialP
                             ))}
                           </select>
                           <span className="inline-flex shrink-0 items-center gap-1">
-                            <a href={`/events?eventId=${attendance.eventId}`} className="grid size-8 place-items-center rounded-md text-zinc-500 transition hover:bg-white/[0.055] hover:text-white" aria-label={`Open ${attendance.eventName}`}>
+                            <a href={`/events?eventId=${attendance.eventId}`} className="grid size-8 place-items-center rounded-md text-zinc-500 transition hover:bg-white/5.5 hover:text-white" aria-label={`Open ${attendance.eventName}`}>
                               <ExternalLink className="size-4" strokeWidth={1.8} />
                             </a>
                             <button
@@ -1148,7 +1159,7 @@ export function PartnersDirectory({ partners, companies, events, users, initialP
                 </div>
                 {error && <p className="mt-4 rounded-md border border-red-400/20 bg-red-400/10 px-3 py-2 text-[13px] text-red-200">{error}</p>}
               </div>
-              <div className="shrink-0 border-t border-white/[0.08] bg-[#0d0e11] px-5 py-4">
+              <div className="shrink-0 border-t border-white/8 bg-[#0d0e11] px-5 py-4">
                 <button form="partner-edit-form" disabled={isPending} className="h-9 rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer">
                   Save changes
                 </button>
@@ -1163,7 +1174,7 @@ export function PartnersDirectory({ partners, companies, events, users, initialP
   );
 }
 
-export function CompaniesDirectory({ companies, events, users, partners, meetings, initialCompanyId }: CompaniesPageProps) {
+export function CompaniesDirectory({ companies, paginationMeta, kindCounts, initialKind, events, users, partners, meetings, initialCompanyId }: CompaniesPageProps) {
   const router = useRouter();
   const initialCompany = companies.find((company) => company.id === initialCompanyId) ?? null;
   const [selectedId, setSelectedId] = useState<string | null>(initialCompany?.id ?? null);
@@ -1177,23 +1188,14 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
   const [existingPartnerId, setExistingPartnerId] = useState("");
   const [sortKey, setSortKey] = useState<CompanySortKey>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
-  const [kind, setKind] = useState<CompanyKind>("sponsors");
+  const [kind, setKind] = useState<CompanyKind>(initialKind ?? "sponsors");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const selected = companies.find((company) => company.id === selectedId) ?? null;
 
-  const sponsorCount = useMemo(
-    () => companies.filter((company) => matchesKind(company, "sponsors")).length,
-    [companies],
-  );
-  const inKindCount = useMemo(
-    () => companies.filter((company) => matchesKind(company, "in_kind")).length,
-    [companies],
-  );
-  const previousCount = useMemo(
-    () => companies.filter((company) => matchesKind(company, "previous")).length,
-    [companies],
-  );
+  const sponsorCount = kindCounts.sponsors;
+  const inKindCount = kindCounts.inKind;
+  const previousCount = kindCounts.previous;
 
   useEffect(() => {
     const companyId = new URLSearchParams(window.location.search).get("companyId");
@@ -1477,11 +1479,11 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
   const companyTableMin = "min-w-0";
 
   return (
-    <div className={["grid min-h-[100dvh] w-full max-w-full grid-cols-1 overflow-x-hidden bg-[#0d0d0f] xl:overflow-hidden", panelOpen ? "xl:grid-cols-[minmax(0,1fr)_minmax(400px,480px)]" : ""].join(" ")}>
+    <div className={["grid min-h-dvh w-full max-w-full grid-cols-1 overflow-x-hidden bg-[#0d0d0f] xl:overflow-hidden", panelOpen ? "xl:grid-cols-[minmax(0,1fr)_minmax(400px,480px)]" : ""].join(" ")}>
       <section className={["min-w-0 bg-[#0d0d0f] px-3 py-4 sm:px-5 sm:py-5 xl:overflow-hidden", panelOpen ? "hidden xl:block" : ""].join(" ")}>
         <h2 className="text-[15px] font-medium text-zinc-100">Companies</h2>
 
-        <div className="mt-4 inline-flex rounded-md border border-white/[0.09] bg-[#111113] p-0.5 text-[13px]">
+        <div className="mt-4 inline-flex rounded-md border border-white/9 bg-[#111113] p-0.5 text-[13px]">
           {([
             { value: "sponsors" as const, label: "Sponsors", count: sponsorCount },
             { value: "in_kind" as const, label: "In-kind", count: inKindCount },
@@ -1490,11 +1492,17 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
             <button
               key={tab.value}
               type="button"
-              onClick={() => setKind(tab.value)}
+              onClick={() => {
+                setKind(tab.value);
+                const url = new URL(window.location.href);
+                url.searchParams.set("kind", tab.value);
+                url.searchParams.set("page", "1");
+                router.push(url.pathname + url.search);
+              }}
               className={[
                 "h-7 rounded px-3 transition cursor-pointer",
                 kind === tab.value
-                  ? "bg-white/[0.08] text-zinc-100"
+                  ? "bg-white/8 text-zinc-100"
                   : "text-zinc-400 hover:text-zinc-200",
               ].join(" ")}
             >
@@ -1504,7 +1512,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
           ))}
         </div>
 
-        <div className="mt-3 grid max-w-[760px] grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+        <div className="mt-3 grid max-w-190 grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
           <input
             name="companySearch"
             value={query}
@@ -1531,9 +1539,9 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
           </button>
         </div>
 
-        <div className="mt-5 overflow-hidden rounded-md border border-white/[0.09] bg-[#111113]">
-          <div className={`grid ${companyTableMin} ${companyGrid} border-b border-white/[0.08] px-4 py-2.5 text-[12px] text-zinc-500`}>
-            <span className="pl-[52px]">
+        <div className="mt-5 overflow-hidden rounded-md border border-white/9 bg-[#111113]">
+          <div className={`grid ${companyTableMin} ${companyGrid} border-b border-white/8 px-4 py-2.5 text-[12px] text-zinc-500`}>
+            <span className="pl-13">
               <SortHeader label="Name" sortKey="name" activeKey={sortKey} direction={sortDirection} onSort={sortCompanies} />
             </span>
             <span className={panelOpen ? "min-w-0 justify-self-start" : "hidden min-w-0 justify-self-start md:block"}>
@@ -1561,8 +1569,8 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                     setExistingPartnerId("");
                   }}
                   className={[
-                    `grid ${companyTableMin} w-full ${companyGrid} items-center border-b border-white/[0.06] px-4 py-3.5 text-left text-[13px] text-zinc-300 transition hover:bg-white/[0.035] cursor-pointer`,
-                    selectedRow ? "bg-white/[0.055]" : "",
+                    `grid ${companyTableMin} w-full ${companyGrid} items-center border-b border-white/6 px-4 py-3.5 text-left text-[13px] text-zinc-300 transition hover:bg-white/[0.035] cursor-pointer`,
+                    selectedRow ? "bg-white/5.5" : "",
                   ].join(" ")}
                 >
                   <span className="flex min-w-0 items-center gap-3">
@@ -1607,15 +1615,21 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
               );
             })}
           </div>
-          <div className="border-t border-white/[0.08] px-4 py-4 text-[13px] text-zinc-500">
-            {filteredCompanies.length} {kind === "in_kind" ? "in-kind companies" : kind === "previous" ? "previous sponsors/in-kinds" : "companies"}
-          </div>
+          <Pagination
+            {...paginationMeta}
+            onPageChange={(p) => {
+              const url = new URL(window.location.href);
+              url.searchParams.set("kind", kind);
+              url.searchParams.set("page", String(p));
+              router.push(url.pathname + url.search);
+            }}
+          />
         </div>
       </section>
 
       {panelOpen ? (
-        <aside className="flex h-[calc(100dvh-50px)] w-full max-w-[100dvw] min-w-0 flex-col overflow-hidden border-l border-white/[0.08] bg-[#111113] xl:h-[100dvh]">
-          <div className="flex h-14 shrink-0 min-w-0 items-center gap-2 border-b border-white/[0.08] px-3 sm:px-5">
+        <aside className="flex h-[calc(100dvh-50px)] w-full max-w-dvw min-w-0 flex-col overflow-hidden border-l border-white/8 bg-[#111113] xl:h-dvh">
+          <div className="flex h-14 shrink-0 min-w-0 items-center gap-2 border-b border-white/8 px-3 sm:px-5">
             <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
               <button
                 type="button"
@@ -1643,7 +1657,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                   setShowTouchpointForm(false);
                   resetCompanyUrl();
                 }}
-                className="grid size-7 shrink-0 place-items-center rounded-md border border-white/[0.12] bg-white/[0.055] text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:hidden cursor-pointer"
+                className="grid size-7 shrink-0 place-items-center rounded-md border border-white/12 bg-white/5.5 text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:hidden cursor-pointer"
               >
                 <X className="size-4" strokeWidth={1.8} />
               </button>
@@ -1655,7 +1669,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                   setError(null);
                   setMode("edit");
                 }}
-                className="hidden h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-white/[0.09] px-2.5 text-[12px] font-medium text-zinc-300 transition hover:bg-white/[0.055] hover:text-white md:inline-flex cursor-pointer"
+                className="hidden h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-white/9 px-2.5 text-[12px] font-medium text-zinc-300 transition hover:bg-white/5.5 hover:text-white md:inline-flex cursor-pointer"
               >
                 <Pencil className="size-3.5" strokeWidth={1.8} />
                 Edit
@@ -1672,7 +1686,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                 setShowTouchpointForm(false);
                 resetCompanyUrl();
               }}
-              className="hidden size-8 shrink-0 place-items-center rounded-md border border-white/[0.12] bg-white/[0.055] text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:grid cursor-pointer"
+              className="hidden size-8 shrink-0 place-items-center rounded-md border border-white/12 bg-white/5.5 text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:grid cursor-pointer"
             >
               <X className="size-5" strokeWidth={1.8} />
             </button>
@@ -1701,7 +1715,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                 </div>
                 {error && <p className="rounded-md border border-red-400/20 bg-red-400/10 px-3 py-2 text-[13px] text-red-200">{error}</p>}
               </div>
-              <div className="shrink-0 border-t border-white/[0.08] bg-[#0d0e11] px-5 py-4">
+              <div className="shrink-0 border-t border-white/8 bg-[#0d0e11] px-5 py-4">
                 <button disabled={isPending} className="h-9 rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer">
                   Create company
                 </button>
@@ -1710,7 +1724,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
           ) : mode === "view" && selected ? (
             <div className="min-h-0 flex-1 min-w-0 overflow-x-hidden overflow-y-auto px-5 py-5">
               <div className="grid gap-4">
-                <section className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/[0.09] bg-[#0d0e11] p-4">
+                <section className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/9 bg-[#0d0e11] p-4">
                   <div className="flex items-start gap-3">
                     <Avatar name={selected.name} size="lg" />
                     <div className="min-w-0 flex-1">
@@ -1753,26 +1767,26 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                       setError(null);
                       setMode("edit");
                     }}
-                    className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-md border border-white/[0.09] px-2.5 text-[12px] font-medium text-zinc-300 transition hover:bg-white/[0.055] hover:text-white cursor-pointer"
+                    className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-md border border-white/9 px-2.5 text-[12px] font-medium text-zinc-300 transition hover:bg-white/5.5 hover:text-white cursor-pointer"
                   >
                     <Pencil className="size-3.5" strokeWidth={1.8} />
                     Edit company
                   </button>
                 </section>
 
-                <section className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/[0.09] bg-[#0d0e11] p-4">
+                <section className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/9 bg-[#0d0e11] p-4">
                   <div className="flex min-w-0 flex-col items-start gap-2 lg:flex-row lg:items-center lg:justify-between">
                     <p className="text-[13px] font-medium text-zinc-200">Partners</p>
                     <button
                       type="button"
                       onClick={() => setShowPartnerForm((current) => !current)}
-                      className="h-7 rounded-md border border-white/[0.09] px-2.5 text-[12px] text-zinc-300 transition hover:bg-white/[0.055] hover:text-white cursor-pointer"
+                      className="h-7 rounded-md border border-white/9 px-2.5 text-[12px] text-zinc-300 transition hover:bg-white/5.5 hover:text-white cursor-pointer"
                     >
                       {showPartnerForm ? "Cancel" : "Add or link partner"}
                     </button>
                   </div>
                   {showPartnerForm ? (
-                    <div className="mt-4 grid min-w-0 gap-3 rounded-md border border-white/[0.08] bg-[#111113] p-3">
+                    <div className="mt-4 grid min-w-0 gap-3 rounded-md border border-white/8 bg-[#111113] p-3">
                       <form onSubmit={submitCompanyPartner} className="grid min-w-0 max-w-full gap-3">
                         <div className="grid min-w-0 gap-3 sm:grid-cols-2">
                           <Field label="New partner first name"><input name="firstName" required className={inputClass()} /></Field>
@@ -1794,7 +1808,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                           Add partner
                         </button>
                       </form>
-                      <form onSubmit={submitExistingPartnerLink} className="grid min-w-0 max-w-full gap-2 border-t border-white/[0.08] pt-3">
+                      <form onSubmit={submitExistingPartnerLink} className="grid min-w-0 max-w-full gap-2 border-t border-white/8 pt-3">
                         <select
                           name="partnerId"
                           required
@@ -1811,13 +1825,13 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                         </select>
                         <button
                           disabled={isPending || !linkablePartners.length || !existingPartnerId}
-                          className="h-8 w-fit rounded-md border border-white/[0.09] px-3 text-[12px] font-medium text-zinc-300 transition hover:bg-white/[0.055] hover:text-white disabled:cursor-not-allowed disabled:opacity-45 cursor-pointer">
+                          className="h-8 w-fit rounded-md border border-white/9 px-3 text-[12px] font-medium text-zinc-300 transition hover:bg-white/5.5 hover:text-white disabled:cursor-not-allowed disabled:opacity-45 cursor-pointer">
                           Link existing partner
                         </button>
                       </form>
                     </div>
                   ) : null}
-                  <div className="mt-3 divide-y divide-white/[0.06]">
+                  <div className="mt-3 divide-y divide-white/6">
                     {selected.contacts.length ? selected.contacts.map((contact) => (
                       <div key={contact.id} className="flex min-w-0 items-center gap-3 py-2.5">
                         <Avatar name={contact.name} />
@@ -1825,7 +1839,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                           <span className="block truncate text-[13px] font-medium text-zinc-100">{contact.name}</span>
                           <span className="block truncate text-[12px] text-zinc-500">{[contact.role, contact.email || contact.linkedin].filter(Boolean).join(" · ") || "No contact detail"}</span>
                         </span>
-                        <a href={`/partners?partnerId=${contact.id}`} className="shrink-0 rounded-md border border-white/[0.09] px-2 py-1 text-[11px] text-zinc-400 transition hover:bg-white/[0.055] hover:text-white">
+                        <a href={`/partners?partnerId=${contact.id}`} className="shrink-0 rounded-md border border-white/9 px-2 py-1 text-[11px] text-zinc-400 transition hover:bg-white/5.5 hover:text-white">
                           Open
                         </a>
                       </div>
@@ -1833,13 +1847,13 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                   </div>
                 </section>
 
-                <section className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/[0.09] bg-[#0d0e11] p-4">
+                <section className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/9 bg-[#0d0e11] p-4">
                   <div className="flex min-w-0 flex-col items-start gap-2 lg:flex-row lg:items-center lg:justify-between">
                     <p className="text-[13px] font-medium text-zinc-200">Contact History</p>
                     <div className="flex flex-wrap items-center gap-2">
                       <a
                         href={contactLogCreateHref({ companyName: selected.name })}
-                        className="inline-flex h-7 items-center gap-1.5 rounded-md border border-white/[0.09] px-2.5 text-[12px] text-zinc-300 transition hover:bg-white/[0.055] hover:text-white"
+                        className="inline-flex h-7 items-center gap-1.5 rounded-md border border-white/9 px-2.5 text-[12px] text-zinc-300 transition hover:bg-white/5.5 hover:text-white"
                       >
                         <ExternalLink className="size-3.5" strokeWidth={1.8} />
                         Open history
@@ -1852,7 +1866,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                             return !current;
                           });
                         }}
-                        className="inline-flex h-7 items-center gap-1.5 rounded-md border border-white/[0.09] px-2.5 text-[12px] text-zinc-300 transition hover:bg-white/[0.055] hover:text-white cursor-pointer"
+                        className="inline-flex h-7 items-center gap-1.5 rounded-md border border-white/9 px-2.5 text-[12px] text-zinc-300 transition hover:bg-white/5.5 hover:text-white cursor-pointer"
                       >
                         <MessageSquarePlus className="size-3.5" strokeWidth={1.8} />
                         {showTouchpointForm ? "Cancel" : "Log contact"}
@@ -1860,7 +1874,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                     </div>
                   </div>
                   {showTouchpointForm ? (
-                    <form onSubmit={submitCompanyCommunication} className="mt-4 grid min-w-0 gap-3 rounded-md border border-white/[0.08] bg-[#111113] p-3">
+                    <form onSubmit={submitCompanyCommunication} className="mt-4 grid min-w-0 gap-3 rounded-md border border-white/8 bg-[#111113] p-3">
                       <Field label="Subject"><input name="subject" required className={inputClass()} /></Field>
                       <div className="grid min-w-0 gap-3 sm:grid-cols-2">
                         <Field label="Date"><input name="contactedAt" type="date" required className={inputClass()} /></Field>
@@ -1900,7 +1914,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                           ))}
                         </select>
                       </Field>
-                      <div className="grid min-w-0 gap-3 rounded-md border border-white/[0.08] bg-white/[0.025] p-3">
+                      <div className="grid min-w-0 gap-3 rounded-md border border-white/8 bg-white/2.5 p-3">
                         <div className="flex min-w-0 items-center justify-between gap-3">
                           <p className="truncate text-[13px] font-medium text-zinc-300">Event attendance</p>
                           <span className="shrink-0 text-[12px] text-zinc-600">Optional</span>
@@ -1931,7 +1945,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                       </button>
                     </form>
                   ) : null}
-                  <div className="mt-3 divide-y divide-white/[0.06]">
+                  <div className="mt-3 divide-y divide-white/6">
                     {selectedMeetings.map((meeting) => (
                       <div key={meeting.id} className="py-2.5">
                         <p className="truncate text-[13px] font-medium text-zinc-100">{meeting.title}</p>
@@ -1939,7 +1953,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                           <p className="truncate text-[12px] text-zinc-500">
                             {[formatDateTime(meeting.meetingDateIso), "Meeting", meeting.partners.map((partner) => partner.name).join(", "), meeting.attendees.map((attendee) => attendee.name).join(", ")].filter(Boolean).join(" · ")}
                           </p>
-                          <a href={contactHistoryActivityHref("meeting", meeting.id)} className="shrink-0 rounded-md border border-white/[0.09] px-2 py-1 text-[11px] text-zinc-400 transition hover:bg-white/[0.055] hover:text-white">
+                          <a href={contactHistoryActivityHref("meeting", meeting.id)} className="shrink-0 rounded-md border border-white/9 px-2 py-1 text-[11px] text-zinc-400 transition hover:bg-white/5.5 hover:text-white">
                             Open
                           </a>
                         </div>
@@ -1952,7 +1966,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                           <p className="truncate text-[12px] text-zinc-500">
                             {[formatDateTime(communication.contactedAtIso), communication.partnerName || "Company-level contact", communication.userName, communication.followUpDate ? `Next outreach ${communication.followUpDate}` : null].filter(Boolean).join(" · ")}
                           </p>
-                          <a href={contactHistoryActivityHref("touchpoint", communication.id)} className="shrink-0 rounded-md border border-white/[0.09] px-2 py-1 text-[11px] text-zinc-400 transition hover:bg-white/[0.055] hover:text-white">
+                          <a href={contactHistoryActivityHref("touchpoint", communication.id)} className="shrink-0 rounded-md border border-white/9 px-2 py-1 text-[11px] text-zinc-400 transition hover:bg-white/5.5 hover:text-white">
                             Open
                           </a>
                         </div>
@@ -1962,10 +1976,10 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                   </div>
                 </section>
 
-                <section className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/[0.09] bg-[#0d0e11] p-4">
+                <section className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/9 bg-[#0d0e11] p-4">
                   <div className="flex min-w-0 flex-col items-start gap-2 lg:flex-row lg:items-center lg:justify-between">
                     <p className="text-[13px] font-medium text-zinc-200">Pipeline</p>
-                    <a href="/pipeline" className="inline-flex h-7 items-center gap-1.5 rounded-md border border-white/[0.09] px-2.5 text-[12px] text-zinc-300 transition hover:bg-white/[0.055] hover:text-white">
+                    <a href="/pipeline" className="inline-flex h-7 items-center gap-1.5 rounded-md border border-white/9 px-2.5 text-[12px] text-zinc-300 transition hover:bg-white/5.5 hover:text-white">
                       Open pipeline
                       <ExternalLink className="size-3" strokeWidth={1.8} />
                     </a>
@@ -1980,7 +1994,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                           </span>
                         </span>
                         <StatusPill status={deal.status} />
-                        <a href={`/pipeline?conversationId=${deal.id}`} className="w-fit rounded-md border border-white/[0.09] px-2 py-1 text-[11px] text-zinc-400 transition hover:bg-white/[0.055] hover:text-white">
+                        <a href={`/pipeline?conversationId=${deal.id}`} className="w-fit rounded-md border border-white/9 px-2 py-1 text-[11px] text-zinc-400 transition hover:bg-white/5.5 hover:text-white">
                           Open
                         </a>
                       </div>
@@ -1988,19 +2002,19 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                   </div>
                 </section>
 
-                <section className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/[0.09] bg-[#0d0e11] p-4">
+                <section className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/9 bg-[#0d0e11] p-4">
                   <div className="flex min-w-0 flex-col items-start gap-2 lg:flex-row lg:items-center lg:justify-between">
                     <p className="text-[13px] font-medium text-zinc-200">Event involvement</p>
                     <button
                       type="button"
                       onClick={() => setShowEventForm((current) => !current)}
-                      className="h-7 rounded-md border border-white/[0.09] px-2.5 text-[12px] text-zinc-300 transition hover:bg-white/[0.055] hover:text-white cursor-pointer"
+                      className="h-7 rounded-md border border-white/9 px-2.5 text-[12px] text-zinc-300 transition hover:bg-white/5.5 hover:text-white cursor-pointer"
                     >
                       {showEventForm ? "Cancel" : "Add involvement"}
                     </button>
                   </div>
                   {showEventForm ? (
-                    <form onSubmit={submitCompanyEventRole} className="mt-4 grid min-w-0 gap-3 rounded-md border border-white/[0.08] bg-[#111113] p-3">
+                    <form onSubmit={submitCompanyEventRole} className="mt-4 grid min-w-0 gap-3 rounded-md border border-white/8 bg-[#111113] p-3">
                       <Field label="Event">
                         <EventCombo events={events} value={eventName} onChange={setEventName} />
                       </Field>
@@ -2058,7 +2072,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                             ))}
                           </select>
                           <span className="inline-flex shrink-0 items-center gap-1">
-                            <a href={`/events?eventId=${attendance.eventId}`} className="grid size-8 place-items-center rounded-md text-zinc-500 transition hover:bg-white/[0.055] hover:text-white" aria-label={`Open ${attendance.eventName}`}>
+                            <a href={`/events?eventId=${attendance.eventId}`} className="grid size-8 place-items-center rounded-md text-zinc-500 transition hover:bg-white/5.5 hover:text-white" aria-label={`Open ${attendance.eventName}`}>
                               <ExternalLink className="size-4" strokeWidth={1.8} />
                             </a>
                             <button
@@ -2085,7 +2099,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                     ) : (
                       <p className="text-[13px] text-zinc-500">No event involvement linked yet.</p>
                     )}
-                    <div className="border-t border-white/[0.08] pt-3">
+                    <div className="border-t border-white/8 pt-3">
                       <p className="text-[12px] text-zinc-500">Documents</p>
                       <p className="mt-1 text-[13px] text-zinc-300">{selected.documents.length ? `${selected.documents.length} linked` : "No documents linked"}</p>
                     </div>
@@ -2124,19 +2138,19 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                   </div>
                 </form>
                 <div className="grid w-full min-w-0 max-w-full gap-4 overflow-x-hidden">
-                  <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/[0.09] bg-[#0d0e11] p-4">
+                  <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/9 bg-[#0d0e11] p-4">
                     <div className="flex min-w-0 flex-col items-start gap-2 lg:flex-row lg:items-center lg:justify-between">
                       <p className="text-[12px] text-zinc-500">Linked partners</p>
                       <button
                         type="button"
                         onClick={() => setShowPartnerForm((current) => !current)}
-                        className="h-7 rounded-md border border-white/[0.09] px-2.5 text-[12px] text-zinc-300 transition hover:bg-white/[0.055] hover:text-white cursor-pointer"
+                        className="h-7 rounded-md border border-white/9 px-2.5 text-[12px] text-zinc-300 transition hover:bg-white/5.5 hover:text-white cursor-pointer"
                       >
                         {showPartnerForm ? "Cancel" : "Add partner"}
                       </button>
                     </div>
                     {showPartnerForm && (
-                      <form onSubmit={submitCompanyPartner} className="mt-4 grid min-w-0 max-w-full gap-3 rounded-md border border-white/[0.08] bg-[#111113] p-3">
+                      <form onSubmit={submitCompanyPartner} className="mt-4 grid min-w-0 max-w-full gap-3 rounded-md border border-white/8 bg-[#111113] p-3">
                         <div className="grid min-w-0 gap-3">
                           <Field label="New partner first name"><input name="firstName" required className={inputClass()} /></Field>
                           <Field label="New partner last name"><input name="lastName" className={inputClass()} /></Field>
@@ -2175,7 +2189,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                       </select>
                       <button
                         disabled={isPending || !linkablePartners.length || !existingPartnerId}
-                        className="h-9 rounded-md border border-white/[0.09] px-3 text-[13px] font-medium text-zinc-300 transition hover:bg-white/[0.055] hover:text-white disabled:cursor-not-allowed disabled:opacity-45 cursor-pointer">
+                        className="h-9 rounded-md border border-white/9 px-3 text-[13px] font-medium text-zinc-300 transition hover:bg-white/5.5 hover:text-white disabled:cursor-not-allowed disabled:opacity-45 cursor-pointer">
                         Link
                       </button>
                     </form>
@@ -2192,7 +2206,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                     </div>
                   </div>
 
-                  <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/[0.09] bg-[#0d0e11] p-4">
+                  <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/9 bg-[#0d0e11] p-4">
                     <div className="flex min-w-0 flex-col items-start gap-2 lg:flex-row lg:items-center lg:justify-between">
                       <p className="text-[13px] font-medium text-zinc-200">Pipeline conversations</p>
                       <a href="/pipeline" className="text-[12px] text-zinc-500 transition hover:text-zinc-200">
@@ -2210,7 +2224,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                               </span>
                             </span>
                             <StatusPill status={deal.status} />
-                            <a href={`/pipeline?conversationId=${deal.id}`} className="w-fit rounded-md border border-white/[0.09] px-2 py-1 text-[11px] text-zinc-400 transition hover:bg-white/[0.055] hover:text-white">
+                            <a href={`/pipeline?conversationId=${deal.id}`} className="w-fit rounded-md border border-white/9 px-2 py-1 text-[11px] text-zinc-400 transition hover:bg-white/5.5 hover:text-white">
                               Open
                             </a>
                           </div>
@@ -2220,7 +2234,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                       )}
                     </div>
                   </div>
-                  <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/[0.09] bg-[#0d0e11] p-4">
+                  <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/9 bg-[#0d0e11] p-4">
                     <p className="text-[13px] font-medium text-zinc-200">Event involvement</p>
                     <form onSubmit={submitCompanyEventRole} className="mt-4 grid min-w-0 gap-3">
                       <div className="grid min-w-0 gap-3">
@@ -2278,7 +2292,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                               ))}
                             </select>
                             <span className="inline-flex shrink-0 items-center gap-1">
-                              <a href={`/events?eventId=${attendance.eventId}`} className="grid size-8 place-items-center rounded-md text-zinc-500 transition hover:bg-white/[0.055] hover:text-white" aria-label={`Open ${attendance.eventName}`}>
+                              <a href={`/events?eventId=${attendance.eventId}`} className="grid size-8 place-items-center rounded-md text-zinc-500 transition hover:bg-white/5.5 hover:text-white" aria-label={`Open ${attendance.eventName}`}>
                                 <ExternalLink className="size-4" strokeWidth={1.8} />
                               </a>
                               <button
@@ -2308,7 +2322,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                     </div>
                   </div>
 
-                  <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/[0.09] bg-[#0d0e11] p-4">
+                  <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/9 bg-[#0d0e11] p-4">
                     <p className="text-[13px] font-medium text-zinc-200">Documents</p>
                     <form onSubmit={submitCompanyDocument} className="mt-4 grid min-w-0 gap-3">
                       <Field label="Title">
@@ -2395,12 +2409,12 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                     </div>
                   </div>
 
-                  <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/[0.09] bg-[#0d0e11] p-4">
+                  <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/9 bg-[#0d0e11] p-4">
                     <div className="flex min-w-0 flex-col items-start gap-2 lg:flex-row lg:items-center lg:justify-between">
                       <p className="text-[13px] font-medium text-zinc-200">Contact History</p>
                       <a
                         href={contactLogCreateHref({ companyName: selected.name })}
-                        className="inline-flex h-7 items-center gap-1.5 rounded-md border border-white/[0.09] px-2.5 text-[12px] text-zinc-300 transition hover:bg-white/[0.055] hover:text-white"
+                        className="inline-flex h-7 items-center gap-1.5 rounded-md border border-white/9 px-2.5 text-[12px] text-zinc-300 transition hover:bg-white/5.5 hover:text-white"
                       >
                         <ExternalLink className="size-3.5" strokeWidth={1.8} />
                         Open history
@@ -2472,7 +2486,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                               {[formatDateTime(meeting.meetingDateIso), "Meeting", meeting.partners.map((partner) => partner.name).join(", "), meeting.attendees.map((attendee) => attendee.name).join(", ")].filter(Boolean).join(" · ")}
                             </span>
                           </span>
-                          <a href={contactHistoryActivityHref("meeting", meeting.id)} className="grid size-8 shrink-0 place-items-center rounded-md text-zinc-500 transition hover:bg-white/[0.055] hover:text-white" aria-label={`Open ${meeting.title}`}>
+                          <a href={contactHistoryActivityHref("meeting", meeting.id)} className="grid size-8 shrink-0 place-items-center rounded-md text-zinc-500 transition hover:bg-white/5.5 hover:text-white" aria-label={`Open ${meeting.title}`}>
                             <ExternalLink className="size-4" strokeWidth={1.8} />
                           </a>
                         </div>
@@ -2493,7 +2507,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                               </span>
                             </span>
                             <span className="inline-flex shrink-0 items-center gap-1">
-                              <a href={contactHistoryActivityHref("touchpoint", communication.id)} className="grid size-8 place-items-center rounded-md text-zinc-500 transition hover:bg-white/[0.055] hover:text-white" aria-label={`Open ${communication.subject || titleStatus(communication.type)}`}>
+                              <a href={contactHistoryActivityHref("touchpoint", communication.id)} className="grid size-8 place-items-center rounded-md text-zinc-500 transition hover:bg-white/5.5 hover:text-white" aria-label={`Open ${communication.subject || titleStatus(communication.type)}`}>
                                 <ExternalLink className="size-4" strokeWidth={1.8} />
                               </a>
                               <button
@@ -2521,7 +2535,7 @@ export function CompaniesDirectory({ companies, events, users, partners, meeting
                 </div>
                 {error && <p className="rounded-md border border-red-400/20 bg-red-400/10 px-3 py-2 text-[13px] text-red-200">{error}</p>}
               </div>
-              <div className="shrink-0 border-t border-white/[0.08] bg-[#0d0e11] px-5 py-4">
+              <div className="shrink-0 border-t border-white/8 bg-[#0d0e11] px-5 py-4">
                 <button form="company-edit-form" disabled={isPending} className="h-9 rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer">
                   Save changes
                 </button>
