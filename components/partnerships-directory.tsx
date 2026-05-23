@@ -166,6 +166,20 @@ function companyWebLine(company: Pick<CompanyDirectoryRecord, "website" | "linke
   return "No website";
 }
 
+function companyContactInfo(company: Pick<CompanyDirectoryRecord, "primaryContact" | "contacts">) {
+  const contact = company.primaryContact ?? company.contacts.find((c) => !c.archived) ?? null;
+  if (!contact) return null;
+  if (contact.email) return { href: `/outreach?search=${encodeURIComponent(contact.email)}`, label: contact.email, target: "_self" as const };
+  if (contact.linkedin) return { href: contact.linkedin, label: contact.linkedin, target: "_blank" as const };
+  return null;
+}
+
+function partnerContactInfo(partner: Pick<PartnerDirectoryRecord, "email" | "linkedin">) {
+  if (partner.email) return { href: `/outreach?search=${encodeURIComponent(partner.email)}`, label: partner.email, target: "_self" as const };
+  if (partner.linkedin) return { href: partner.linkedin, label: partner.linkedin, target: "_blank" as const };
+  return null;
+}
+
 function contactLogCreateHref({
   companyName,
   contactName,
@@ -643,7 +657,7 @@ export function PartnersDirectory({ partners, paginationMeta, companies, events,
   const panelOpen = mode !== "closed";
   const partnerGrid = panelOpen
     ? "grid-cols-[minmax(180px,1.1fr)_minmax(120px,0.9fr)]"
-    : "grid-cols-1 md:grid-cols-[minmax(180px,1.35fr)_minmax(120px,0.9fr)_minmax(120px,0.9fr)] lg:grid-cols-[minmax(180px,1.35fr)_minmax(120px,0.9fr)_minmax(120px,0.9fr)_minmax(160px,1fr)]";
+    : "grid-cols-1 md:grid-cols-[minmax(180px,1.35fr)_minmax(120px,0.9fr)_minmax(120px,0.9fr)_minmax(100px,1fr)] lg:grid-cols-[minmax(180px,1.35fr)_minmax(120px,0.9fr)_minmax(120px,0.9fr)_minmax(100px,1fr)_minmax(160px,1fr)]";
   const partnerTableMin = "min-w-0";
 
   return (
@@ -685,6 +699,7 @@ export function PartnersDirectory({ partners, paginationMeta, companies, events,
               <SortHeader label="Company" sortKey="company" activeKey={sortKey} direction={sortDirection} onSort={sortPartners} />
             </span>
             {!panelOpen && <span className="hidden min-w-0 md:block"><SortHeader label="Role" sortKey="role" activeKey={sortKey} direction={sortDirection} onSort={sortPartners} /></span>}
+            {!panelOpen && <span className="hidden min-w-0 md:block">Contact</span>}
             {!panelOpen && <span className="hidden min-w-0 lg:block"><SortHeader label="Events" sortKey="events" activeKey={sortKey} direction={sortDirection} onSort={sortPartners} /></span>}
           </div>
           <div className="max-h-[62vh] overflow-auto">
@@ -721,6 +736,23 @@ export function PartnersDirectory({ partners, paginationMeta, companies, events,
                   </span>
                   <span className={panelOpen ? "min-w-0 truncate" : "hidden min-w-0 truncate md:block"}>{partner.companyName}</span>
                   {!panelOpen && <span className="hidden min-w-0 truncate md:block">{partner.role || "Partner"}</span>}
+                  {!panelOpen && (() => {
+                    const ci = partnerContactInfo(partner);
+                    return (
+                      <span className="hidden min-w-0 truncate md:block">
+                        {ci ? (
+                          <span
+                            className="cursor-pointer truncate text-zinc-300 hover:underline hover:text-white"
+                            onClick={(e) => { e.stopPropagation(); window.open(ci.href, ci.target); }}
+                          >
+                            {ci.label}
+                          </span>
+                        ) : (
+                          <span className="text-zinc-600">—</span>
+                        )}
+                      </span>
+                    );
+                  })()}
                   {!panelOpen && (
                     <span className="hidden min-w-0 truncate text-zinc-400 lg:block">
                       {eventSummary(partner.eventAttendances)}
@@ -1474,8 +1506,8 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
       ? "grid-cols-[minmax(140px,1fr)_64px_88px_minmax(120px,1.2fr)]"
       : "grid-cols-[minmax(140px,1fr)_64px_minmax(120px,1.2fr)]"
     : showAmount
-      ? "grid-cols-1 md:grid-cols-[minmax(180px,1fr)_88px_96px_minmax(140px,1.2fr)] xl:grid-cols-[minmax(180px,1.4fr)_88px_minmax(140px,1fr)_96px_minmax(160px,1.2fr)]"
-      : "grid-cols-1 md:grid-cols-[minmax(180px,1fr)_88px_minmax(140px,1.2fr)] xl:grid-cols-[minmax(180px,1.4fr)_88px_minmax(140px,1fr)_minmax(160px,1.2fr)]";
+      ? "grid-cols-1 md:grid-cols-[minmax(180px,1fr)_88px_96px_minmax(100px,1fr)_minmax(140px,1.2fr)] xl:grid-cols-[minmax(180px,1.4fr)_88px_minmax(140px,1fr)_96px_minmax(100px,1fr)_minmax(160px,1.2fr)]"
+      : "grid-cols-1 md:grid-cols-[minmax(180px,1fr)_88px_minmax(100px,1fr)_minmax(140px,1.2fr)] xl:grid-cols-[minmax(180px,1.4fr)_88px_minmax(140px,1fr)_minmax(100px,1fr)_minmax(160px,1.2fr)]";
   const companyTableMin = "min-w-0";
 
   return (
@@ -1549,6 +1581,7 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
             </span>
             {!panelOpen && <span className="hidden min-w-0 xl:block"><SortHeader label="Events" sortKey="events" activeKey={sortKey} direction={sortDirection} onSort={sortCompanies} /></span>}
             {showAmount && <span className={panelOpen ? "min-w-0 justify-self-start" : "hidden min-w-0 justify-self-start md:block"}>Amount</span>}
+            {!panelOpen && <span className="hidden min-w-0 md:block">Contact</span>}
             <span className={panelOpen ? "min-w-0" : "hidden min-w-0 md:block"}>Notes</span>
           </div>
           <div className="max-h-[62vh] overflow-auto">
@@ -1608,6 +1641,23 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
                       {company.securedValue ? dollars(company.securedValue) : <span className="text-zinc-600">—</span>}
                     </span>
                   )}
+                  {!panelOpen && (() => {
+                    const ci = companyContactInfo(company);
+                    return (
+                      <span className="hidden min-w-0 truncate md:block">
+                        {ci ? (
+                          <span
+                            className="cursor-pointer truncate text-zinc-300 hover:underline hover:text-white"
+                            onClick={(e) => { e.stopPropagation(); window.open(ci.href, ci.target); }}
+                          >
+                            {ci.label}
+                          </span>
+                        ) : (
+                          <span className="text-zinc-600">—</span>
+                        )}
+                      </span>
+                    );
+                  })()}
                   <span className={panelOpen ? "min-w-0 truncate text-zinc-400" : "hidden min-w-0 truncate text-zinc-400 md:block"}>
                     {company.notes ? company.notes.split("\n")[0] : <span className="text-zinc-600">—</span>}
                   </span>

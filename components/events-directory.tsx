@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition, type FormEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ChevronDown, Pencil, Plus, Trash2, X } from "lucide-react";
 import {
@@ -10,7 +17,13 @@ import {
   updatePartnerEventStatusAction,
   updateEventAction,
 } from "@/lib/partnerships/actions";
-import type { CrmEventSummary, CrmUserSummary, EventAttendanceStatus, EventRole, PartnerDirectoryRecord } from "@/lib/partnerships/types";
+import type {
+  CrmEventSummary,
+  CrmUserSummary,
+  EventAttendanceStatus,
+  EventRole,
+  PartnerDirectoryRecord,
+} from "@/lib/partnerships/types";
 
 type PanelMode = "closed" | "create" | "view" | "edit";
 type SortDirection = "asc" | "desc";
@@ -45,8 +58,13 @@ function inputClass(extra = "") {
   ].join(" ");
 }
 
-function compareText(left: string | null | undefined, right: string | null | undefined) {
-  return String(left ?? "").localeCompare(String(right ?? ""), undefined, { sensitivity: "base" });
+function compareText(
+  left: string | null | undefined,
+  right: string | null | undefined
+) {
+  return String(left ?? "").localeCompare(String(right ?? ""), undefined, {
+    sensitivity: "base",
+  });
 }
 
 function formatDate(value: string | null | undefined) {
@@ -86,7 +104,9 @@ function getPartnerMatch(partners: PartnerDirectoryRecord[], value: string) {
   );
 }
 
-function partnerGoalText(event: Pick<CrmEventSummary, "confirmedPartnerCount" | "confirmedPartnerGoal">) {
+function partnerGoalText(
+  event: Pick<CrmEventSummary, "confirmedPartnerCount" | "confirmedPartnerGoal">
+) {
   if (event.confirmedPartnerGoal) {
     return `${event.confirmedPartnerCount}/${event.confirmedPartnerGoal} confirmed`;
   }
@@ -104,8 +124,15 @@ function partnerRoleProgress(event: Pick<CrmEventSummary, "partnerResponses">) {
   const rolesSeen = new Set<EventRole>();
   for (const response of event.partnerResponses) {
     rolesSeen.add(response.eventRole);
-    if (response.eventStatus !== "confirmed" && response.eventStatus !== "attended") continue;
-    confirmedTotals.set(response.eventRole, (confirmedTotals.get(response.eventRole) ?? 0) + 1);
+    if (
+      response.eventStatus !== "confirmed" &&
+      response.eventStatus !== "attended"
+    )
+      continue;
+    confirmedTotals.set(
+      response.eventRole,
+      (confirmedTotals.get(response.eventRole) ?? 0) + 1
+    );
   }
   return Array.from(rolesSeen.values())
     .map((role) => {
@@ -118,7 +145,9 @@ function partnerRoleProgress(event: Pick<CrmEventSummary, "partnerResponses">) {
         required,
       };
     })
-    .sort((left, right) => left.label.localeCompare(right.label, undefined, { sensitivity: "base" }));
+    .sort((left, right) =>
+      left.label.localeCompare(right.label, undefined, { sensitivity: "base" })
+    );
 }
 
 function roleProgressNoun(role: EventRole, required: number) {
@@ -134,13 +163,18 @@ function directorSummary(directors: CrmUserSummary[]) {
   if (directors.length === 2) {
     return [directors[0]?.name, directors[1]?.name].filter(Boolean).join(", ");
   }
-  return [directors[0]?.name, directors[1]?.name].filter(Boolean).join(", ") + ` +${directors.length - 2}`;
+  return (
+    [directors[0]?.name, directors[1]?.name].filter(Boolean).join(", ") +
+    ` +${directors.length - 2}`
+  );
 }
 
 function responseStatusTone(status: EventAttendanceStatus) {
-  if (status === "confirmed" || status === "attended") return "bg-emerald-500/10 text-emerald-200";
+  if (status === "confirmed" || status === "attended")
+    return "bg-emerald-500/10 text-emerald-200";
   if (status === "declined") return "bg-red-500/10 text-red-200";
-  if (status === "form_sent" || status === "form_submitted") return "bg-white/[0.075] text-zinc-300";
+  if (status === "form_sent" || status === "form_submitted")
+    return "bg-white/[0.075] text-zinc-300";
   return "bg-white/5.5 text-zinc-400";
 }
 
@@ -148,7 +182,8 @@ function parseOptionalInteger(value: string) {
   const trimmed = value.trim();
   if (!trimmed) return { ok: true as const, value: undefined };
   const numericValue = Number(trimmed);
-  if (!Number.isInteger(numericValue) || numericValue < 0) return { ok: false as const };
+  if (!Number.isInteger(numericValue) || numericValue < 0)
+    return { ok: false as const };
   return { ok: true as const, value: numericValue };
 }
 
@@ -156,7 +191,8 @@ function parseOptionalCadCents(value: string) {
   const trimmed = value.trim();
   if (!trimmed) return { ok: true as const, value: undefined };
   const numericValue = Number(trimmed);
-  if (!Number.isFinite(numericValue) || numericValue < 0) return { ok: false as const };
+  if (!Number.isFinite(numericValue) || numericValue < 0)
+    return { ok: false as const };
   return { ok: true as const, value: Math.round(numericValue * 100) };
 }
 
@@ -170,7 +206,9 @@ function academicYearStartYear(date: Date) {
   return month >= 4 ? year : year - 1; // May (4) -> Apr (3)
 }
 
-function eventAcademicYearKey(event: Pick<CrmEventSummary, "startDate" | "year">) {
+function eventAcademicYearKey(
+  event: Pick<CrmEventSummary, "startDate" | "year">
+) {
   const parsed = new Date(`${event.startDate}T12:00:00`);
   if (!Number.isNaN(parsed.getTime())) {
     return String(academicYearStartYear(parsed));
@@ -206,7 +244,8 @@ function SortHeader({
     <button
       type="button"
       onClick={() => onSort(sortKey)}
-      className={["w-fit rounded-full py-1 text-left transition hover:bg-white/5.5 hover:text-zinc-300 cursor-pointer",
+      className={[
+        "w-fit rounded-full py-1 text-left transition hover:bg-white/5.5 hover:text-zinc-300 cursor-pointer",
         active ? "bg-white/5.5 text-zinc-200" : "",
       ].join(" ")}
     >
@@ -216,13 +255,7 @@ function SortHeader({
   );
 }
 
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="grid gap-1.5 text-[12px] font-medium text-zinc-400">
       {label}
@@ -232,7 +265,11 @@ function Field({
 }
 
 function ContactRequirementHint() {
-  return <p className="text-[12px] leading-5 text-zinc-500">Email or LinkedIn is required.</p>;
+  return (
+    <p className="text-[12px] leading-5 text-zinc-500">
+      Email or LinkedIn is required.
+    </p>
+  );
 }
 
 function PartnerCombo({
@@ -249,7 +286,9 @@ function PartnerCombo({
   onSelect: (partnerId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const match = selectedId ? partners.find((partner) => partner.id === selectedId) ?? null : getPartnerMatch(partners, value);
+  const match = selectedId
+    ? partners.find((partner) => partner.id === selectedId) ?? null
+    : getPartnerMatch(partners, value);
   const filtered = partners
     .filter((partner) => {
       const query = value.trim().toLowerCase();
@@ -264,7 +303,11 @@ function PartnerCombo({
 
   return (
     <div className="relative">
-      <input type="hidden" name="partnerId" value={selectedId || match?.id || ""} />
+      <input
+        type="hidden"
+        name="partnerId"
+        value={selectedId || match?.id || ""}
+      />
       <input
         name="partnerName"
         value={value}
@@ -293,10 +336,16 @@ function PartnerCombo({
               className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-white/5 cursor-pointer"
             >
               <span className="min-w-0">
-                <span className="block truncate text-[13px] font-medium text-zinc-100">{partner.name}</span>
-                <span className="block truncate text-[12px] text-zinc-500">{partner.companyName}</span>
+                <span className="block truncate text-[13px] font-medium text-zinc-100">
+                  {partner.name}
+                </span>
+                <span className="block truncate text-[12px] text-zinc-500">
+                  {partner.companyName}
+                </span>
               </span>
-              <span className="shrink-0 text-[12px] text-zinc-500">{partner.email ?? "LinkedIn"}</span>
+              <span className="shrink-0 text-[12px] text-zinc-500">
+                {partner.email ?? "LinkedIn"}
+              </span>
             </button>
           ))}
           {!match && value.trim() ? (
@@ -318,23 +367,34 @@ function TierPresetEditor({
   onChange: (next: TierPresetDraft[]) => void;
 }) {
   function update(index: number, patch: Partial<Omit<TierPresetDraft, "id">>) {
-    onChange(presets.map((preset, i) => (i === index ? { ...preset, ...patch } : preset)));
+    onChange(
+      presets.map((preset, i) =>
+        i === index ? { ...preset, ...patch } : preset
+      )
+    );
   }
   function remove(index: number) {
     onChange(presets.filter((_, i) => i !== index));
   }
   function add() {
-    onChange([...presets, { id: crypto.randomUUID(), label: "", amount: null }]);
+    onChange([
+      ...presets,
+      { id: crypto.randomUUID(), label: "", amount: null },
+    ]);
   }
   return (
     <div className="grid gap-2">
       {presets.length === 0 ? (
         <p className="text-[12px] text-zinc-500">
-          Add named tiers (e.g. Gold, Silver) with default amounts. Selecting a tier on a sponsorship will pre-fill the ask.
+          Add named tiers (e.g. Gold, Silver) with default amounts. Selecting a
+          tier on a sponsorship will pre-fill the ask.
         </p>
       ) : null}
       {presets.map((preset, index) => (
-        <div key={preset.id} className="grid grid-cols-[minmax(0,1fr)_minmax(0,140px)_auto] gap-2">
+        <div
+          key={preset.id}
+          className="grid grid-cols-[minmax(0,1fr)_minmax(0,140px)_auto] gap-2"
+        >
           <input
             value={preset.label}
             onChange={(event) => update(index, { label: event.target.value })}
@@ -391,11 +451,17 @@ function DirectorMultiSelect({
   const [query, setQuery] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const selected = directors.filter((director) => selectedIds.includes(director.id));
+  const selected = directors.filter((director) =>
+    selectedIds.includes(director.id)
+  );
   const filtered = directors.filter((director) => {
     const q = query.trim().toLowerCase();
     if (!q) return true;
-    return [director.name, director.email].filter(Boolean).join(" ").toLowerCase().includes(q);
+    return [director.name, director.email]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+      .includes(q);
   });
 
   useEffect(() => {
@@ -434,12 +500,16 @@ function DirectorMultiSelect({
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}
-          className={inputClass("flex items-center justify-between text-left text-zinc-300")}
+          className={inputClass(
+            "flex items-center justify-between text-left text-zinc-300"
+          )}
         >
           <span className="truncate">
             {selected.length === 0
               ? "Select BizTech directors…"
-              : `${selected.length} director${selected.length === 1 ? "" : "s"} selected`}
+              : `${selected.length} director${
+                  selected.length === 1 ? "" : "s"
+                } selected`}
           </span>
           <span className="ml-2 text-zinc-500">▾</span>
         </button>
@@ -455,7 +525,9 @@ function DirectorMultiSelect({
               />
             </div>
             {filtered.length === 0 ? (
-              <p className="px-3 py-2.5 text-[13px] text-zinc-500">No directors found.</p>
+              <p className="px-3 py-2.5 text-[13px] text-zinc-500">
+                No directors found.
+              </p>
             ) : (
               filtered.map((director) => {
                 const isSelected = selectedIds.includes(director.id);
@@ -468,10 +540,18 @@ function DirectorMultiSelect({
                     className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-white/5 cursor-pointer"
                   >
                     <span className="min-w-0">
-                      <span className="block truncate text-[13px] font-medium text-zinc-100">{director.name}</span>
-                      <span className="block truncate text-[12px] text-zinc-500">{director.email}</span>
+                      <span className="block truncate text-[13px] font-medium text-zinc-100">
+                        {director.name}
+                      </span>
+                      <span className="block truncate text-[12px] text-zinc-500">
+                        {director.email}
+                      </span>
                     </span>
-                    <span className={`shrink-0 text-[12px] ${isSelected ? "text-emerald-300" : "text-zinc-600"}`}>
+                    <span
+                      className={`shrink-0 text-[12px] ${
+                        isSelected ? "text-emerald-300" : "text-zinc-600"
+                      }`}
+                    >
                       {isSelected ? "✓" : ""}
                     </span>
                   </button>
@@ -517,7 +597,8 @@ export function EventsDirectory({
   initialEventId?: string;
 }) {
   const router = useRouter();
-  const initialEvent = events.find((event) => event.id === initialEventId) ?? null;
+  const initialEvent =
+    events.find((event) => event.id === initialEventId) ?? null;
   const currentAcademicYearKey = String(academicYearStartYear(new Date()));
   const yearCounts = new Map<string, number>();
   for (const event of events) {
@@ -539,53 +620,68 @@ export function EventsDirectory({
   const initialYearTab = initialEvent
     ? eventAcademicYearKey(initialEvent)
     : dynamicTabs.some((tab) => tab.value === currentAcademicYearKey)
-      ? currentAcademicYearKey
-      : fallbackYearTab;
+    ? currentAcademicYearKey
+    : fallbackYearTab;
   const [query, setQuery] = useState("");
   const [activeYearTab, setActiveYearTab] = useState(initialYearTab);
   const [sortKey, setSortKey] = useState<EventSortKey>("start");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
-  const [selectedId, setSelectedId] = useState<string | null>(initialEvent?.id ?? null);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    initialEvent?.id ?? null
+  );
   const [mode, setMode] = useState<PanelMode>(initialEvent ? "view" : "closed");
   const [partnerName, setPartnerName] = useState("");
-  const [selectedResponsePartnerId, setSelectedResponsePartnerId] = useState("");
+  const [selectedResponsePartnerId, setSelectedResponsePartnerId] =
+    useState("");
   const [selectedDirectorIds, setSelectedDirectorIds] = useState<string[]>(
-    initialEvent?.directors.map((director) => director.id) ?? [],
+    initialEvent?.directors.map((director) => director.id) ?? []
   );
-  const [openPartnerBreakdownId, setOpenPartnerBreakdownId] = useState<string | null>(null);
+  const [openPartnerBreakdownId, setOpenPartnerBreakdownId] = useState<
+    string | null
+  >(null);
   const [tierConfigs, setTierConfigs] = useState<TierPresetDraft[]>(
-    initialEvent?.tierConfigs.map((preset) => ({ ...preset })) ?? [],
+    initialEvent?.tierConfigs.map((preset) => ({ ...preset })) ?? []
   );
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const selected = events.find((event) => event.id === selectedId) ?? null;
 
-  const partnerMatch = selectedResponsePartnerId ? partners.find((partner) => partner.id === selectedResponsePartnerId) ?? null : getPartnerMatch(partners, partnerName);
+  const partnerMatch = selectedResponsePartnerId
+    ? partners.find((partner) => partner.id === selectedResponsePartnerId) ??
+      null
+    : getPartnerMatch(partners, partnerName);
   const pendingPartnerName = splitPartnerName(partnerName);
   const panelOpen = mode !== "closed";
   const selectedRoleGroups = selected
     ? eventRoles
         .map((role) => ({
           ...role,
-          responses: selected.partnerResponses.filter((response) => response.eventRole === role.value),
+          responses: selected.partnerResponses.filter(
+            (response) => response.eventRole === role.value
+          ),
         }))
         .filter((role) => role.responses.length > 0)
     : [];
   const yearTabs: EventYearTab[] = dynamicTabs;
-  const tabFilteredEvents = events.filter((event) => eventAcademicYearKey(event) === activeYearTab);
+  const tabFilteredEvents = events.filter(
+    (event) => eventAcademicYearKey(event) === activeYearTab
+  );
   const filteredEvents = [...tabFilteredEvents]
     .filter((event) =>
-      [event.name, event.year].join(" ").toLowerCase().includes(query.trim().toLowerCase()),
+      [event.name, event.year]
+        .join(" ")
+        .toLowerCase()
+        .includes(query.trim().toLowerCase())
     )
     .sort((left, right) => {
       const result =
         sortKey === "year"
           ? (left.year ?? 0) - (right.year ?? 0)
           : sortKey === "start"
-            ? compareText(left.startDate, right.startDate)
-            : sortKey === "partners"
-              ? left.confirmedPartnerCount - right.confirmedPartnerCount
-              : compareText(left.name, right.name);
+          ? compareText(left.startDate, right.startDate)
+          : sortKey === "partners"
+          ? left.confirmedPartnerCount - right.confirmedPartnerCount
+          : compareText(left.name, right.name);
       return sortValue(result, sortDirection);
     });
 
@@ -606,17 +702,24 @@ export function EventsDirectory({
     const parsedGoal = parseOptionalCadCents(goal);
     const parsedPartnerGoal = parseOptionalInteger(partnerGoal);
     if (!parsedYear.ok) throw new Error("Year must be a whole number.");
-    if (!parsedGoal.ok) throw new Error("Sponsorship goal must be a valid non-negative number.");
-    if (!parsedPartnerGoal.ok) throw new Error("Partner goal must be a whole number.");
+    if (!parsedGoal.ok)
+      throw new Error("Sponsorship goal must be a valid non-negative number.");
+    if (!parsedPartnerGoal.ok)
+      throw new Error("Partner goal must be a whole number.");
     const cleanedTierConfigs = tierConfigs
-      .map((preset) => ({ id: preset.id, label: preset.label.trim(), amount: preset.amount }))
+      .map((preset) => ({
+        id: preset.id,
+        label: preset.label.trim(),
+        amount: preset.amount,
+      }))
       .filter((preset) => preset.label.length > 0);
     return {
       name: String(data.get("name") ?? ""),
       year: parsedYear.value,
       startDate: String(data.get("startDate") ?? ""),
       endDate: String(data.get("endDate") ?? "") || undefined,
-      outreachStartDate: String(data.get("outreachStartDate") ?? "") || undefined,
+      outreachStartDate:
+        String(data.get("outreachStartDate") ?? "") || undefined,
       sponsorshipGoal: parsedGoal.value,
       confirmedPartnerGoal: parsedPartnerGoal.value,
       notes: String(data.get("notes") ?? ""),
@@ -639,7 +742,7 @@ export function EventsDirectory({
           eventAcademicYearKey({
             startDate: created.startDate,
             year: created.year,
-          }),
+          })
         );
         setSelectedId(created.id);
         setMode("view");
@@ -648,7 +751,9 @@ export function EventsDirectory({
         window.history.replaceState(null, "", `/events?eventId=${created.id}`);
         router.refresh();
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : "Could not create event.");
+        setError(
+          cause instanceof Error ? cause.message : "Could not create event."
+        );
       }
     });
   }
@@ -662,12 +767,18 @@ export function EventsDirectory({
     const partnerId = String(data.get("partnerId") ?? "");
     const requestedPartner = String(data.get("partnerName") ?? "").trim();
     const eventRole = String(data.get("eventRole") ?? "") as EventRole;
-    const eventStatus = String(data.get("eventStatus") ?? "asked") as EventAttendanceStatus;
+    const eventStatus = String(
+      data.get("eventStatus") ?? "asked"
+    ) as EventAttendanceStatus;
     if (!partnerId && !requestedPartner) {
       setError("Choose a person or type a new one.");
       return;
     }
-    if (!partnerId && !String(data.get("email") ?? "").trim() && !String(data.get("linkedin") ?? "").trim()) {
+    if (
+      !partnerId &&
+      !String(data.get("email") ?? "").trim() &&
+      !String(data.get("linkedin") ?? "").trim()
+    ) {
       setError("New people need either an email or LinkedIn.");
       return;
     }
@@ -690,7 +801,9 @@ export function EventsDirectory({
         setSelectedResponsePartnerId("");
         router.refresh();
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : "Could not add person.");
+        setError(
+          cause instanceof Error ? cause.message : "Could not add person."
+        );
       }
     });
   }
@@ -705,7 +818,9 @@ export function EventsDirectory({
         await updateEventAction({ ...payload(data), id: selected.id });
         router.refresh();
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : "Could not update event.");
+        setError(
+          cause instanceof Error ? cause.message : "Could not update event."
+        );
       }
     });
   }
@@ -723,35 +838,37 @@ export function EventsDirectory({
   }
 
   return (
-    <div className={["grid min-h-dvh w-full max-w-full grid-cols-1 overflow-x-hidden bg-[#0d0d0f] xl:overflow-hidden", panelOpen ? "xl:grid-cols-[minmax(0,1fr)_minmax(400px,480px)]" : ""].join(" ")}>
-      <section className={["min-w-0 bg-[#0d0d0f] px-3 py-4 sm:px-5 sm:py-5 xl:overflow-hidden", panelOpen ? "hidden xl:block" : ""].join(" ")}>
+    <div
+      className={[
+        "grid min-h-dvh w-full max-w-full grid-cols-1 overflow-x-hidden bg-[#0d0d0f] xl:overflow-hidden",
+        panelOpen ? "xl:grid-cols-[minmax(0,1fr)_minmax(400px,480px)]" : "",
+      ].join(" ")}
+    >
+      <section
+        className={[
+          "min-w-0 bg-[#0d0d0f] px-3 py-4 sm:px-5 sm:py-5 xl:overflow-hidden",
+          panelOpen ? "hidden xl:block" : "",
+        ].join(" ")}
+      >
         <h2 className="text-[15px] font-medium text-zinc-100">Events</h2>
-        <div className="mt-4 inline-flex flex-wrap rounded-md border border-white/9 bg-[#111113] p-0.5 text-[13px]">
-          {yearTabs.map((tab) => (
-            <button
-              key={tab.value}
-              type="button"
-              onClick={() => setActiveYearTab(tab.value)}
-              className={[
-                "h-7 rounded px-3 transition cursor-pointer",
-                activeYearTab === tab.value
-                  ? "bg-white/8 text-zinc-100"
-                  : "text-zinc-400 hover:text-zinc-200",
-              ].join(" ")}
-            >
-              <span>{tab.label}</span>
-              <span className="ml-1.5 text-[12px] text-zinc-500">{tab.count}</span>
-            </button>
-          ))}
-        </div>
-        <div className="mt-4 grid max-w-190 grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-          <input
-            name="eventSearch"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            className={inputClass("min-w-0 flex-1")}
-            placeholder="Search events..."
-          />
+        <div className="mt-4 flex items-center gap-2">
+          <div className="inline-flex flex-wrap rounded-md border border-white/9 bg-[#111113] p-0.5 text-[13px]">
+            {yearTabs.map((tab) => (
+              <button
+                key={tab.value}
+                type="button"
+                onClick={() => setActiveYearTab(tab.value)}
+                className={[
+                  "h-7 rounded px-3 transition cursor-pointer",
+                  activeYearTab === tab.value
+                    ? "bg-white/8 text-zinc-100"
+                    : "text-zinc-400 hover:text-zinc-200",
+                ].join(" ")}
+              >
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </div>
           <button
             type="button"
             onClick={() => {
@@ -764,7 +881,7 @@ export function EventsDirectory({
               setMode("create");
               window.history.replaceState(null, "", "/events");
             }}
-            className="inline-flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-md bg-zinc-700 px-3.5 text-[13px] font-medium text-white transition hover:bg-zinc-600 md:w-auto cursor-pointer"
+            className="inline-flex h-8 w-full shrink-0 items-center justify-center gap-1.5 rounded-md bg-zinc-700 px-3.5 text-[13px] font-medium text-white transition hover:bg-zinc-600 md:w-auto cursor-pointer"
           >
             <Plus className="size-4" strokeWidth={1.8} />
             New event
@@ -773,11 +890,45 @@ export function EventsDirectory({
 
         <div className="mt-5 overflow-hidden rounded-md border border-white/9 bg-[#111113]">
           <div className="grid min-w-0 grid-cols-1 border-b border-white/8 px-4 py-2.5 text-[12px] text-zinc-500 md:grid-cols-[minmax(140px,1fr)_120px_64px_150px_180px]">
-            <span className="min-w-0"><SortHeader label="Name" sortKey="name" activeKey={sortKey} direction={sortDirection} onSort={sortEvents} /></span>
-            <span className="hidden min-w-0 md:block"><SortHeader label="Start date" sortKey="start" activeKey={sortKey} direction={sortDirection} onSort={sortEvents} /></span>
-            <span className="hidden min-w-0 md:block"><SortHeader label="Year" sortKey="year" activeKey={sortKey} direction={sortDirection} onSort={sortEvents} /></span>
-            <span className="hidden min-w-0 md:block"><SortHeader label="Partners confirmed" sortKey="partners" activeKey={sortKey} direction={sortDirection} onSort={sortEvents} /></span>
-            <span className="hidden min-w-0 md:flex md:items-center">Experiences</span>
+            <span className="min-w-0">
+              <SortHeader
+                label="Name"
+                sortKey="name"
+                activeKey={sortKey}
+                direction={sortDirection}
+                onSort={sortEvents}
+              />
+            </span>
+            <span className="hidden min-w-0 md:block">
+              <SortHeader
+                label="Start date"
+                sortKey="start"
+                activeKey={sortKey}
+                direction={sortDirection}
+                onSort={sortEvents}
+              />
+            </span>
+            <span className="hidden min-w-0 md:block">
+              <SortHeader
+                label="Year"
+                sortKey="year"
+                activeKey={sortKey}
+                direction={sortDirection}
+                onSort={sortEvents}
+              />
+            </span>
+            <span className="hidden min-w-0 md:block">
+              <SortHeader
+                label="Partners confirmed"
+                sortKey="partners"
+                activeKey={sortKey}
+                direction={sortDirection}
+                onSort={sortEvents}
+              />
+            </span>
+            <span className="hidden min-w-0 md:flex md:items-center">
+              Experiences
+            </span>
           </div>
           <div className="max-h-[62vh] overflow-auto">
             {filteredEvents.map((event) => (
@@ -791,32 +942,55 @@ export function EventsDirectory({
                 }}
                 role="button"
                 tabIndex={0}
-                className={["grid min-w-0 w-full grid-cols-1 items-center border-b border-white/6 px-4 py-3.5 text-left text-[13px] text-zinc-300 transition hover:bg-white/[0.035] md:grid-cols-[minmax(140px,1fr)_120px_64px_150px_180px] cursor-pointer",
-                  selected?.id === event.id && mode !== "closed" && mode !== "create" ? "bg-white/5.5" : "",
+                className={[
+                  "grid min-w-0 w-full grid-cols-1 items-center border-b border-white/6 px-4 py-3.5 text-left text-[13px] text-zinc-300 transition hover:bg-white/[0.035] md:grid-cols-[minmax(140px,1fr)_120px_64px_150px_180px] cursor-pointer",
+                  selected?.id === event.id &&
+                  mode !== "closed" &&
+                  mode !== "create"
+                    ? "bg-white/5.5"
+                    : "",
                 ].join(" ")}
               >
                 <span className="min-w-0">
-                  <span className="block truncate font-medium text-zinc-100">{event.name}</span>
+                  <span className="block truncate font-medium text-zinc-100">
+                    {event.name}
+                  </span>
                   <span className="mt-1 block text-[12px] text-zinc-500 md:hidden">
-                    {[formatDate(event.startDate), event.year, partnerGoalText(event), directorSummary(event.directors)].filter(Boolean).join(" · ")}
+                    {[
+                      formatDate(event.startDate),
+                      event.year,
+                      partnerGoalText(event),
+                      directorSummary(event.directors),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </span>
                 </span>
-                <span className="hidden min-w-0 truncate md:block">{formatDate(event.startDate)}</span>
-                <span className="hidden min-w-0 truncate md:block">{event.year ?? ""}</span>
+                <span className="hidden min-w-0 truncate md:block">
+                  {formatDate(event.startDate)}
+                </span>
+                <span className="hidden min-w-0 truncate md:block">
+                  {event.year ?? ""}
+                </span>
                 <span className="hidden min-w-0 md:block">
                   <div
                     className="relative flex w-full items-center justify-between gap-1.5"
                     onMouseLeave={() => {
-                      if (openPartnerBreakdownId === event.id) setOpenPartnerBreakdownId(null);
+                      if (openPartnerBreakdownId === event.id)
+                        setOpenPartnerBreakdownId(null);
                     }}
                   >
-                    <span className="min-w-0 truncate text-zinc-300">{partnerGoalText(event)}</span>
+                    <span className="min-w-0 truncate text-zinc-300">
+                      {partnerGoalText(event)}
+                    </span>
                     <button
                       type="button"
                       aria-label={`Show partner role breakdown for ${event.name}`}
                       onClick={(eventClick) => {
                         eventClick.stopPropagation();
-                        setOpenPartnerBreakdownId((current) => (current === event.id ? null : event.id));
+                        setOpenPartnerBreakdownId((current) =>
+                          current === event.id ? null : event.id
+                        );
                       }}
                       onMouseEnter={(eventMouse) => {
                         eventMouse.stopPropagation();
@@ -826,7 +1000,12 @@ export function EventsDirectory({
                       className="grid size-5 place-items-center rounded text-zinc-500 transition hover:bg-white/5 hover:text-zinc-200 cursor-pointer"
                     >
                       <ChevronDown
-                        className={["size-3.5 transition-transform", openPartnerBreakdownId === event.id ? "rotate-180 text-zinc-200" : ""].join(" ")}
+                        className={[
+                          "size-3.5 transition-transform",
+                          openPartnerBreakdownId === event.id
+                            ? "rotate-180 text-zinc-200"
+                            : "",
+                        ].join(" ")}
                         strokeWidth={2}
                       />
                     </button>
@@ -839,9 +1018,13 @@ export function EventsDirectory({
                         {partnerRoleProgress(event).length ? (
                           <ul className="space-y-1">
                             {partnerRoleProgress(event).map((item) => (
-                              <li key={`${event.id}-${item.role}`} className="flex items-center justify-around">
+                              <li
+                                key={`${event.id}-${item.role}`}
+                                className="flex items-center justify-around"
+                              >
                                 <span className="truncate text-zinc-400">
-                                  {item.confirmed}/{item.required} {roleProgressNoun(item.role, item.required)}
+                                  {item.confirmed}/{item.required}{" "}
+                                  {roleProgressNoun(item.role, item.required)}
                                 </span>
                               </li>
                             ))}
@@ -854,7 +1037,9 @@ export function EventsDirectory({
                   </div>
                 </span>
                 <span className="hidden min-w-0 md:flex md:items-center">
-                  <span className="truncate">{directorSummary(event.directors)}</span>
+                  <span className="truncate">
+                    {directorSummary(event.directors)}
+                  </span>
                 </span>
               </div>
             ))}
@@ -883,7 +1068,9 @@ export function EventsDirectory({
                 <ArrowLeft className="size-5" strokeWidth={1.8} />
               </button>
               <h3 className="truncate text-[17px] font-medium text-white">
-                {mode === "create" ? "New event" : selected?.name ?? "Event details"}
+                {mode === "create"
+                  ? "New event"
+                  : selected?.name ?? "Event details"}
               </h3>
               {mode === "view" && selected ? (
                 <button
@@ -935,9 +1122,17 @@ export function EventsDirectory({
                 <section className="rounded-md border border-white/9 bg-[#0d0e11] p-4">
                   <div className="flex min-w-0 items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="truncate text-[14px] font-medium text-zinc-100">{selected.name}</p>
+                      <p className="truncate text-[14px] font-medium text-zinc-100">
+                        {selected.name}
+                      </p>
                       <p className="mt-1 text-[12px] text-zinc-500">
-                        {[selected.year, formatDate(selected.startDate), partnerGoalText(selected)].filter(Boolean).join(" · ")}
+                        {[
+                          selected.year,
+                          formatDate(selected.startDate),
+                          partnerGoalText(selected),
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
                       </p>
                     </div>
                     <span className="shrink-0 rounded-full bg-white/5.5 px-2 py-1 text-[12px] text-zinc-400">
@@ -946,7 +1141,9 @@ export function EventsDirectory({
                   </div>
                   {selected.directors.length ? (
                     <div className="mt-4 rounded-md border border-white/8 bg-white/[0.018] p-3">
-                      <p className="text-[12px] font-medium text-zinc-300">BizTech directors</p>
+                      <p className="text-[12px] font-medium text-zinc-300">
+                        BizTech directors
+                      </p>
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         {selected.directors.map((director) => (
                           <span
@@ -962,14 +1159,24 @@ export function EventsDirectory({
                   <div className="mt-4 grid gap-2">
                     {selectedRoleGroups.length ? (
                       selectedRoleGroups.map((group) => (
-                        <div key={group.value} className="rounded-md border border-white/8 bg-white/[0.018]">
+                        <div
+                          key={group.value}
+                          className="rounded-md border border-white/8 bg-white/[0.018]"
+                        >
                           <div className="flex items-center justify-between gap-3 border-b border-white/6 px-3 py-2">
-                            <p className="text-[12px] font-medium text-zinc-300">{group.label}</p>
-                            <span className="text-[12px] text-zinc-500">{group.responses.length}</span>
+                            <p className="text-[12px] font-medium text-zinc-300">
+                              {group.label}
+                            </p>
+                            <span className="text-[12px] text-zinc-500">
+                              {group.responses.length}
+                            </span>
                           </div>
                           <div className="divide-y divide-white/5.5">
                             {group.responses.map((response) => (
-                              <div key={`summary-${response.partnerId}-${response.eventRole}`} className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 px-3 py-2.5 text-[13px]">
+                              <div
+                                key={`summary-${response.partnerId}-${response.eventRole}`}
+                                className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 px-3 py-2.5 text-[13px]"
+                              >
                                 <span className="min-w-0">
                                   <a
                                     href={`/partners?partnerId=${response.partnerId}`}
@@ -977,9 +1184,15 @@ export function EventsDirectory({
                                   >
                                     {response.partnerName}
                                   </a>
-                                  <span className="block truncate text-[12px] text-zinc-500">{response.companyName}</span>
+                                  <span className="block truncate text-[12px] text-zinc-500">
+                                    {response.companyName}
+                                  </span>
                                 </span>
-                                <span className={`shrink-0 rounded-md px-2 py-1 text-[12px] ${responseStatusTone(response.eventStatus)}`}>
+                                <span
+                                  className={`shrink-0 rounded-md px-2 py-1 text-[12px] ${responseStatusTone(
+                                    response.eventStatus
+                                  )}`}
+                                >
                                   {eventStatusLabel(response.eventStatus)}
                                 </span>
                               </div>
@@ -988,7 +1201,9 @@ export function EventsDirectory({
                         </div>
                       ))
                     ) : (
-                      <p className="rounded-md border border-white/8 px-3 py-3 text-[13px] text-zinc-500">No people linked to this event yet.</p>
+                      <p className="rounded-md border border-white/8 px-3 py-3 text-[13px] text-zinc-500">
+                        No people linked to this event yet.
+                      </p>
                     )}
                   </div>
                   {mode === "view" ? (
@@ -1007,18 +1222,92 @@ export function EventsDirectory({
                 </section>
               ) : null}
               {mode === "create" || mode === "edit" ? (
-                <form id="event-detail-form" onSubmit={mode === "create" ? submitCreate : submitUpdate} className="space-y-4">
-                  <Field label="Name"><input name="name" required defaultValue={mode === "edit" ? selected?.name : ""} className={inputClass()} /></Field>
+                <form
+                  id="event-detail-form"
+                  onSubmit={mode === "create" ? submitCreate : submitUpdate}
+                  className="space-y-4"
+                >
+                  <Field label="Name">
+                    <input
+                      name="name"
+                      required
+                      defaultValue={mode === "edit" ? selected?.name : ""}
+                      className={inputClass()}
+                    />
+                  </Field>
                   <div className="grid gap-4 sm:grid-cols-3">
-                    <Field label="Year"><input name="year" type="number" defaultValue={mode === "edit" ? selected?.year ?? "" : ""} className={inputClass()} /></Field>
-                    <Field label="Confirmed partner goal"><input name="confirmedPartnerGoal" type="number" min="0" step="1" defaultValue={mode === "edit" ? selected?.confirmedPartnerGoal ?? "" : ""} className={inputClass()} /></Field>
-                    <Field label="Sponsorship goal CAD"><input name="sponsorshipGoal" type="number" min="0" step="1" defaultValue={mode === "edit" && selected?.sponsorshipGoal ? selected.sponsorshipGoal / 100 : ""} className={inputClass()} /></Field>
+                    <Field label="Year">
+                      <input
+                        name="year"
+                        type="number"
+                        defaultValue={
+                          mode === "edit" ? selected?.year ?? "" : ""
+                        }
+                        className={inputClass()}
+                      />
+                    </Field>
+                    <Field label="Confirmed partner goal">
+                      <input
+                        name="confirmedPartnerGoal"
+                        type="number"
+                        min="0"
+                        step="1"
+                        defaultValue={
+                          mode === "edit"
+                            ? selected?.confirmedPartnerGoal ?? ""
+                            : ""
+                        }
+                        className={inputClass()}
+                      />
+                    </Field>
+                    <Field label="Sponsorship goal CAD">
+                      <input
+                        name="sponsorshipGoal"
+                        type="number"
+                        min="0"
+                        step="1"
+                        defaultValue={
+                          mode === "edit" && selected?.sponsorshipGoal
+                            ? selected.sponsorshipGoal / 100
+                            : ""
+                        }
+                        className={inputClass()}
+                      />
+                    </Field>
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <Field label="Start date"><input name="startDate" required type="date" defaultValue={mode === "edit" ? selected?.startDate : ""} className={inputClass()} /></Field>
-                    <Field label="End date"><input name="endDate" type="date" defaultValue={mode === "edit" ? selected?.endDate ?? "" : ""} className={inputClass()} /></Field>
+                    <Field label="Start date">
+                      <input
+                        name="startDate"
+                        required
+                        type="date"
+                        defaultValue={
+                          mode === "edit" ? selected?.startDate : ""
+                        }
+                        className={inputClass()}
+                      />
+                    </Field>
+                    <Field label="End date">
+                      <input
+                        name="endDate"
+                        type="date"
+                        defaultValue={
+                          mode === "edit" ? selected?.endDate ?? "" : ""
+                        }
+                        className={inputClass()}
+                      />
+                    </Field>
                   </div>
-                  <Field label="Outreach start"><input name="outreachStartDate" type="date" defaultValue={mode === "edit" ? selected?.outreachStartDate ?? "" : ""} className={inputClass()} /></Field>
+                  <Field label="Outreach start">
+                    <input
+                      name="outreachStartDate"
+                      type="date"
+                      defaultValue={
+                        mode === "edit" ? selected?.outreachStartDate ?? "" : ""
+                      }
+                      className={inputClass()}
+                    />
+                  </Field>
                   <Field label="BizTech directors">
                     <DirectorMultiSelect
                       directors={directors}
@@ -1027,11 +1316,30 @@ export function EventsDirectory({
                     />
                   </Field>
                   <Field label="Tier presets">
-                    <TierPresetEditor presets={tierConfigs} onChange={setTierConfigs} />
+                    <TierPresetEditor
+                      presets={tierConfigs}
+                      onChange={setTierConfigs}
+                    />
                   </Field>
-                  <Field label="Notes"><textarea name="notes" rows={4} defaultValue={mode === "edit" ? selected?.notes ?? "" : ""} className={inputClass("h-auto py-2")} /></Field>
+                  <Field label="Notes">
+                    <textarea
+                      name="notes"
+                      rows={4}
+                      defaultValue={
+                        mode === "edit" ? selected?.notes ?? "" : ""
+                      }
+                      className={inputClass("h-auto py-2")}
+                    />
+                  </Field>
                   <label className="flex items-center gap-2 text-[13px] text-zinc-300">
-                    <input name="archived" type="checkbox" defaultChecked={mode === "edit" ? selected?.archived : false} className="size-4 accent-zinc-400" />
+                    <input
+                      name="archived"
+                      type="checkbox"
+                      defaultChecked={
+                        mode === "edit" ? selected?.archived : false
+                      }
+                      className="size-4 accent-zinc-400"
+                    />
                     Archived
                   </label>
                 </form>
@@ -1039,12 +1347,18 @@ export function EventsDirectory({
               {mode !== "create" && selected ? (
                 <div className="rounded-md border border-white/9 bg-[#0d0e11] p-4">
                   <div className="grid gap-1">
-                    <p className="text-[13px] font-medium text-zinc-200">People at this event</p>
+                    <p className="text-[13px] font-medium text-zinc-200">
+                      People at this event
+                    </p>
                     <p className="text-[12px] text-zinc-500">
-                      {selected.partnerResponses.length} linked · {partnerGoalText(selected)}
+                      {selected.partnerResponses.length} linked ·{" "}
+                      {partnerGoalText(selected)}
                     </p>
                   </div>
-                  <form onSubmit={submitPartnerResponse} className="mt-4 grid gap-3">
+                  <form
+                    onSubmit={submitPartnerResponse}
+                    className="mt-4 grid gap-3"
+                  >
                     <Field label="Person">
                       <PartnerCombo
                         partners={partners}
@@ -1056,36 +1370,93 @@ export function EventsDirectory({
                     </Field>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <Field label="Event role">
-                        <select name="eventRole" required className={inputClass()}>
+                        <select
+                          name="eventRole"
+                          required
+                          className={inputClass()}
+                        >
                           {eventRoles.map((role) => (
-                            <option key={role.value} value={role.value}>{role.label}</option>
+                            <option key={role.value} value={role.value}>
+                              {role.label}
+                            </option>
                           ))}
                         </select>
                       </Field>
                       <Field label="Status">
-                        <select name="eventStatus" required defaultValue="asked" className={inputClass()}>
+                        <select
+                          name="eventStatus"
+                          required
+                          defaultValue="asked"
+                          className={inputClass()}
+                        >
                           {eventStatuses.map((status) => (
-                            <option key={status.value} value={status.value}>{status.label}</option>
+                            <option key={status.value} value={status.value}>
+                              {status.label}
+                            </option>
                           ))}
                         </select>
                       </Field>
                     </div>
                     {partnerName.trim() && !partnerMatch ? (
-                      <div key={partnerName} className="grid gap-3 rounded-md border border-white/8 bg-white/2.5 p-3">
+                      <div
+                        key={partnerName}
+                        className="grid gap-3 rounded-md border border-white/8 bg-white/2.5 p-3"
+                      >
                         <div className="grid gap-3 sm:grid-cols-2">
-                          <Field label="New partner first name"><input name="firstName" defaultValue={pendingPartnerName.firstName} className={inputClass()} /></Field>
-                          <Field label="New partner last name"><input name="lastName" defaultValue={pendingPartnerName.lastName} className={inputClass()} /></Field>
+                          <Field label="New partner first name">
+                            <input
+                              name="firstName"
+                              defaultValue={pendingPartnerName.firstName}
+                              className={inputClass()}
+                            />
+                          </Field>
+                          <Field label="New partner last name">
+                            <input
+                              name="lastName"
+                              defaultValue={pendingPartnerName.lastName}
+                              className={inputClass()}
+                            />
+                          </Field>
                         </div>
-                        <Field label="Company"><input name="companyName" required placeholder="Company name" className={inputClass()} /></Field>
+                        <Field label="Company">
+                          <input
+                            name="companyName"
+                            required
+                            placeholder="Company name"
+                            className={inputClass()}
+                          />
+                        </Field>
                         <div className="grid gap-3 sm:grid-cols-2">
-                          <Field label="Email"><input name="email" type="email" placeholder="email@company.com" className={inputClass()} /></Field>
-                          <Field label="LinkedIn"><input name="linkedin" placeholder="https://linkedin.com/in/..." className={inputClass()} /></Field>
+                          <Field label="Email">
+                            <input
+                              name="email"
+                              type="email"
+                              placeholder="email@company.com"
+                              className={inputClass()}
+                            />
+                          </Field>
+                          <Field label="LinkedIn">
+                            <input
+                              name="linkedin"
+                              placeholder="https://linkedin.com/in/..."
+                              className={inputClass()}
+                            />
+                          </Field>
                         </div>
                         <ContactRequirementHint />
-                        <Field label="Title"><input name="role" placeholder="Founder, Recruiter, Engineering Manager" className={inputClass()} /></Field>
+                        <Field label="Title">
+                          <input
+                            name="role"
+                            placeholder="Founder, Recruiter, Engineering Manager"
+                            className={inputClass()}
+                          />
+                        </Field>
                       </div>
                     ) : null}
-                    <button disabled={isPending} className="h-9 w-fit rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer">
+                    <button
+                      disabled={isPending}
+                      className="h-9 w-fit rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer"
+                    >
                       Add person to event
                     </button>
                   </form>
@@ -1099,7 +1470,10 @@ export function EventsDirectory({
                           <span className="sr-only">Actions</span>
                         </div>
                         {selected.partnerResponses.map((response) => (
-                          <div key={`${response.partnerId}-${response.eventRole}`} className="grid gap-2 px-3 py-2.5 text-[13px] sm:grid-cols-[minmax(0,1fr)_132px_132px_auto] sm:items-center sm:gap-3">
+                          <div
+                            key={`${response.partnerId}-${response.eventRole}`}
+                            className="grid gap-2 px-3 py-2.5 text-[13px] sm:grid-cols-[minmax(0,1fr)_132px_132px_auto] sm:items-center sm:gap-3"
+                          >
                             <div className="min-w-0">
                               <span className="min-w-0 flex-1">
                                 <a
@@ -1108,15 +1482,20 @@ export function EventsDirectory({
                                 >
                                   {response.partnerName}
                                 </a>
-                                <span className="mt-0.5 block truncate text-[12px] text-zinc-500">{response.companyName}</span>
+                                <span className="mt-0.5 block truncate text-[12px] text-zinc-500">
+                                  {response.companyName}
+                                </span>
                               </span>
                             </div>
-                            <span className="min-w-0 truncate text-zinc-300">{eventRoleLabel(response.eventRole)}</span>
+                            <span className="min-w-0 truncate text-zinc-300">
+                              {eventRoleLabel(response.eventRole)}
+                            </span>
                             <select
                               value={response.eventStatus}
                               disabled={isPending}
                               onChange={(event) => {
-                                const eventStatus = event.currentTarget.value as EventAttendanceStatus;
+                                const eventStatus = event.currentTarget
+                                  .value as EventAttendanceStatus;
                                 startTransition(async () => {
                                   await updatePartnerEventStatusAction({
                                     partnerId: response.partnerId,
@@ -1131,13 +1510,20 @@ export function EventsDirectory({
                               className={inputClass("h-8 px-2 text-[12px]")}
                             >
                               {eventStatuses.map((status) => (
-                                <option key={status.value} value={status.value}>{status.label}</option>
+                                <option key={status.value} value={status.value}>
+                                  {status.label}
+                                </option>
                               ))}
                             </select>
                             <button
                               type="button"
                               onClick={() => {
-                                if (!window.confirm("Remove this person from the event?")) return;
+                                if (
+                                  !window.confirm(
+                                    "Remove this person from the event?"
+                                  )
+                                )
+                                  return;
                                 startTransition(async () => {
                                   await removePartnerEventRoleAction({
                                     partnerId: response.partnerId,
@@ -1148,7 +1534,13 @@ export function EventsDirectory({
                                 });
                               }}
                               className="inline-flex size-8 shrink-0 items-center justify-center justify-self-start rounded-md text-zinc-500 transition hover:bg-red-500/10 hover:text-red-200 sm:justify-self-end cursor-pointer"
-                              aria-label={`Remove ${response.partnerName} ${eventRoleLabel(response.eventRole)} ${eventStatusLabel(response.eventStatus)} response`}
+                              aria-label={`Remove ${
+                                response.partnerName
+                              } ${eventRoleLabel(
+                                response.eventRole
+                              )} ${eventStatusLabel(
+                                response.eventStatus
+                              )} response`}
                             >
                               <Trash2 className="size-4" strokeWidth={1.8} />
                             </button>
@@ -1156,16 +1548,27 @@ export function EventsDirectory({
                         ))}
                       </div>
                     ) : (
-                      <p className="px-3 py-3 text-[13px] text-zinc-500">No people linked to this event yet.</p>
+                      <p className="px-3 py-3 text-[13px] text-zinc-500">
+                        No people linked to this event yet.
+                      </p>
                     )}
                   </div>
                 </div>
               ) : null}
-              {error && <p className="rounded-md border border-red-400/20 bg-red-400/10 px-3 py-2 text-[13px] text-red-200">{error}</p>}
+              {error && (
+                <p className="rounded-md border border-red-400/20 bg-red-400/10 px-3 py-2 text-[13px] text-red-200">
+                  {error}
+                </p>
+              )}
             </div>
             {mode === "create" || mode === "edit" ? (
               <div className="shrink-0 border-t border-white/8 bg-[#0d0e11] px-5 py-4">
-                <button form="event-detail-form" type="submit" disabled={isPending} className="h-9 rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer">
+                <button
+                  form="event-detail-form"
+                  type="submit"
+                  disabled={isPending}
+                  className="h-9 rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer"
+                >
                   {mode === "create" ? "Create event" : "Save changes"}
                 </button>
               </div>

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { cache } from "react";
 import { and, asc, desc, eq, ilike, inArray, ne, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
@@ -333,33 +334,85 @@ async function syncPartnerDirectors(
   }
 }
 
+function groupBy<T, K>(rows: readonly T[], key: (row: T) => K): Map<K, T[]> {
+  const map = new Map<K, T[]>();
+  for (const row of rows) {
+    const k = key(row);
+    const bucket = map.get(k);
+    if (bucket) bucket.push(row);
+    else map.set(k, [row]);
+  }
+  return map;
+}
+
+// Base-query loaders wrapped in React cache() so that the multiple cached
+// repository functions invoked on a single board page (e.g. /pipeline) share
+// one execution of each heavy query per request instead of re-scanning.
+const loadDealRows = cache((includeArchived = false) =>
+  db
+    .select({
+      sponsor: sponsors,
+      company: companies,
+      event: events,
+      contact: partners,
+      owner: users,
+    })
+    .from(sponsors)
+    .innerJoin(companies, eq(sponsors.companyId, companies.id))
+    .leftJoin(events, eq(sponsors.eventId, events.id))
+    .leftJoin(partners, eq(sponsors.primaryContactId, partners.id))
+    .leftJoin(users, eq(sponsors.ownerUserId, users.id))
+    .where(includeArchived ? undefined : eq(sponsors.archived, false))
+    .orderBy(desc(sponsors.updatedAt)),
+);
+
+const loadCompaniesRaw = cache((includeArchived = false) =>
+  db
+    .select()
+    .from(companies)
+    .where(includeArchived ? undefined : eq(companies.archived, false))
+    .orderBy(asc(companies.name)),
+);
+
+const loadPartnersRaw = cache((includeArchived = false) =>
+  db
+    .select()
+    .from(partners)
+    .where(includeArchived ? undefined : eq(partners.archived, false))
+    .orderBy(desc(partners.isPrimary), asc(partners.firstName)),
+);
+
+const loadSponsorsRaw = cache(() =>
+  db.select().from(sponsors).where(eq(sponsors.archived, false)),
+);
+
+const loadEventRows = cache((includeArchived = false) =>
+  db
+    .select()
+    .from(events)
+    .where(includeArchived ? undefined : eq(events.archived, false))
+    .orderBy(desc(events.startDate)),
+);
+
 export async function listPartnerAccounts(options?: {
   includeArchived?: boolean;
   search?: string;
 }): Promise<PartnerAccount[]> {
-  const allCompanies = await db
-    .select()
-    .from(companies)
-    .orderBy(asc(companies.name));
-
-  const allContacts = await db
-    .select()
-    .from(partners)
-    .orderBy(desc(partners.isPrimary), asc(partners.firstName));
-
-  const allSponsorships = await db.select().from(sponsors);
+  const includeArchived = options?.includeArchived ?? false;
+  const [allCompanies, allContacts, allSponsorships] = await Promise.all([
+    loadCompaniesRaw(includeArchived),
+    loadPartnersRaw(includeArchived),
+    loadSponsorsRaw(),
+  ]);
   const search = options?.search?.trim().toLowerCase();
 
+  const contactsByCompany = groupBy(allContacts, (contact) => contact.companyId);
+  const sponsorshipsByCompany = groupBy(allSponsorships, (sponsor) => sponsor.companyId);
+
   return allCompanies
-    .filter((company) => options?.includeArchived || !company.archived)
     .map((company) => {
-      const contacts = allContacts
-        .filter((contact) => contact.companyId === company.id)
-        .filter((contact) => options?.includeArchived || !contact.archived)
-        .map(toContact);
-      const companySponsorships = allSponsorships.filter(
-        (sponsor) => sponsor.companyId === company.id && !sponsor.archived,
-      );
+      const contacts = (contactsByCompany.get(company.id) ?? []).map(toContact);
+      const companySponsorships = sponsorshipsByCompany.get(company.id) ?? [];
       const primaryContact =
         contacts.find((contact) => contact.isPrimary && !contact.archived) ??
         contacts.find((contact) => !contact.archived) ??
@@ -415,9 +468,10 @@ export async function listPartnerAccounts(options?: {
 }
 
 export async function listEvents(options?: { includeArchived?: boolean }): Promise<CrmEventSummary[]> {
+  const includeArchived = options?.includeArchived ?? false;
   const [eventRows, sponsorRows, partnerRoleRows, sponsorContactRows, directorRows] = await Promise.all([
-    db.select().from(events).orderBy(desc(events.startDate)),
-    db.select().from(sponsors),
+    loadEventRows(includeArchived),
+    loadSponsorsRaw(),
     db
       .select({
         eventId: partnersEvents.eventId,
@@ -457,21 +511,19 @@ export async function listEvents(options?: { includeArchived?: boolean }): Promi
       .orderBy(asc(users.first_name), asc(users.last_name)),
   ]);
 
+  const sponsorsByEvent = groupBy(sponsorRows, (sponsor) => sponsor.eventId);
+  const partnerRolesByEvent = groupBy(partnerRoleRows, (role) => role.eventId);
+  const sponsorContactsByEvent = groupBy(sponsorContactRows, (row) => row.eventId);
+  const directorsByEvent = groupBy(directorRows, (row) => row.eventId);
+
   return eventRows
-    .filter((event) => options?.includeArchived || !event.archived)
     .map((event) => {
-      const eventSponsors = sponsorRows.filter(
-        (sponsor) => sponsor.eventId === event.id && !sponsor.archived,
+      const eventSponsors = sponsorsByEvent.get(event.id) ?? [];
+      const eventPartnerRoles = (partnerRolesByEvent.get(event.id) ?? []).filter(
+        (role) => includeArchived || (!role.partnerArchived && !role.companyArchived),
       );
-      const eventPartnerRoles = partnerRoleRows.filter(
-        (role) =>
-          role.eventId === event.id &&
-          (options?.includeArchived || (!role.partnerArchived && !role.companyArchived)),
-      );
-      const eventSponsorContacts = sponsorContactRows.filter(
-        (row) =>
-          row.eventId === event.id &&
-          (options?.includeArchived || (!row.sponsorArchived && !row.partnerArchived && !row.companyArchived)),
+      const eventSponsorContacts = (sponsorContactsByEvent.get(event.id) ?? []).filter(
+        (row) => includeArchived || (!row.sponsorArchived && !row.partnerArchived && !row.companyArchived),
       );
       const peopleByKey = new Map<string, CrmEventSummary["partnerResponses"][number]>();
 
@@ -498,9 +550,9 @@ export async function listEvents(options?: { includeArchived?: boolean }): Promi
       });
 
       const eventPeople = Array.from(peopleByKey.values());
-      const eventDirectors = directorRows
-        .filter((row) => row.eventId === event.id)
-        .map((row) => toUserSummary(row.user));
+      const eventDirectors = (directorsByEvent.get(event.id) ?? []).map((row) =>
+        toUserSummary(row.user),
+      );
 
       return {
         id: event.id,
@@ -539,21 +591,7 @@ export async function listEvents(options?: { includeArchived?: boolean }): Promi
 export async function listPipelineDeals(options?: {
   includeArchived?: boolean;
 }): Promise<PipelineDeal[]> {
-  const rows = await db
-    .select({
-      sponsor: sponsors,
-      company: companies,
-      event: events,
-      contact: partners,
-      owner: users,
-    })
-    .from(sponsors)
-    .innerJoin(companies, eq(sponsors.companyId, companies.id))
-    .leftJoin(events, eq(sponsors.eventId, events.id))
-    .leftJoin(partners, eq(sponsors.primaryContactId, partners.id))
-    .leftJoin(users, eq(sponsors.ownerUserId, users.id))
-    .where(options?.includeArchived ? undefined : eq(sponsors.archived, false))
-    .orderBy(desc(sponsors.updatedAt));
+  const rows = await loadDealRows(options?.includeArchived ?? false);
 
   return rows
     .filter(({ company, event }) => options?.includeArchived || (!company.archived && !event?.archived))
@@ -937,11 +975,15 @@ export async function listTouchpoints(): Promise<TouchpointRecord[]> {
 }
 
 export async function getDashboard(): Promise<CrmDashboard> {
-  const [partnerRows, eventRows, dealRows] = await Promise.all([
-    listPartnerAccounts(),
+  const [partnerCountRows, eventRows, dealRows] = await Promise.all([
+    db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(companies)
+      .where(eq(companies.archived, false)),
     listEvents(),
     listPipelineDeals(),
   ]);
+  const partnerCount = partnerCountRows[0]?.n ?? 0;
 
   const securedValue = dealRows
     .filter((deal) => securedStatuses.has(deal.status))
@@ -982,7 +1024,7 @@ export async function getDashboard(): Promise<CrmDashboard> {
     annualGoal,
     annualProgressPct: annualGoal > 0 ? (securedValue / annualGoal) * 100 : 0,
     followUpsDueCount: upcomingFollowUps.length,
-    partnerCount: partnerRows.length,
+    partnerCount,
     eventCount: eventRows.filter((event) => !event.archived).length,
     events: eventRows,
     pipelineByStatus: Array.from(pipelineMap.entries()).map(
@@ -1068,25 +1110,27 @@ export async function listCompanyDirectory(): Promise<CompanyDirectoryRecord[]> 
       .orderBy(desc(contactActivities.occurredAt)),
   ]);
 
+  const dealsByCompany = groupBy(deals, (deal) => deal.partnerId);
+  const attendanceByCompany = groupBy(attendanceRows, (row) => row.companyId);
+  const documentsByCompany = groupBy(documentRows, (row) => row.document.companyId);
+  const communicationsByCompany = groupBy(communicationRows, (row) => row.activity.primaryCompanyId);
+
   return accounts.map((account) => {
     const { updatedAt, ...clientAccount } = account;
-    const activeDeals = deals
-      .filter((deal) => deal.partnerId === account.id)
-      .map((deal) => ({
-        id: deal.id,
-        eventName: deal.eventName,
-        status: deal.status,
-        amount: deal.amount,
-        followUpDate: deal.followUpDate,
-        primaryContactName: deal.primaryContactName,
-      }));
+    const activeDeals = (dealsByCompany.get(account.id) ?? []).map((deal) => ({
+      id: deal.id,
+      eventName: deal.eventName,
+      status: deal.status,
+      amount: deal.amount,
+      followUpDate: deal.followUpDate,
+      primaryContactName: deal.primaryContactName,
+    }));
 
     return {
       ...clientAccount,
       activeContactsCount: account.contacts.filter((contact) => !contact.archived).length,
       activeDeals,
-      eventAttendances: attendanceRows
-        .filter((row) => row.companyId === account.id)
+      eventAttendances: (attendanceByCompany.get(account.id) ?? [])
         .filter((row) => !row.eventArchived)
         .map((row) => ({
           eventId: row.eventId,
@@ -1094,8 +1138,7 @@ export async function listCompanyDirectory(): Promise<CompanyDirectoryRecord[]> 
           eventRole: row.eventRole as CompanyDirectoryRecord["eventAttendances"][number]["eventRole"],
           eventStatus: row.eventStatus as CompanyDirectoryRecord["eventAttendances"][number]["eventStatus"],
         })),
-      documents: documentRows
-        .filter((row) => row.document.companyId === account.id)
+      documents: (documentsByCompany.get(account.id) ?? [])
         .map((row) => ({
           id: row.document.id,
           companyId: row.document.companyId,
@@ -1111,8 +1154,7 @@ export async function listCompanyDirectory(): Promise<CompanyDirectoryRecord[]> 
           notes: row.document.notes,
           updatedAtIso: row.document.updatedAt.toISOString(),
         })),
-      communications: communicationRows
-        .filter((row) => row.activity.primaryCompanyId === account.id)
+      communications: (communicationsByCompany.get(account.id) ?? [])
         .map((row) => ({
           id: row.activity.id,
           companyId: row.activity.primaryCompanyId ?? account.id,
@@ -1134,8 +1176,8 @@ export async function listCompanyDirectory(): Promise<CompanyDirectoryRecord[]> 
 
 export async function listPartnerDirectory(): Promise<PartnerDirectoryRecord[]> {
   const [companyRows, contactRows, dealRows, attendanceRows, directorRows] = await Promise.all([
-    db.select().from(companies).orderBy(asc(companies.name)),
-    db.select().from(partners).orderBy(desc(partners.isPrimary), asc(partners.firstName)),
+    loadCompaniesRaw(),
+    loadPartnersRaw(),
     listPipelineDeals(),
     db
       .select({
@@ -1160,16 +1202,15 @@ export async function listPartnerDirectory(): Promise<PartnerDirectoryRecord[]> 
   ]);
 
   const companyMap = new Map(companyRows.map((company) => [company.id, company]));
+  const dealsByCompany = groupBy(dealRows, (deal) => deal.partnerId);
+  const attendanceByPartner = groupBy(attendanceRows, (row) => row.partnerId);
+  const directorsByPartner = groupBy(directorRows, (row) => row.partnerId);
 
   return contactRows
-    .filter((contact) => !contact.archived)
-    .filter((contact) => {
-      const company = companyMap.get(contact.companyId);
-      return company ? !company.archived : false;
-    })
+    .filter((contact) => companyMap.has(contact.companyId))
     .map((contact) => {
     const company = companyMap.get(contact.companyId);
-    const companyDeals = dealRows.filter((deal) => deal.partnerId === contact.companyId);
+    const companyDeals = dealsByCompany.get(contact.companyId) ?? [];
     const latest = companyDeals[0];
     const nextFollowUpDate =
       companyDeals
@@ -1185,8 +1226,7 @@ export async function listPartnerDirectory(): Promise<PartnerDirectoryRecord[]> 
       companyArchived: company?.archived ?? false,
       latestStatus: latest?.status ?? null,
       nextFollowUpDate,
-      eventAttendances: attendanceRows
-        .filter((row) => row.partnerId === contact.id)
+      eventAttendances: (attendanceByPartner.get(contact.id) ?? [])
         .filter((row) => !row.eventArchived)
         .map((row) => ({
           eventId: row.eventId,
@@ -1194,9 +1234,9 @@ export async function listPartnerDirectory(): Promise<PartnerDirectoryRecord[]> 
           eventRole: row.eventRole as PartnerDirectoryRecord["eventAttendances"][number]["eventRole"],
           eventStatus: row.eventStatus as PartnerDirectoryRecord["eventAttendances"][number]["eventStatus"],
         })),
-      directors: directorRows
-        .filter((row) => row.partnerId === contact.id)
-        .map((row) => toUserSummary(row.user)),
+      directors: (directorsByPartner.get(contact.id) ?? []).map((row) =>
+        toUserSummary(row.user),
+      ),
       updatedAtIso: contact.updatedAt.toISOString(),
     };
   });
