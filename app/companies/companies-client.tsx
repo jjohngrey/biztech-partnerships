@@ -22,6 +22,7 @@ type CompaniesClientProps = {
   meetings: MeetingLogRecord[];
   initialCompanyId?: string;
   initialKind?: CompanyKind;
+  currentUserId?: string;
 };
 
 export function CompaniesClient({ companiesResult, initialKind, ...props }: CompaniesClientProps) {

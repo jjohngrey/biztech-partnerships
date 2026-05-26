@@ -15,7 +15,7 @@ type PartnersPageProps = {
 export default async function PartnersPage({ searchParams }: PartnersPageProps) {
   const params = await searchParams;
   const page = Math.max(1, Number(params?.page ?? 1));
-  const [{ displayName, role }, partnersResult, companies, events, users] = await Promise.all([
+  const [{ id: currentUserId, displayName, role }, partnersResult, companies, events, users] = await Promise.all([
     requireDisplayUser(),
     listCachedPartnerDirectoryPage({ page }),
     listCachedCompanyDirectory(),
@@ -36,6 +36,7 @@ export default async function PartnersPage({ searchParams }: PartnersPageProps) 
         events={events}
         users={users}
         initialPartnerId={params?.partnerId}
+        currentUserId={currentUserId}
       />
     </CrmShell>
   );
