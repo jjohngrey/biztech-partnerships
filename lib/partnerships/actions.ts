@@ -42,6 +42,9 @@ import {
   updatePartnerEventStatus,
   updateMeetingLog,
   updateSponsorship,
+  getCompanyByName,
+  getCompanyLastContact,
+  getPartnerByEmail,
 } from "./repository";
 import type {
   AddCompanyEventRoleInput,
@@ -369,4 +372,16 @@ export async function enqueueEmailCampaignAction(input: {
     queuedRecipientCount: queuedSends.length,
     scheduledAtIso: queued.scheduledAt?.toISOString() ?? null,
   };
+}
+
+export async function getCompanyLastContactAction(companyId: string) {
+  return getCompanyLastContact(companyId);
+}
+
+export async function getPartnerByEmailAction(email: string) {
+  return getPartnerByEmail(email.trim().toLowerCase());
+}
+
+export async function getCompanyByNameAction(name: string) {
+  return getCompanyByName(name.trim());
 }

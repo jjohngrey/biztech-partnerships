@@ -2821,3 +2821,75 @@ export async function buildMergeValues(input: {
     event_year: input.event?.year ? String(input.event.year) : "",
   };
 }
+
+export async function getCompanyLastContact(companyId: string): Promise<{
+  occurredAt: Date;
+  createdByName: string | null;
+} | null> {
+  const [row] = await db
+    .select({ occurredAt: contactActivities.occurredAt, firstName: users.first_name, lastName: users.last_name })
+    .from(contactActivities)
+    .leftJoin(users, eq(contactActivities.createdBy, users.id))
+    .where(eq(contactActivities.primaryCompanyId, companyId))
+    .orderBy(desc(contactActivities.occurredAt))
+    .limit(1);
+  if (!row) return null;
+  const createdByName = [row.firstName, row.lastName].filter(Boolean).join(" ") || null;
+  return { occurredAt: row.occurredAt, createdByName };
+}
+
+export async function getCompanyByName(name: string): Promise<{
+  id: string;
+  name: string;
+  lastActivity: { occurredAt: Date; createdByName: string | null } | null;
+} | null> {
+  const [company] = await db
+    .select({ id: companies.id, name: companies.name })
+    .from(companies)
+    .where(and(ilike(companies.name, name), eq(companies.archived, false)))
+    .limit(1);
+  if (!company) return null;
+
+  const lastActivity = await getCompanyLastContact(company.id);
+  return { ...company, lastActivity };
+}
+
+export async function getPartnerByEmail(email: string): Promise<{
+  id: string;
+  firstName: string;
+  lastName: string | null;
+  companyId: string;
+  companyName: string;
+  lastActivity: { occurredAt: Date; createdByName: string | null } | null;
+} | null> {
+  const [partner] = await db
+    .select({
+      id: partners.id,
+      firstName: partners.firstName,
+      lastName: partners.lastName,
+      companyId: companies.id,
+      companyName: companies.name,
+    })
+    .from(partners)
+    .innerJoin(companies, eq(partners.companyId, companies.id))
+    .where(and(eq(partners.email, email), eq(partners.archived, false)))
+    .limit(1);
+  if (!partner) return null;
+
+  const [activity] = await db
+    .select({ occurredAt: contactActivities.occurredAt, firstName: users.first_name, lastName: users.last_name })
+    .from(contactActivities)
+    .leftJoin(users, eq(contactActivities.createdBy, users.id))
+    .where(eq(contactActivities.primaryPartnerId, partner.id))
+    .orderBy(desc(contactActivities.occurredAt))
+    .limit(1);
+
+  const createdByName = activity
+    ? [activity.firstName, activity.lastName].filter(Boolean).join(" ") || null
+    : null;
+
+  return {
+    ...partner,
+    lastActivity: activity ? { occurredAt: activity.occurredAt, createdByName } : null,
+  };
+}

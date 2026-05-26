@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ExternalLink, MessageSquarePlus, Pencil, Plus, Trash2, X } from "lucide-react";
 import {
@@ -13,6 +13,9 @@ import {
   createPartnerDocumentAction,
   deleteCompanyInteractionAction,
   deletePartnerDocumentAction,
+  getCompanyByNameAction,
+  getCompanyLastContactAction,
+  getPartnerByEmailAction,
   linkContactToCompanyAction,
   removeCompanyEventRoleAction,
   removePartnerEventRoleAction,
@@ -336,15 +339,48 @@ function StatusPill({ status }: { status: string | null }) {
   );
 }
 
+type ContactHistoryWarning = {
+  entityId: string;
+  entityLabel: string;
+  href: string;
+  lastActivity: { occurredAt: Date; createdByName: string | null } | null;
+};
+
+function DuplicateWarning({ warning }: { warning: ContactHistoryWarning }) {
+  const dateStr = warning.lastActivity
+    ? new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(
+        new Date(warning.lastActivity.occurredAt),
+      )
+    : null;
+  return (
+    <div className="rounded-md border border-yellow-400 bg-yellow-100/20 px-3 py-2 text-[13px] text-white space-y-0.5">
+      <p>
+        <span className="font-medium">{warning.entityLabel}</span> already exists.{" "}
+        <a href={warning.href} className="underline underline-offset-2">
+          View →
+        </a>
+      </p>
+      {dateStr && (
+        <p className="text-white/70">
+          Last contacted {dateStr}
+          {warning.lastActivity?.createdByName ? ` by ${warning.lastActivity.createdByName}` : ""}.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function CompanyCombo({
   companies,
   value,
   onChange,
+  onBlur,
   name = "companyName",
 }: {
   companies: CompanyDirectoryRecord[];
   value: string;
   onChange: (value: string) => void;
+  onBlur?: (companyId: string | null) => void;
   name?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -363,7 +399,10 @@ function CompanyCombo({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         onFocus={() => setOpen(true)}
-        onBlur={() => window.setTimeout(() => setOpen(false), 120)}
+        onBlur={() => {
+          window.setTimeout(() => setOpen(false), 120);
+          onBlur?.(getCompanyMatch(companies, value)?.id ?? null);
+        }}
         placeholder="Search companies or create a new one"
         className={inputClass("w-full")}
       />
@@ -545,6 +584,8 @@ export function PartnersDirectory({ partners, paginationMeta, companies, events,
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [companyWarning, setCompanyWarning] = useState<ContactHistoryWarning | null>(null);
+  const [emailWarning, setEmailWarning] = useState<ContactHistoryWarning | null>(null);
   const selected = partners.find((partner) => partner.id === selectedId) ?? null;
   const editCompanyValue = editCompanyName || selected?.companyName || "";
 
@@ -604,6 +645,30 @@ export function PartnersDirectory({ partners, paginationMeta, companies, events,
     };
   }
 
+  async function handleCompanyBlur(companyId: string | null) {
+    if (!companyId) { setCompanyWarning(null); return; }
+    const company = companies.find((c) => c.id === companyId);
+    const last = await getCompanyLastContactAction(companyId);
+    setCompanyWarning({
+      entityId: companyId,
+      entityLabel: company?.name ?? "",
+      href: `/companies?companyId=${companyId}`,
+      lastActivity: last,
+    });
+  }
+
+  async function handleEmailBlur(email: string) {
+    if (!email.trim()) { setEmailWarning(null); return; }
+    const result = await getPartnerByEmailAction(email.trim());
+    if (!result) { setEmailWarning(null); return; }
+    setEmailWarning({
+      entityId: result.id,
+      entityLabel: `${result.firstName}${result.lastName ? " " + result.lastName : ""} at ${result.companyName}`,
+      href: `/partners?partnerId=${result.id}`,
+      lastActivity: result.lastActivity,
+    });
+  }
+
   function submitCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -630,6 +695,8 @@ export function PartnersDirectory({ partners, paginationMeta, companies, events,
         form.reset();
         setCreateCompanyName("");
         setEventName("");
+        setCompanyWarning(null);
+        setEmailWarning(null);
         setSelectedId(created.id);
         setMode("view");
         setPartnerUrl(created.id);
@@ -874,14 +941,16 @@ export function PartnersDirectory({ partners, paginationMeta, companies, events,
                   <Field label="New partner last name"><input name="lastName" autoComplete="family-name" className={inputClass()} /></Field>
                 </div>
                 <Field label="Company" required>
-                  <CompanyCombo companies={companies} value={createCompanyName} onChange={setCreateCompanyName} />
+                  <CompanyCombo companies={companies} value={createCompanyName} onChange={setCreateCompanyName} onBlur={(id) => { void handleCompanyBlur(id); }} />
                 </Field>
+                {companyWarning && <DuplicateWarning warning={companyWarning} />}
                 <label className="flex items-center gap-2 text-[13px] text-zinc-300">
                   <input name="isPrimary" type="checkbox" className="size-4 accent-zinc-400" />
                   Primary contact for company
                 </label>
                 <Field label="Title"><input name="role" className={inputClass()} /></Field>
-                <Field label="Email" required><input name="email" type="email" autoComplete="email" className={inputClass()} /></Field>
+                <Field label="Email" required><input name="email" type="email" autoComplete="email" className={inputClass()} onBlur={(e) => { void handleEmailBlur(e.target.value); }} /></Field>
+                {emailWarning && <DuplicateWarning warning={emailWarning} />}
                 <Field label="Phone"><input name="phone" autoComplete="tel" className={inputClass()} /></Field>
                 <Field label="LinkedIn" required><input name="linkedin" autoComplete="url" className={inputClass()} /></Field>
                 <ContactRequirementHint />
@@ -1255,7 +1324,39 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
   const [kind, setKind] = useState<CompanyKind>(initialKind ?? "sponsors");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [addPartnerEmailWarning, setAddPartnerEmailWarning] = useState<ContactHistoryWarning | null>(null);
+  const [companyNameWarning, setCompanyNameWarning] = useState<ContactHistoryWarning | null>(null);
   const selected = companies.find((company) => company.id === selectedId) ?? null;
+
+  const companyNameTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const companyNameQuery = useRef("");
+
+  async function lookupCompanyName(name: string) {
+    const trimmed = name.trim();
+    companyNameQuery.current = trimmed;
+    if (!trimmed) { setCompanyNameWarning(null); return; }
+    const result = await getCompanyByNameAction(trimmed);
+    // Ignore stale responses if the field changed while the request was in flight.
+    if (companyNameQuery.current !== trimmed) return;
+    if (!result) { setCompanyNameWarning(null); return; }
+    setCompanyNameWarning({
+      entityId: result.id,
+      entityLabel: result.name,
+      href: `/companies?companyId=${result.id}`,
+      lastActivity: result.lastActivity,
+    });
+  }
+
+  function handleCompanyNameChange(name: string) {
+    if (companyNameTimer.current) clearTimeout(companyNameTimer.current);
+    if (!name.trim()) { setCompanyNameWarning(null); return; }
+    companyNameTimer.current = setTimeout(() => lookupCompanyName(name), 250);
+  }
+
+  function handleCompanyNameBlur(name: string) {
+    if (companyNameTimer.current) clearTimeout(companyNameTimer.current);
+    lookupCompanyName(name);
+  }
 
   const sponsorCount = kindCounts.sponsors;
   const inKindCount = kindCounts.inKind;
@@ -1333,6 +1434,7 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
           tags,
         });
         form.reset();
+        setCompanyNameWarning(null);
         setSelectedId(company.id);
         setMode("view");
         setKind(kindForCompany({ tags }));
@@ -1472,6 +1574,18 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
     });
   }
 
+  async function handleAddPartnerEmailBlur(email: string) {
+    if (!email.trim()) { setAddPartnerEmailWarning(null); return; }
+    const result = await getPartnerByEmailAction(email.trim());
+    if (!result) { setAddPartnerEmailWarning(null); return; }
+    setAddPartnerEmailWarning({
+      entityId: result.id,
+      entityLabel: `${result.firstName}${result.lastName ? " " + result.lastName : ""} at ${result.companyName}`,
+      href: `/partners?partnerId=${result.id}`,
+      lastActivity: result.lastActivity,
+    });
+  }
+
   function submitCompanyPartner(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selected) return;
@@ -1497,6 +1611,7 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
           directorUserIds: data.getAll("directorUserIds").map(String),
         });
         form.reset();
+        setAddPartnerEmailWarning(null);
         setShowPartnerForm(false);
         router.refresh();
       } catch (cause) {
@@ -1777,7 +1892,16 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
           {mode === "create" ? (
             <form id="company-create-form" onSubmit={submitCreate} className="flex min-h-0 flex-1 flex-col">
               <div className="min-h-0 flex-1 min-w-0 space-y-4 overflow-x-hidden overflow-y-auto px-5 py-5">
-                <Field label="Company name"><input name="name" required className={inputClass()} /></Field>
+                <Field label="Company name" required>
+                  <input
+                    name="name"
+                    required
+                    className={inputClass()}
+                    onChange={(event) => handleCompanyNameChange(event.target.value)}
+                    onBlur={(event) => handleCompanyNameBlur(event.target.value)}
+                  />
+                </Field>
+                {companyNameWarning && <DuplicateWarning warning={companyNameWarning} />}
                 <Field label="Website"><input name="website" className={inputClass()} /></Field>
                 <Field label="LinkedIn"><input name="linkedin" className={inputClass()} /></Field>
                 <Field label="Notes"><textarea name="notes" rows={3} className={inputClass("h-auto py-2")} /></Field>
@@ -1876,9 +2000,10 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
                         </div>
                         <Field label="Title"><input name="role" className={inputClass()} /></Field>
                         <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-                          <Field label="Email"><input name="email" type="email" className={inputClass()} /></Field>
+                          <Field label="Email"><input name="email" type="email" className={inputClass()} onBlur={(e) => { void handleAddPartnerEmailBlur(e.target.value); }} /></Field>
                           <Field label="LinkedIn"><input name="linkedin" className={inputClass()} /></Field>
                         </div>
+                        {addPartnerEmailWarning && <DuplicateWarning warning={addPartnerEmailWarning} />}
                         <ContactRequirementHint />
                         <Field label="Phone"><input name="phone" className={inputClass()} /></Field>
                         <label className="flex items-center gap-2 text-[13px] text-zinc-300">
@@ -2194,7 +2319,7 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
             <div className="flex min-h-0 flex-1 flex-col">
               <div className="min-h-0 flex-1 min-w-0 space-y-4 overflow-x-hidden overflow-y-auto px-5 py-5">
                 <form id="company-edit-form" onSubmit={submitUpdate} className="min-w-0 space-y-4">
-                  <Field label="Company name">
+                  <Field label="Company name" required>
                     <input name="name" required defaultValue={selected.name} className={inputClass()} />
                   </Field>
                   <Field label="Website"><input name="website" defaultValue={selected.website ?? ""} className={inputClass()} /></Field>
@@ -2239,9 +2364,10 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
                         </div>
                         <Field label="Title"><input name="role" className={inputClass()} /></Field>
                         <div className="grid min-w-0 gap-3">
-                          <Field label="Email"><input name="email" type="email" className={inputClass()} /></Field>
+                          <Field label="Email"><input name="email" type="email" className={inputClass()} onBlur={(e) => { void handleAddPartnerEmailBlur(e.target.value); }} /></Field>
                           <Field label="LinkedIn"><input name="linkedin" className={inputClass()} /></Field>
                         </div>
+                        {addPartnerEmailWarning && <DuplicateWarning warning={addPartnerEmailWarning} />}
                         <ContactRequirementHint />
                         <Field label="Phone"><input name="phone" className={inputClass()} /></Field>
                         <label className="flex items-center gap-2 text-[13px] text-zinc-300">
