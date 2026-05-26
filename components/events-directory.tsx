@@ -927,7 +927,7 @@ export function EventsDirectory({
               />
             </span>
             <span className="hidden min-w-0 md:flex md:items-center">
-              Experiences
+              POCs
             </span>
           </div>
           <div className="max-h-[62vh] overflow-auto">
