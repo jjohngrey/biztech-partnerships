@@ -38,6 +38,7 @@ import type {
   PartnerEventAttendance,
 } from "@/lib/partnerships/types";
 import { Pagination } from "@/components/pagination";
+import { DirectorCheckboxes } from "@/components/director-checkboxes";
 
 type CompaniesPageProps = {
   companies: CompanyDirectoryRecord[];
@@ -508,65 +509,6 @@ function EmptyPanel({ label }: { label: string }) {
   return (
     <div className="grid min-h-dvh place-items-center border-l border-white/8 bg-[#111113]/60 px-8 text-center text-sm text-zinc-500">
       {label}
-    </div>
-  );
-}
-
-function DirectorCheckboxes({
-  users,
-  selectedIds = [],
-  currentUserId,
-}: {
-  users: CrmUserSummary[];
-  selectedIds?: string[];
-  currentUserId?: string;
-}) {
-  const [query, setQuery] = useState("");
-
-  const sortedUsers = useMemo(() => {
-    return [...users].sort((left, right) => {
-      if (left.id === currentUserId) return -1;
-      if (right.id === currentUserId) return 1;
-      return compareText(left.name, right.name);
-    });
-  }, [users, currentUserId]);
-
-  const normalizedQuery = query.trim().toLowerCase();
-
-  return (
-    <div className="rounded-md border border-white/8 bg-[#101114] p-3">
-      <p className="text-[12px] font-medium text-zinc-300">BizTech Directors POC</p>
-      <input
-        type="text"
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        placeholder="Search directors…"
-        className="mt-3 w-full rounded-md border border-white/8 bg-[#0b0c0e] px-2 py-1.5 text-[13px] text-zinc-200 placeholder:text-zinc-600 focus:border-white/20 focus:outline-none"
-      />
-      <div className="mt-2 grid max-h-36 gap-1 overflow-y-auto">
-        {sortedUsers.map((user) => {
-          const isCurrentUser = user.id === currentUserId;
-          const haystack = `${user.name} ${user.email}`.toLowerCase();
-          const matches = !normalizedQuery || haystack.includes(normalizedQuery);
-          return (
-            <label
-              key={user.id}
-              className={`items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-zinc-300 hover:bg-white/4 cursor-pointer ${matches ? "flex" : "hidden"}`}
-            >
-              <input
-                name="directorUserIds"
-                value={user.id}
-                type="checkbox"
-                defaultChecked={selectedIds.includes(user.id)}
-                className="size-4 accent-zinc-300"
-              />
-              <span className="min-w-0 truncate">{user.name}</span>
-              {isCurrentUser && <span className="shrink-0 text-[11px] text-zinc-500">(You)</span>}
-            </label>
-          );
-        })}
-        {!users.length && <p className="text-[13px] text-zinc-500">No BizTech Directors found.</p>}
-      </div>
     </div>
   );
 }
@@ -1546,10 +1488,12 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
     }
     startTransition(async () => {
       try {
+        const directorIds = data.getAll("directorUserIds").map(String).filter(Boolean);
         await createCompanyInteractionAction({
           companyId: selected.id,
           contacts: partnerId ? [{ partnerId }] : [],
-          userId: String(data.get("userId") ?? ""),
+          userId: directorIds[0] ?? "",
+          attendeeUserIds: directorIds,
           type: String(data.get("type") ?? "meeting") as CompanyInteractionRecord["type"],
           direction: (String(data.get("direction") ?? "") || undefined) as CompanyInteractionRecord["direction"] | undefined,
           subject: String(data.get("subject") ?? ""),
@@ -2113,14 +2057,7 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
                           ))}
                         </select>
                       </Field>
-                      <Field label="BizTech Director">
-                        <select name="userId" required className={inputClass("w-full min-w-0")}>
-                          <option value="">Select BizTech Director</option>
-                          {users.map((user) => (
-                            <option key={user.id} value={user.id}>{user.name}</option>
-                          ))}
-                        </select>
-                      </Field>
+                      <DirectorCheckboxes users={users} currentUserId={currentUserId} />
                       <div className="grid min-w-0 gap-3 rounded-md border border-white/8 bg-white/2.5 p-3">
                         <div className="flex min-w-0 items-center justify-between gap-3">
                           <p className="truncate text-[13px] font-medium text-zinc-300">Event attendance</p>
@@ -2659,14 +2596,7 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
                         </Field>
                       </div>
                       <div className="grid min-w-0 gap-3">
-                        <Field label="BizTech Director">
-                          <select name="userId" required className={inputClass("w-full min-w-0")}>
-                            <option value="">Select BizTech Director</option>
-                            {users.map((user) => (
-                              <option key={user.id} value={user.id}>{user.name}</option>
-                            ))}
-                          </select>
-                        </Field>
+                        <DirectorCheckboxes users={users} currentUserId={currentUserId} />
                         <Field label="Contact">
                           <select name="partnerId" className={inputClass("w-full min-w-0")}>
                             <option value="">Company-level contact</option>

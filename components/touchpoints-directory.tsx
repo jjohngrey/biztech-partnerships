@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition, type FormEvent, type ReactNode } from
 import { useRouter } from "next/navigation";
 import { MessageSquarePlus, Pencil, Plus, Trash2, X } from "lucide-react";
 import { MarkdownNotes } from "@/components/markdown-notes";
+import { DirectorCheckboxes } from "@/components/director-checkboxes";
 import {
   createCompanyInteractionAction,
   deleteCompanyInteractionAction,
@@ -70,15 +71,6 @@ function emptyContactRow(): ContactRow {
     email: "",
     linkedin: "",
   };
-}
-
-type DirectorRow = {
-  rowId: string;
-  userId: string;
-};
-
-function emptyDirectorRow(): DirectorRow {
-  return { rowId: newRowId(), userId: "" };
 }
 
 type ActivityRecord = {
@@ -519,9 +511,6 @@ export function TouchpointsDirectory({
   const [contactRows, setContactRows] = useState<ContactRow[]>(() => [
     { ...emptyContactRow(), name: initialContactName },
   ]);
-  const initialDirectorRow = useMemo(() => emptyDirectorRow(), []);
-  const [directorRows, setDirectorRows] = useState<DirectorRow[]>([initialDirectorRow]);
-  const [primaryDirectorRowId, setPrimaryDirectorRowId] = useState<string>(initialDirectorRow.rowId);
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [error, setError] = useState<string | null>(null);
@@ -547,35 +536,6 @@ export function TouchpointsDirectory({
 
   function removeRow(rowId: string) {
     setContactRows((rows) => (rows.length === 1 ? [emptyContactRow()] : rows.filter((row) => row.rowId !== rowId)));
-  }
-
-  function resetDirectorRows() {
-    const fresh = emptyDirectorRow();
-    setDirectorRows([fresh]);
-    setPrimaryDirectorRowId(fresh.rowId);
-  }
-
-  function updateDirectorRow(rowId: string, patch: Partial<DirectorRow>) {
-    setDirectorRows((rows) => rows.map((row) => (row.rowId === rowId ? { ...row, ...patch } : row)));
-  }
-
-  function addDirectorRow() {
-    setDirectorRows((rows) => [...rows, emptyDirectorRow()]);
-  }
-
-  function removeDirectorRow(rowId: string) {
-    setDirectorRows((rows) => {
-      if (rows.length === 1) {
-        const fresh = emptyDirectorRow();
-        setPrimaryDirectorRowId(fresh.rowId);
-        return [fresh];
-      }
-      const next = rows.filter((row) => row.rowId !== rowId);
-      if (rowId === primaryDirectorRowId) {
-        setPrimaryDirectorRowId(next[0].rowId);
-      }
-      return next;
-    });
   }
 
   const activities = useMemo(() => {
@@ -661,10 +621,8 @@ export function TouchpointsDirectory({
       });
     }
 
-    const directorIds = directorRows.map((row) => row.userId).filter(Boolean);
-    const uniqueDirectorIds = Array.from(new Set(directorIds));
-    const primaryRow = directorRows.find((row) => row.rowId === primaryDirectorRowId);
-    const primaryDirectorId = primaryRow?.userId || uniqueDirectorIds[0] || "";
+    const uniqueDirectorIds = Array.from(new Set(data.getAll("directorUserIds").map(String).filter(Boolean)));
+    const primaryDirectorId = uniqueDirectorIds[0] ?? "";
     if (!primaryDirectorId) {
       setError("Pick at least one BizTech Director.");
       return;
@@ -715,7 +673,6 @@ export function TouchpointsDirectory({
         setCompanyName("");
         setEventName("");
         resetContactRows();
-        resetDirectorRows();
         setMode("closed");
         resetActivityUrl();
         router.refresh();
@@ -801,7 +758,6 @@ export function TouchpointsDirectory({
               setCompanyName("");
               setEventName("");
               resetContactRows();
-              resetDirectorRows();
               setMode("create");
               resetActivityUrl();
             }}
@@ -885,7 +841,6 @@ export function TouchpointsDirectory({
                 setCompanyName("");
                 setEventName("");
                 resetContactRows();
-                resetDirectorRows();
                 resetActivityUrl();
               }}
               className="grid size-7 shrink-0 place-items-center rounded-md border border-white/[0.12] bg-white/[0.055] text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:hidden cursor-pointer"
@@ -906,7 +861,6 @@ export function TouchpointsDirectory({
                 setCompanyName("");
                 setEventName("");
                 resetContactRows();
-                resetDirectorRows();
                 resetActivityUrl();
               }}
               className="hidden size-8 shrink-0 place-items-center rounded-md border border-white/[0.12] bg-white/[0.055] text-zinc-300 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200 xl:grid cursor-pointer"
@@ -1206,69 +1160,7 @@ export function TouchpointsDirectory({
                     </select>
                   </Field>
                 </div>
-                <div className="grid gap-3">
-                  <p className="text-[12px] font-medium text-zinc-400">BizTech Directors</p>
-                  {directorRows.map((row, index) => {
-                    const isPrimary = row.rowId === primaryDirectorRowId;
-                    const otherSelected = new Set(
-                      directorRows
-                        .filter((other) => other.rowId !== row.rowId && other.userId)
-                        .map((other) => other.userId),
-                    );
-                    return (
-                      <div
-                        key={row.rowId}
-                        className="grid gap-2 rounded-md border border-white/[0.08] bg-white/[0.025] p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center"
-                      >
-                        <select
-                          value={row.userId}
-                          onChange={(event) => updateDirectorRow(row.rowId, { userId: event.target.value })}
-                          className={inputClass()}
-                          required={isPrimary}
-                        >
-                          <option value="">Select BizTech Director</option>
-                          {users.map((user) => (
-                            <option
-                              key={user.id}
-                              value={user.id}
-                              disabled={otherSelected.has(user.id)}
-                            >
-                              {user.name}
-                            </option>
-                          ))}
-                        </select>
-                        <label className="inline-flex items-center gap-2 text-[12px] text-zinc-300">
-                          <input
-                            type="radio"
-                            name="primaryDirector"
-                            checked={isPrimary}
-                            onChange={() => setPrimaryDirectorRowId(row.rowId)}
-                            className="size-3.5 cursor-pointer accent-zinc-300"
-                          />
-                          Primary
-                        </label>
-                        {directorRows.length > 1 || index > 0 ? (
-                          <button
-                            type="button"
-                            aria-label="Remove director"
-                            onClick={() => removeDirectorRow(row.rowId)}
-                            className="grid size-9 shrink-0 place-items-center rounded-md border border-white/[0.09] text-zinc-400 transition hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-200 cursor-pointer"
-                          >
-                            <X className="size-4" strokeWidth={1.8} />
-                          </button>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                  <button
-                    type="button"
-                    onClick={addDirectorRow}
-                    className="inline-flex h-9 w-fit items-center gap-1.5 rounded-md border border-white/[0.12] bg-white/[0.04] px-3 text-[13px] font-medium text-zinc-200 transition hover:bg-white/[0.07] cursor-pointer"
-                  >
-                    <Plus className="size-4" strokeWidth={1.8} />
-                    Add another director
-                  </button>
-                </div>
+                <DirectorCheckboxes users={users} currentUserId={currentUserId} />
                 <div className="grid gap-3 rounded-md border border-white/[0.08] bg-white/[0.025] p-3">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-[13px] font-medium text-zinc-300">Event attendance</p>
