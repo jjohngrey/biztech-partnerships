@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { MessageSquarePlus, Pencil, Plus, Trash2, X } from "lucide-react";
 import { MarkdownNotes } from "@/components/markdown-notes";
 import { DirectorCheckboxes } from "@/components/director-checkboxes";
+import { EventAttendancePicker } from "@/components/event-attendance";
 import {
   createCompanyInteractionAction,
   deleteCompanyInteractionAction,
@@ -96,26 +97,6 @@ const touchpointTypes: Array<{ value: CompanyInteractionRecord["type"]; label: s
   { value: "linkedin", label: "LinkedIn" },
   { value: "in_person", label: "In person" },
   { value: "other", label: "Other" },
-];
-
-const eventRoles: Array<{ value: EventRole; label: string }> = [
-  { value: "judge", label: "Judge" },
-  { value: "mentor", label: "Mentor" },
-  { value: "speaker", label: "Speaker / keynote" },
-  { value: "workshop", label: "Workshop" },
-  { value: "sponsor", label: "Sponsor" },
-  { value: "booth", label: "Booth" },
-  { value: "student", label: "Student" },
-];
-
-const eventStatuses: Array<{ value: EventAttendanceStatus; label: string }> = [
-  { value: "asked", label: "Asked" },
-  { value: "interested", label: "Interested" },
-  { value: "form_sent", label: "Waiting for form" },
-  { value: "form_submitted", label: "Form submitted" },
-  { value: "confirmed", label: "Confirmed" },
-  { value: "declined", label: "Declined" },
-  { value: "attended", label: "Attended" },
 ];
 
 function inputClass(extra = "") {
@@ -282,71 +263,6 @@ function CompanyCombo({
         <p className="mt-1.5 text-[12px] font-normal text-zinc-500">
           Will create company &quot;{value.trim()}&quot; when saved.
         </p>
-      ) : null}
-    </div>
-  );
-}
-
-function EventCombo({
-  events,
-  value,
-  onChange,
-}: {
-  events: CrmEventSummary[];
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const match = getEventMatch(events, value);
-  const filtered = useMemo(() => {
-    const query = value.trim().toLowerCase();
-    const source = query ? events.filter((event) => event.name.toLowerCase().includes(query)) : events;
-    return source.slice(0, 6);
-  }, [events, value]);
-
-  return (
-    <div className="relative">
-      <input type="hidden" name="eventId" value={match?.id ?? ""} />
-      <input
-        aria-label="Event"
-        name="eventName"
-        value={value}
-        onChange={(event) => {
-          onChange(event.target.value);
-          setOpen(true);
-        }}
-        onFocus={() => setOpen(true)}
-        onBlur={() => window.setTimeout(() => setOpen(false), 120)}
-        placeholder="Search events"
-        className={inputClass()}
-      />
-      {open ? (
-        <div className="absolute left-0 right-0 top-11 z-30 max-h-72 overflow-auto rounded-md border border-white/[0.1] bg-[#15161a] shadow-2xl shadow-black/40">
-          {filtered.map((event) => (
-            <button
-              key={event.id}
-              type="button"
-              onMouseDown={(mouseEvent) => mouseEvent.preventDefault()}
-              onClick={() => {
-                onChange(event.name);
-                setOpen(false);
-              }}
-              className="flex w-full items-center justify-between gap-3 border-b border-white/[0.06] px-3 py-2.5 text-left transition last:border-b-0 hover:bg-white/[0.05] cursor-pointer"
-            >
-              <span className="min-w-0">
-                <span className="block truncate text-[13px] font-medium text-zinc-100">{event.name}</span>
-                <span className="block truncate text-[12px] text-zinc-500">{event.year}</span>
-              </span>
-              <span className="shrink-0 text-[12px] text-zinc-500">
-                {event.confirmedPartnerCount}
-                {event.confirmedPartnerGoal ? `/${event.confirmedPartnerGoal}` : ""} confirmed
-              </span>
-            </button>
-          ))}
-          {!filtered.length ? (
-            <div className="px-3 py-2.5 text-[13px] text-zinc-500">No matching events.</div>
-          ) : null}
-        </div>
       ) : null}
     </div>
   );
@@ -1161,31 +1077,7 @@ export function TouchpointsDirectory({
                   </Field>
                 </div>
                 <DirectorCheckboxes users={users} currentUserId={currentUserId} />
-                <div className="grid gap-3 rounded-md border border-white/[0.08] bg-white/[0.025] p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-[13px] font-medium text-zinc-300">Event attendance</p>
-                    <span className="text-[12px] text-zinc-600">Optional</span>
-                  </div>
-                  <Field label="Event">
-                    <EventCombo events={events} value={eventName} onChange={setEventName} />
-                  </Field>
-                  <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-                    <Field label="Role">
-                      <select name="eventRole" defaultValue="judge" disabled={!eventName.trim()} className={inputClass()}>
-                        {eventRoles.map((role) => (
-                          <option key={role.value} value={role.value}>{role.label}</option>
-                        ))}
-                      </select>
-                    </Field>
-                    <Field label="Status">
-                      <select name="eventStatus" defaultValue="asked" disabled={!eventName.trim()} className={inputClass()}>
-                        {eventStatuses.map((status) => (
-                          <option key={status.value} value={status.value}>{status.label}</option>
-                        ))}
-                      </select>
-                    </Field>
-                  </div>
-                </div>
+                <EventAttendancePicker events={events} value={eventName} onChange={setEventName} />
                 <Field label="Notes">
                   <textarea name="notes" rows={5} className={inputClass("h-auto py-2")} />
                 </Field>

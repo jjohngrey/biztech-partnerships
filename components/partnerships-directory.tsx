@@ -39,6 +39,15 @@ import type {
 } from "@/lib/partnerships/types";
 import { Pagination } from "@/components/pagination";
 import { DirectorCheckboxes } from "@/components/director-checkboxes";
+import {
+  EventAttendancePicker,
+  EventAttendanceSection,
+  EventCombo,
+  eventRoleLabel,
+  eventRoles,
+  eventStatuses,
+  eventSummary,
+} from "@/components/event-attendance";
 
 type CompaniesPageProps = {
   companies: CompanyDirectoryRecord[];
@@ -98,41 +107,6 @@ function matchesKind(company: Pick<CompanyDirectoryRecord, "tags">, kind: Compan
   if (kind === "previous") return isPrevious(company);
   if (kind === "in_kind") return isInKind(company);
   return !isInKind(company);
-}
-
-const eventRoles: Array<{ value: EventRole; label: string }> = [
-  { value: "judge", label: "Judge" },
-  { value: "mentor", label: "Mentor" },
-  { value: "speaker", label: "Speaker / keynote" },
-  { value: "workshop", label: "Workshop" },
-  { value: "sponsor", label: "Sponsor" },
-  { value: "booth", label: "Booth" },
-  { value: "student", label: "Student" },
-];
-
-const eventStatuses: Array<{ value: EventAttendanceStatus; label: string }> = [
-  { value: "asked", label: "Asked" },
-  { value: "interested", label: "Interested" },
-  { value: "form_sent", label: "Waiting for form" },
-  { value: "form_submitted", label: "Form submitted" },
-  { value: "confirmed", label: "Confirmed" },
-  { value: "declined", label: "Declined" },
-  { value: "attended", label: "Attended" },
-];
-
-function eventRoleLabel(value: EventRole) {
-  return eventRoles.find((role) => role.value === value)?.label ?? value;
-}
-
-function eventStatusLabel(value: EventAttendanceStatus) {
-  return eventStatuses.find((status) => status.value === value)?.label ?? value;
-}
-
-function eventSummary(items: PartnerEventAttendance[]) {
-  if (!items.length) return "No events";
-  return items
-    .map((item) => `${item.eventName} (${eventRoleLabel(item.eventRole)} · ${eventStatusLabel(item.eventStatus)})`)
-    .join(", ");
 }
 
 function dollars(cents: number | null) {
@@ -241,12 +215,6 @@ function getCompanyMatch(companies: CompanyDirectoryRecord[], value: string) {
   const normalized = value.trim().toLowerCase();
   if (!normalized) return null;
   return companies.find((company) => company.name.trim().toLowerCase() === normalized) ?? null;
-}
-
-function getEventMatch(events: CrmEventSummary[], value: string) {
-  const normalized = value.trim().toLowerCase();
-  if (!normalized) return null;
-  return events.find((event) => event.name.trim().toLowerCase() === normalized) ?? null;
 }
 
 function Avatar({ name, size = "md" }: { name: string; size?: "sm" | "md" | "lg" }) {
@@ -446,61 +414,6 @@ function CompanyCombo({
           Will create company &quot;{value.trim()}&quot; when saved.
         </p>
       ) : null}
-    </div>
-  );
-}
-
-function EventCombo({
-  events,
-  value,
-  onChange,
-}: {
-  events: CrmEventSummary[];
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const match = getEventMatch(events, value);
-  const filtered = useMemo(() => {
-    const query = value.trim().toLowerCase();
-    if (!query) return events.slice(0, 6);
-    return events.filter((event) => event.name.toLowerCase().includes(query)).slice(0, 6);
-  }, [events, value]);
-
-  return (
-    <div className="relative">
-      <input type="hidden" name="eventId" value={match?.id ?? ""} />
-      <input
-        name="eventName"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        onFocus={() => setOpen(true)}
-        onBlur={() => window.setTimeout(() => setOpen(false), 120)}
-        placeholder="Search events"
-        className={inputClass("w-full")}
-      />
-      {open && (
-        <div className="absolute left-0 right-0 top-11 z-30 overflow-hidden rounded-md border border-white/10 bg-[#15161a] shadow-2xl shadow-black/40">
-          {filtered.map((event) => (
-            <button
-              key={event.id}
-              type="button"
-              onMouseDown={(mouseEvent) => mouseEvent.preventDefault()}
-              onClick={() => {
-                onChange(event.name);
-                setOpen(false);
-              }}
-              className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-white/5 cursor-pointer"
-            >
-              <span className="truncate text-[13px] font-medium text-zinc-100">{event.name}</span>
-              <span className="shrink-0 text-[12px] text-zinc-500">{event.year ?? ""}</span>
-            </button>
-          ))}
-          {!filtered.length && (
-            <div className="px-3 py-2.5 text-[13px] text-zinc-500">No matching events</div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
@@ -898,33 +811,7 @@ export function PartnersDirectory({ partners, paginationMeta, companies, events,
                 <ContactRequirementHint />
                 <Field label="Notes"><textarea name="notes" rows={3} className={inputClass("h-auto py-2")} /></Field>
                 <DirectorCheckboxes users={users} currentUserId={currentUserId} />
-                <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/9 bg-[#0d0e11] p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-[13px] font-medium text-zinc-200">Log event attendance</p>
-                    <span className="shrink-0 text-[12px] text-zinc-500">Optional</span>
-                  </div>
-                  <div className="mt-4 grid gap-3">
-                    <Field label="Event">
-                      <EventCombo events={events} value={eventName} onChange={setEventName} />
-                    </Field>
-                    <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-                      <Field label="Role">
-                        <select name="eventRole" defaultValue="judge" className={inputClass("w-full min-w-0")}>
-                          {eventRoles.map((role) => (
-                            <option key={role.value} value={role.value}>{role.label}</option>
-                          ))}
-                        </select>
-                      </Field>
-                      <Field label="Status">
-                        <select name="eventStatus" defaultValue="asked" className={inputClass("w-full min-w-0")}>
-                          {eventStatuses.map((status) => (
-                            <option key={status.value} value={status.value}>{status.label}</option>
-                          ))}
-                        </select>
-                      </Field>
-                    </div>
-                  </div>
-                </div>
+                <EventAttendancePicker events={events} value={eventName} onChange={setEventName} label="Log event attendance" />
                 {error && <p className="rounded-md border border-red-400/20 bg-red-400/10 px-3 py-2 text-[13px] text-red-200">{error}</p>}
               </div>
               <div className="shrink-0 border-t border-white/8 bg-[#0d0e11] px-5 py-4">
@@ -1006,95 +893,27 @@ export function PartnersDirectory({ partners, paginationMeta, companies, events,
                 </section>
 
                 <section className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/9 bg-[#0d0e11] p-4">
-                  <div className="flex min-w-0 flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-[13px] font-medium text-zinc-200">Log event attendance</p>
-                    <p className="text-[12px] text-zinc-500">{selected.eventAttendances.length} linked</p>
-                  </div>
-                  <form onSubmit={submitEventRole} className="mt-4 grid gap-3">
-                    <Field label="Event">
-                      <EventCombo events={events} value={eventName} onChange={setEventName} />
-                    </Field>
-                    <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-                      <Field label="Role">
-                        <select name="eventRole" required className={inputClass("w-full min-w-0")}>
-                          {eventRoles.map((role) => (
-                            <option key={role.value} value={role.value}>{role.label}</option>
-                          ))}
-                        </select>
-                      </Field>
-                      <Field label="Status">
-                        <select name="eventStatus" required defaultValue="asked" className={inputClass("w-full min-w-0")}>
-                          {eventStatuses.map((status) => (
-                            <option key={status.value} value={status.value}>{status.label}</option>
-                          ))}
-                        </select>
-                      </Field>
-                    </div>
-                    <button
-                      disabled={isPending}
-                      className="h-9 w-fit rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer">
-                      Add attendance
-                    </button>
-                  </form>
-                  <div className="mt-4 space-y-2">
-                    {selected.eventAttendances.length ? (
-                      selected.eventAttendances.map((attendance) => (
-                        <div key={`${attendance.eventId}-${attendance.eventRole}`} className="grid gap-2 rounded-md bg-white/[0.035] px-3 py-2 text-[13px] sm:grid-cols-[minmax(0,1fr)_150px_auto] sm:items-center">
-                          <span className="min-w-0">
-                            <span className="block truncate text-zinc-200">{attendance.eventName}</span>
-                            <span className="block truncate text-[12px] text-zinc-500">{eventRoleLabel(attendance.eventRole)}</span>
-                          </span>
-                          <select
-                            value={attendance.eventStatus}
-                            disabled={isPending}
-                            onChange={(event) => {
-                              const eventStatus = event.currentTarget.value as EventAttendanceStatus;
-                              startTransition(async () => {
-                                await updatePartnerEventStatusAction({
-                                  partnerId: selected.id,
-                                  eventId: attendance.eventId,
-                                  eventRole: attendance.eventRole,
-                                  eventStatus,
-                                });
-                                router.refresh();
-                              });
-                            }}
-                            aria-label={`${attendance.eventName} ${eventRoleLabel(attendance.eventRole)} status`}
-                            className={inputClass("h-8 px-2 text-[12px]")}
-                          >
-                            {eventStatuses.map((status) => (
-                              <option key={status.value} value={status.value}>{status.label}</option>
-                            ))}
-                          </select>
-                          <span className="inline-flex shrink-0 items-center gap-1">
-                            <a href={`/events?eventId=${attendance.eventId}`} className="grid size-8 place-items-center rounded-md text-zinc-500 transition hover:bg-white/5.5 hover:text-white" aria-label={`Open ${attendance.eventName}`}>
-                              <ExternalLink className="size-4" strokeWidth={1.8} />
-                            </a>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (!window.confirm("Remove this event attendance?")) return;
-                                startTransition(async () => {
-                                  await removePartnerEventRoleAction({
-                                    partnerId: selected.id,
-                                    eventId: attendance.eventId,
-                                    eventRole: attendance.eventRole,
-                                  });
-                                  router.refresh();
-                                });
-                              }}
-                              aria-label={`Remove ${attendance.eventName} ${eventRoleLabel(attendance.eventRole)} attendance`}
-                              className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-zinc-500 transition hover:bg-red-500/10 hover:text-red-200 cursor-pointer"
-                            >
-                              <Trash2 className="size-4" strokeWidth={1.8} />
-                            </button>
-                          </span>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-[13px] text-zinc-500">No event attendance linked yet.</p>
-                    )}
-                  </div>
+                  <EventAttendanceSection
+                    events={events}
+                    eventName={eventName}
+                    onEventNameChange={setEventName}
+                    attendances={selected.eventAttendances}
+                    isPending={isPending}
+                    onSubmit={submitEventRole}
+                    onUpdateStatus={(attendance, status) => {
+                      startTransition(async () => {
+                        await updatePartnerEventStatusAction({ partnerId: selected.id, eventId: attendance.eventId, eventRole: attendance.eventRole, eventStatus: status });
+                        router.refresh();
+                      });
+                    }}
+                    onRemove={(attendance) => {
+                      startTransition(async () => {
+                        await removePartnerEventRoleAction({ partnerId: selected.id, eventId: attendance.eventId, eventRole: attendance.eventRole });
+                        router.refresh();
+                      });
+                    }}
+                    linkedCount={selected.eventAttendances.length}
+                  />
                 </section>
                 {error && <p className="rounded-md border border-red-400/20 bg-red-400/10 px-3 py-2 text-[13px] text-red-200">{error}</p>}
               </div>
@@ -1146,91 +965,27 @@ export function PartnersDirectory({ partners, paginationMeta, companies, events,
                 </div>
 
                 <div className="mt-6 min-w-0 max-w-full overflow-hidden rounded-md border border-white/9 bg-[#0d0e11] p-4">
-                  <p className="text-[13px] font-medium text-zinc-200">Event attendance</p>
-                  <form onSubmit={submitEventRole} className="mt-4 grid gap-3">
-                    <div className="grid gap-3">
-                      <Field label="Event">
-                        <EventCombo events={events} value={eventName} onChange={setEventName} />
-                      </Field>
-                      <Field label="Role">
-                        <select name="eventRole" required className={inputClass("w-full min-w-0")}>
-                          {eventRoles.map((role) => (
-                            <option key={role.value} value={role.value}>{role.label}</option>
-                          ))}
-                        </select>
-                      </Field>
-                      <Field label="Status">
-                        <select name="eventStatus" required defaultValue="asked" className={inputClass("w-full min-w-0")}>
-                          {eventStatuses.map((status) => (
-                            <option key={status.value} value={status.value}>{status.label}</option>
-                          ))}
-                        </select>
-                      </Field>
-                    </div>
-                    <button
-                      disabled={isPending}
-                      className="h-9 w-fit rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer">
-                      Add attendance
-                    </button>
-                  </form>
-                  <div className="mt-4 space-y-2">
-                    {selected.eventAttendances.length ? (
-                      selected.eventAttendances.map((attendance) => (
-                        <div key={`${attendance.eventId}-${attendance.eventRole}`} className="grid grid-cols-[minmax(0,1fr)_140px_auto] items-center gap-3 rounded-md bg-white/[0.035] px-3 py-2 text-[13px]">
-                          <span className="min-w-0 truncate text-zinc-200">
-                            {attendance.eventName} · {eventRoleLabel(attendance.eventRole)}
-                          </span>
-                          <select
-                            value={attendance.eventStatus}
-                            disabled={isPending}
-                            onChange={(event) => {
-                              const eventStatus = event.currentTarget.value as EventAttendanceStatus;
-                              startTransition(async () => {
-                                await updatePartnerEventStatusAction({
-                                  partnerId: selected.id,
-                                  eventId: attendance.eventId,
-                                  eventRole: attendance.eventRole,
-                                  eventStatus,
-                                });
-                                router.refresh();
-                              });
-                            }}
-                            aria-label={`${attendance.eventName} ${eventRoleLabel(attendance.eventRole)} status`}
-                            className={inputClass("h-8 px-2 text-[12px]")}
-                          >
-                            {eventStatuses.map((status) => (
-                              <option key={status.value} value={status.value}>{status.label}</option>
-                            ))}
-                          </select>
-                          <span className="inline-flex shrink-0 items-center gap-1">
-                            <a href={`/events?eventId=${attendance.eventId}`} className="grid size-8 place-items-center rounded-md text-zinc-500 transition hover:bg-white/5.5 hover:text-white" aria-label={`Open ${attendance.eventName}`}>
-                              <ExternalLink className="size-4" strokeWidth={1.8} />
-                            </a>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (!window.confirm("Remove this event attendance?")) return;
-                                startTransition(async () => {
-                                  await removePartnerEventRoleAction({
-                                    partnerId: selected.id,
-                                    eventId: attendance.eventId,
-                                    eventRole: attendance.eventRole,
-                                  });
-                                  router.refresh();
-                                });
-                              }}
-                              aria-label={`Remove ${attendance.eventName} ${eventRoleLabel(attendance.eventRole)} role`}
-                              className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-zinc-500 transition hover:bg-red-500/10 hover:text-red-200 cursor-pointer"
-                            >
-                              <Trash2 className="size-4" strokeWidth={1.8} />
-                            </button>
-                          </span>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-[13px] text-zinc-500">No event attendance linked yet.</p>
-                    )}
-                  </div>
+                  <EventAttendanceSection
+                    events={events}
+                    eventName={eventName}
+                    onEventNameChange={setEventName}
+                    attendances={selected.eventAttendances}
+                    isPending={isPending}
+                    onSubmit={submitEventRole}
+                    onUpdateStatus={(attendance, status) => {
+                      startTransition(async () => {
+                        await updatePartnerEventStatusAction({ partnerId: selected.id, eventId: attendance.eventId, eventRole: attendance.eventRole, eventStatus: status });
+                        router.refresh();
+                      });
+                    }}
+                    onRemove={(attendance) => {
+                      startTransition(async () => {
+                        await removePartnerEventRoleAction({ partnerId: selected.id, eventId: attendance.eventId, eventRole: attendance.eventRole });
+                        router.refresh();
+                      });
+                    }}
+                    title="Event attendance"
+                  />
                 </div>
                 {error && <p className="mt-4 rounded-md border border-red-400/20 bg-red-400/10 px-3 py-2 text-[13px] text-red-200">{error}</p>}
               </div>
@@ -2058,31 +1813,7 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
                         </select>
                       </Field>
                       <DirectorCheckboxes users={users} currentUserId={currentUserId} />
-                      <div className="grid min-w-0 gap-3 rounded-md border border-white/8 bg-white/2.5 p-3">
-                        <div className="flex min-w-0 items-center justify-between gap-3">
-                          <p className="truncate text-[13px] font-medium text-zinc-300">Event attendance</p>
-                          <span className="shrink-0 text-[12px] text-zinc-600">Optional</span>
-                        </div>
-                        <Field label="Event">
-                          <EventCombo events={events} value={touchpointEventName} onChange={setTouchpointEventName} />
-                        </Field>
-                        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-                          <Field label="Role">
-                            <select name="eventRole" disabled={!touchpointEventName.trim()} className={inputClass("w-full min-w-0")}>
-                              {eventRoles.map((role) => (
-                                <option key={role.value} value={role.value}>{role.label}</option>
-                              ))}
-                            </select>
-                          </Field>
-                          <Field label="Status">
-                            <select name="eventStatus" disabled={!touchpointEventName.trim()} defaultValue="asked" className={inputClass("w-full min-w-0")}>
-                              {eventStatuses.map((status) => (
-                                <option key={status.value} value={status.value}>{status.label}</option>
-                              ))}
-                            </select>
-                          </Field>
-                        </div>
-                      </div>
+                      <EventAttendancePicker events={events} value={touchpointEventName} onChange={setTouchpointEventName} />
                       <Field label="Notes"><textarea name="notes" rows={3} className={inputClass("h-auto py-2")} /></Field>
                       <button disabled={isPending} className="h-9 w-fit rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer">
                         Save contact
@@ -2380,91 +2111,29 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
                     </div>
                   </div>
                   <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/9 bg-[#0d0e11] p-4">
-                    <p className="text-[13px] font-medium text-zinc-200">Event involvement</p>
-                    <form onSubmit={submitCompanyEventRole} className="mt-4 grid min-w-0 gap-3">
-                      <div className="grid min-w-0 gap-3">
-                        <Field label="Event">
-                          <EventCombo events={events} value={eventName} onChange={setEventName} />
-                        </Field>
-                        <Field label="Role">
-                          <select name="eventRole" required className={inputClass("w-full min-w-0")}>
-                            {eventRoles.map((role) => (
-                              <option key={role.value} value={role.value}>{role.label}</option>
-                            ))}
-                          </select>
-                        </Field>
-                        <Field label="Status">
-                          <select name="eventStatus" required defaultValue="asked" className={inputClass("w-full min-w-0")}>
-                            {eventStatuses.map((status) => (
-                              <option key={status.value} value={status.value}>{status.label}</option>
-                            ))}
-                          </select>
-                        </Field>
-                      </div>
-                      <button
-                        disabled={isPending}
-                        className="h-9 w-fit rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer">
-                        Add involvement
-                      </button>
-                    </form>
-                    <div className="mt-4 space-y-2">
-                      {selected.eventAttendances.length ? (
-                        selected.eventAttendances.map((attendance) => (
-                          <div key={`${attendance.eventId}-${attendance.eventRole}`} className="grid grid-cols-[minmax(0,1fr)_140px_auto] items-center gap-3 rounded-md bg-white/[0.035] px-3 py-2 text-[13px]">
-                            <span className="min-w-0 truncate text-zinc-200">
-                              {attendance.eventName} · {eventRoleLabel(attendance.eventRole)}
-                            </span>
-                            <select
-                              value={attendance.eventStatus}
-                              disabled={isPending}
-                              onChange={(event) => {
-                                const eventStatus = event.currentTarget.value as EventAttendanceStatus;
-                                startTransition(async () => {
-                                  await updateCompanyEventStatusAction({
-                                    companyId: selected.id,
-                                    eventId: attendance.eventId,
-                                    eventRole: attendance.eventRole,
-                                    eventStatus,
-                                  });
-                                  router.refresh();
-                                });
-                              }}
-                              aria-label={`${attendance.eventName} ${eventRoleLabel(attendance.eventRole)} status`}
-                              className={inputClass("h-8 px-2 text-[12px]")}
-                            >
-                              {eventStatuses.map((status) => (
-                                <option key={status.value} value={status.value}>{status.label}</option>
-                              ))}
-                            </select>
-                            <span className="inline-flex shrink-0 items-center gap-1">
-                              <a href={`/events?eventId=${attendance.eventId}`} className="grid size-8 place-items-center rounded-md text-zinc-500 transition hover:bg-white/5.5 hover:text-white" aria-label={`Open ${attendance.eventName}`}>
-                                <ExternalLink className="size-4" strokeWidth={1.8} />
-                              </a>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (!window.confirm("Remove this event involvement?")) return;
-                                  startTransition(async () => {
-                                    await removeCompanyEventRoleAction({
-                                      companyId: selected.id,
-                                      eventId: attendance.eventId,
-                                      eventRole: attendance.eventRole,
-                                    });
-                                    router.refresh();
-                                  });
-                                }}
-                                aria-label={`Remove ${attendance.eventName} ${eventRoleLabel(attendance.eventRole)} role`}
-                                className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-zinc-500 transition hover:bg-red-500/10 hover:text-red-200 cursor-pointer"
-                              >
-                                <Trash2 className="size-4" strokeWidth={1.8} />
-                              </button>
-                            </span>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-[13px] text-zinc-500">No event involvement linked yet.</p>
-                      )}
-                    </div>
+                    <EventAttendanceSection
+                      events={events}
+                      eventName={eventName}
+                      onEventNameChange={setEventName}
+                      attendances={selected.eventAttendances}
+                      isPending={isPending}
+                      onSubmit={submitCompanyEventRole}
+                      onUpdateStatus={(attendance, status) => {
+                        startTransition(async () => {
+                          await updateCompanyEventStatusAction({ companyId: selected.id, eventId: attendance.eventId, eventRole: attendance.eventRole, eventStatus: status });
+                          router.refresh();
+                        });
+                      }}
+                      onRemove={(attendance) => {
+                        startTransition(async () => {
+                          await removeCompanyEventRoleAction({ companyId: selected.id, eventId: attendance.eventId, eventRole: attendance.eventRole });
+                          router.refresh();
+                        });
+                      }}
+                      title="Event involvement"
+                      addLabel="Add involvement"
+                      emptyLabel="No event involvement linked yet."
+                    />
                   </div>
 
                   <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/9 bg-[#0d0e11] p-4">

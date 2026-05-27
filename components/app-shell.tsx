@@ -22,9 +22,9 @@ const NAV_SECTIONS = [
   {
     heading: "OUTREACH",
     links: [
-      { href: "/pipeline", label: "Pipeline" },
       { href: "/contact-log", label: "Contact History" },
       { href: "/outreach", label: "Outreach" },
+      { href: "/pipeline", label: "Pipeline" },
     ],
   },
 ];
