@@ -51,8 +51,8 @@ const navSections: Array<{ heading: string; items: NavItem[] }> = [
   {
     heading: "OUTREACH",
     items: [
-      { href: "/pipeline", label: "Pipeline", key: "pipeline", icon: Handshake },
       { href: "/contact-log", label: "Contact History", key: "touchpoints", icon: MessageSquarePlus },
+      { href: "/pipeline", label: "Pipeline", key: "pipeline", icon: Handshake },
       { href: "/outreach", label: "Outreach", key: "outreach", icon: MailPlus },
     ],
   },
