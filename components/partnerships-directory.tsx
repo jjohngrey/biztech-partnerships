@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ExternalLink, MessageSquarePlus, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ArrowLeft, Download, ExternalLink, MessageSquarePlus, Pencil, Plus, Trash2, X } from "lucide-react";
 import {
   addCompanyEventRoleAction,
   addPartnerEventRoleAction,
@@ -48,6 +48,7 @@ import {
   eventStatuses,
   eventSummary,
 } from "@/components/event-attendance";
+import { downloadCsv, sanitizeCsvFilename } from "@/lib/csv";
 
 type CompaniesPageProps = {
   companies: CompanyDirectoryRecord[];
@@ -79,6 +80,7 @@ type CompanySortKey = "name" | "partners" | "events";
 
 const IN_KIND_TAG = "in-kind";
 const PREVIOUS_TAG = "previous-sponsor";
+const PARTNER_EXPORT_HEADERS = ["email", "firstName", "lastName", "linkedin", "position", "company"];
 
 function isInKind(company: Pick<CompanyDirectoryRecord, "tags">) {
   return company.tags.includes(IN_KIND_TAG);
@@ -608,6 +610,24 @@ export function PartnersDirectory({ partners, paginationMeta, companies, events,
     });
   }
 
+  function exportSelectedPartnerCsv() {
+    if (!selected) return;
+    const filenameName = sanitizeCsvFilename(
+      `partner-${selected.firstName}-${selected.lastName || selected.id}`,
+    );
+    downloadCsv(`${filenameName}.csv`, [
+      PARTNER_EXPORT_HEADERS,
+      [
+        selected.email,
+        selected.firstName,
+        selected.lastName,
+        selected.linkedin,
+        selected.role,
+        selected.companyName,
+      ],
+    ]);
+  }
+
   const panelOpen = mode !== "closed";
   const partnerGrid = panelOpen
     ? "grid-cols-[minmax(180px,1.1fr)_minmax(120px,0.9fr)]"
@@ -872,6 +892,14 @@ export function PartnersDirectory({ partners, paginationMeta, companies, events,
                     >
                       <Pencil className="size-3.5" strokeWidth={1.8} />
                       Edit person
+                    </button>
+                    <button
+                      type="button"
+                      onClick={exportSelectedPartnerCsv}
+                      className="inline-flex h-8 items-center gap-1.5 rounded-md border border-white/9 px-2.5 text-[12px] font-medium text-zinc-300 transition hover:bg-white/5.5 hover:text-white cursor-pointer"
+                    >
+                      <Download className="size-3.5" strokeWidth={1.8} />
+                      Export CSV
                     </button>
                   </div>
                 </section>
