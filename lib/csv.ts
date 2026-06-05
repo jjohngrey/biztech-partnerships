@@ -9,12 +9,8 @@ export function buildCsv(rows: CsvValue[][]) {
 }
 
 export function sanitizeCsvFilename(value: string) {
-  const cleaned = value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return cleaned || "export";
+  const cleaned = value.trim().toLowerCase();
+  return cleaned;
 }
 
 export function downloadCsv(filename: string, rows: CsvValue[][]) {

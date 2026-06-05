@@ -17,9 +17,9 @@ describe("csv helpers", () => {
     ).toBe('"email","firstName","lastName"\n"","Ada",""');
   });
 
-  it("sanitizes filenames", () => {
+  it("normalizes filenames without slugging punctuation", () => {
     expect(sanitizeCsvFilename("Partner: Ada Lovelace / Initech")).toBe(
-      "partner-ada-lovelace-initech",
+      "partner: ada lovelace / initech",
     );
   });
 });
