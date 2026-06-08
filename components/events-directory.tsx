@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ChevronDown, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ArrowLeft, ChevronDown, Download, Pencil, Plus, Trash2, X } from "lucide-react";
 import {
   createEventAction,
   logEventPartnerResponseAction,
@@ -24,6 +24,7 @@ import type {
   EventRole,
   PartnerDirectoryRecord,
 } from "@/lib/partnerships/types";
+import { downloadCsv, sanitizeCsvFilename } from "@/lib/csv";
 
 type PanelMode = "closed" | "create" | "view" | "edit";
 type SortDirection = "asc" | "desc";
@@ -50,6 +51,13 @@ const eventStatuses: Array<{ value: EventAttendanceStatus; label: string }> = [
   { value: "declined", label: "Declined" },
   { value: "attended", label: "Attended" },
 ];
+const PARTNER_EXPORT_HEADERS = ["email", "firstName", "lastName", "linkedin", "position", "company"];
+const EXPORTABLE_EVENT_STATUSES = new Set<EventAttendanceStatus>([
+  "form_sent",
+  "form_submitted",
+  "confirmed",
+  "attended",
+]);
 
 function inputClass(extra = "") {
   return [
@@ -825,6 +833,31 @@ export function EventsDirectory({
     });
   }
 
+  function exportSelectedEventPartnersCsv() {
+    if (!selected) return;
+    const partnersById = new Map(partners.map((partner) => [partner.id, partner]));
+    const seenEmails = new Set<string>();
+    const rows = selected.partnerResponses.flatMap((response) => {
+      if (!EXPORTABLE_EVENT_STATUSES.has(response.eventStatus)) return [];
+      const partner = partnersById.get(response.partnerId);
+      const normalizedEmail = partner?.email?.trim().toLowerCase();
+      if (!partner || !normalizedEmail || seenEmails.has(normalizedEmail)) return [];
+      seenEmails.add(normalizedEmail);
+      return [
+        [
+          partner.email,
+          partner.firstName,
+          partner.lastName,
+          partner.linkedin,
+          partner.role,
+          partner.companyName,
+        ],
+      ];
+    });
+    const filenameName = sanitizeCsvFilename(`event-${selected.name}-partners`);
+    downloadCsv(`${filenameName}.csv`, [PARTNER_EXPORT_HEADERS, ...rows]);
+  }
+
   function openEvent(event: CrmEventSummary) {
     setError(null);
     setOpenPartnerBreakdownId(null);
@@ -1553,6 +1586,14 @@ export function EventsDirectory({
                       </p>
                     )}
                   </div>
+                  <button
+                    type="button"
+                    onClick={exportSelectedEventPartnersCsv}
+                    className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-md border border-white/9 px-2.5 text-[12px] font-medium text-zinc-300 transition hover:bg-white/5.5 hover:text-white cursor-pointer"
+                  >
+                    <Download className="size-3.5" strokeWidth={1.8} />
+                    Export partners
+                  </button>
                 </div>
               ) : null}
               {error && (
