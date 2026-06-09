@@ -28,6 +28,50 @@ export type EventAttendanceStatus =
   | "declined"
   | "attended";
 
+export type TouchpointSubject =
+  | "initial_interest"
+  | "deferred"
+  | "ghosted"
+  | "discovery_call_scheduled"
+  | "discovery_call_completed"
+  | "follow_up"
+  | "closed_success"
+  | "closed_reject";
+
+export const TOUCHPOINT_SUBJECT_OPTIONS: ReadonlyArray<{
+  value: TouchpointSubject;
+  label: string;
+}> = [
+  { value: "initial_interest", label: "Initial Interest" },
+  { value: "deferred", label: "Deferred (interested, but not now)" },
+  { value: "ghosted", label: "Ghosted" },
+  { value: "discovery_call_scheduled", label: "Discovery Call Scheduled" },
+  { value: "discovery_call_completed", label: "Discovery Call Completed" },
+  { value: "follow_up", label: "Follow Up" },
+  { value: "closed_success", label: "Closed / Success" },
+  { value: "closed_reject", label: "Closed / Rejected" },
+];
+
+export const TOUCHPOINT_SUBJECT_LABELS: Record<TouchpointSubject, string> =
+  Object.fromEntries(TOUCHPOINT_SUBJECT_OPTIONS.map((o) => [o.value, o.label])) as Record<
+    TouchpointSubject,
+    string
+  >;
+
+export const TOUCHPOINT_SUBJECT_VALUES: ReadonlyArray<TouchpointSubject> =
+  TOUCHPOINT_SUBJECT_OPTIONS.map((o) => o.value);
+
+export function isTouchpointSubject(value: unknown): value is TouchpointSubject {
+  return typeof value === "string" && (TOUCHPOINT_SUBJECT_VALUES as ReadonlyArray<string>).includes(value);
+}
+
+// Used wherever a `subject` may be either a touchpoint enum value or a
+// meeting-log title — touchpoints get the human label, meeting logs render raw.
+export function formatSubjectDisplay(subject: string | null | undefined): string {
+  if (!subject) return "";
+  return isTouchpointSubject(subject) ? TOUCHPOINT_SUBJECT_LABELS[subject] : subject;
+}
+
 export type PartnerContact = {
   id: string;
   firstName: string;
@@ -221,7 +265,7 @@ export type CompanyInteractionRecord = {
   userName: string;
   type: "meeting" | "call" | "email" | "linkedin" | "in_person" | "other";
   direction: "inbound" | "outbound" | null;
-  subject: string | null;
+  subject: string;
   notes: string | null;
   contactedAtIso: string;
   followUpDate: string | null;
@@ -296,13 +340,14 @@ export type CreateCompanyInteractionInput = {
   attendeeUserIds?: string[];
   type: CompanyInteractionRecord["type"];
   direction?: CompanyInteractionRecord["direction"];
-  subject?: string;
+  subject: TouchpointSubject;
   notes?: string;
   contactedAt: string;
   followUpDate?: string;
 };
 
-export type TouchpointRecord = CompanyInteractionRecord & {
+export type TouchpointRecord = Omit<CompanyInteractionRecord, "subject"> & {
+  subject: TouchpointSubject;
   companyName: string;
   partners: Array<{ id: string; name: string }>;
   attendees: CrmUserSummary[];
@@ -314,7 +359,7 @@ export type TouchpointRecord = CompanyInteractionRecord & {
 
 export type UpdateCompanyInteractionInput = {
   id: string;
-  subject: string;
+  subject: TouchpointSubject;
   contactedAt: string;
   followUpDate?: string;
   type: CompanyInteractionRecord["type"];

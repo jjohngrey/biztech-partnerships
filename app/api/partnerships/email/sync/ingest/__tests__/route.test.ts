@@ -262,8 +262,8 @@ describe("POST /api/partnerships/email/sync/ingest", () => {
     expect(activityInsert!.values).toMatchObject({
       type: "email",
       direction: "inbound",
-      subject: "Re: sponsorship",
-      notes: "Discussed booth tiers",
+      subject: "initial_interest",
+      notes: "Discussed booth tiers\n\nGmail subject: Re: sponsorship",
       source: "gmail_sync",
       externalMessageId: "gmail-msg-1",
       externalThreadId: "gmail-thread-1",

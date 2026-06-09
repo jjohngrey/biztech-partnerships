@@ -72,6 +72,7 @@ import type {
   PartnerDirectoryRecord,
   PipelineDeal,
   TouchpointRecord,
+  TouchpointSubject,
   UpdateCompanyInput,
   UpdateCompanyInteractionInput,
   UpdateContactInput,
@@ -81,6 +82,7 @@ import type {
   UpdateMeetingLogInput,
   UpdateSponsorshipInput,
 } from "./types";
+import { isTouchpointSubject } from "./types";
 
 const securedStatuses = new Set<CrmStatus>(["confirmed", "paid"]);
 const confirmedEventStatuses = new Set<EventAttendanceStatus>(["confirmed", "attended"]);
@@ -214,15 +216,13 @@ function contactActivityIsMeetingLog(activity: typeof contactActivities.$inferSe
   return activity.type === "meeting" && Boolean(activity.content || activity.legacyMeetingNoteId);
 }
 
-function contactActivitySubject(input: {
-  subject?: string | null;
-  type: CompanyInteractionRecord["type"];
-  partnerName?: string | null;
-}) {
-  const subject = input.subject?.trim();
-  if (subject) return subject;
-  const typeLabel = input.type.replace("_", " ");
-  return input.partnerName ? `${typeLabel} with ${input.partnerName}` : typeLabel;
+function validateTouchpointSubject(value: unknown): TouchpointSubject {
+  if (isTouchpointSubject(value)) return value;
+  throw new Error("Subject must be one of the standard outreach stages.");
+}
+
+function coerceTouchpointSubject(value: string | null): TouchpointSubject {
+  return isTouchpointSubject(value) ? value : "initial_interest";
 }
 
 async function findOrCreateCompanyByName(nameValue: string) {
@@ -963,7 +963,7 @@ export async function listTouchpoints(): Promise<TouchpointRecord[]> {
       userName: user ? toUserSummary(user).name : "No director",
       type: contactActivityTypeToInteractionType(activity.type),
       direction: activity.direction as CompanyInteractionRecord["direction"],
-      subject: activity.subject,
+      subject: coerceTouchpointSubject(activity.subject),
       notes: activity.notes,
       contactedAtIso: activity.occurredAt.toISOString(),
       followUpDate: activity.followUpDate,
@@ -1951,21 +1951,12 @@ export async function createCompanyInteraction(input: CreateCompanyInteractionIn
   const primaryPartnerId = uniquePartnerIds[0] ?? null;
 
   return db.transaction(async (tx) => {
-    const primaryPartner = primaryPartnerId
-      ? (await tx.select().from(partners).where(eq(partners.id, primaryPartnerId)).limit(1))[0]
-      : null;
     const [activity] = await tx
       .insert(contactActivities)
       .values({
         type: input.type,
         direction: input.direction || null,
-        subject: contactActivitySubject({
-          subject: input.subject,
-          type: input.type,
-          partnerName: primaryPartner
-            ? [primaryPartner.firstName, primaryPartner.lastName].filter(Boolean).join(" ")
-            : null,
-        }),
+        subject: validateTouchpointSubject(input.subject),
         notes: input.notes?.trim() || null,
         occurredAt: new Date(contactedAt),
         followUpDate: input.followUpDate || null,
@@ -2020,22 +2011,12 @@ export async function updateCompanyInteraction(input: UpdateCompanyInteractionIn
   }
 
   return db.transaction(async (tx) => {
-    const primaryPartner = partnerId
-      ? (await tx.select().from(partners).where(eq(partners.id, partnerId)).limit(1))[0]
-      : null;
-
     const [activity] = await tx
       .update(contactActivities)
       .set({
         type: input.type,
         direction: input.direction || null,
-        subject: contactActivitySubject({
-          subject: input.subject,
-          type: input.type,
-          partnerName: primaryPartner
-            ? [primaryPartner.firstName, primaryPartner.lastName].filter(Boolean).join(" ")
-            : null,
-        }),
+        subject: validateTouchpointSubject(input.subject),
         notes: input.notes?.trim() || null,
         occurredAt: new Date(contactedAt),
         followUpDate: input.followUpDate || null,

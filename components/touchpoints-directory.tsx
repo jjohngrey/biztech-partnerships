@@ -23,6 +23,12 @@ import type {
   MeetingLogRecord,
   PartnerDirectoryRecord,
   TouchpointRecord,
+  TouchpointSubject,
+} from "@/lib/partnerships/types";
+import {
+  TOUCHPOINT_SUBJECT_LABELS,
+  TOUCHPOINT_SUBJECT_OPTIONS,
+  isTouchpointSubject,
 } from "@/lib/partnerships/types";
 
 type TouchpointsDirectoryProps = {
@@ -365,7 +371,7 @@ function toActivities(touchpoints: TouchpointRecord[], meetings: MeetingLogRecor
       id: touchpoint.id,
       key: `touchpoint:${touchpoint.id}`,
       kind: "touchpoint" as const,
-      title: touchpoint.subject || titleCase(touchpoint.type),
+      title: TOUCHPOINT_SUBJECT_LABELS[touchpoint.subject],
       dateIso: touchpoint.contactedAtIso,
       companyNames: [touchpoint.companyName],
       partnerNames: touchpoint.partners.map((partner) => partner.name),
@@ -552,6 +558,11 @@ export function TouchpointsDirectory({
       setError("Event attendance needs a contacted person.");
       return;
     }
+    const subjectValue = String(data.get("subject") ?? "");
+    if (!isTouchpointSubject(subjectValue)) {
+      setError("Please choose a subject.");
+      return;
+    }
     startTransition(async () => {
       try {
         const interaction = await createCompanyInteractionAction({
@@ -562,7 +573,7 @@ export function TouchpointsDirectory({
           attendeeUserIds: uniqueDirectorIds,
           type: String(data.get("type") ?? "meeting") as CompanyInteractionRecord["type"],
           direction: String(data.get("direction") || "") as CompanyInteractionRecord["direction"],
-          subject: String(data.get("subject") ?? ""),
+          subject: subjectValue,
           notes: String(data.get("notes") ?? ""),
           contactedAt: String(data.get("contactedAt") ?? ""),
           followUpDate: String(data.get("followUpDate") ?? "") || undefined,
@@ -622,10 +633,15 @@ export function TouchpointsDirectory({
       return;
     }
 
+    const subjectValue = String(data.get("subject") ?? "");
+    if (!isTouchpointSubject(subjectValue)) {
+      setError("Please choose a subject.");
+      return;
+    }
     startTransition(async () => {
       const result = await updateCompanyInteractionAction({
         id: touchpointId,
-        subject: String(data.get("subject") ?? ""),
+        subject: subjectValue,
         contactedAt: String(data.get("contactedAt") ?? ""),
         followUpDate: String(data.get("followUpDate") ?? "") || undefined,
         type: String(data.get("type") ?? "meeting") as CompanyInteractionRecord["type"],
@@ -790,12 +806,18 @@ export function TouchpointsDirectory({
               <div className="min-h-0 flex-1 min-w-0 space-y-4 overflow-x-hidden overflow-y-auto px-5 py-5">
                 <input type="hidden" name="companyId" defaultValue={selected.touchpoint.companyId} />
                 <Field label="Subject">
-                  <input
+                  <select
                     name="subject"
                     required
-                    defaultValue={selected.touchpoint.subject ?? ""}
+                    defaultValue={selected.touchpoint.subject}
                     className={inputClass()}
-                  />
+                  >
+                    {TOUCHPOINT_SUBJECT_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                 </Field>
                 <div className="grid min-w-0 gap-3 sm:grid-cols-2">
                   <Field label="Date">
@@ -940,7 +962,16 @@ export function TouchpointsDirectory({
             <form onSubmit={submitCreate} className="flex min-h-0 flex-1 flex-col">
               <div className="min-h-0 flex-1 min-w-0 space-y-4 overflow-x-hidden overflow-y-auto px-5 py-5">
                 <Field label="Subject">
-                  <input name="subject" required placeholder="Followed up on sponsorship deck" className={inputClass()} />
+                  <select name="subject" required defaultValue="" className={inputClass()}>
+                    <option value="" disabled>
+                      Select a stage…
+                    </option>
+                    {TOUCHPOINT_SUBJECT_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                 </Field>
                 <div className="grid min-w-0 gap-3 sm:grid-cols-2">
                   <Field label="Date">

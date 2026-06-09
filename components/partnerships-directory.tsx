@@ -37,6 +37,7 @@ import type {
   PartnerDirectoryRecord,
   PartnerEventAttendance,
 } from "@/lib/partnerships/types";
+import { TOUCHPOINT_SUBJECT_OPTIONS, formatSubjectDisplay, isTouchpointSubject } from "@/lib/partnerships/types";
 import { Pagination } from "@/components/pagination";
 import { DirectorCheckboxes } from "@/components/director-checkboxes";
 import {
@@ -1269,6 +1270,11 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
       setError("Event attendance needs a contacted person.");
       return;
     }
+    const subjectValue = String(data.get("subject") ?? "");
+    if (!isTouchpointSubject(subjectValue)) {
+      setError("Please choose a subject.");
+      return;
+    }
     startTransition(async () => {
       try {
         const directorIds = data.getAll("directorUserIds").map(String).filter(Boolean);
@@ -1279,7 +1285,7 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
           attendeeUserIds: directorIds,
           type: String(data.get("type") ?? "meeting") as CompanyInteractionRecord["type"],
           direction: (String(data.get("direction") ?? "") || undefined) as CompanyInteractionRecord["direction"] | undefined,
-          subject: String(data.get("subject") ?? ""),
+          subject: subjectValue,
           notes: String(data.get("notes") ?? ""),
           contactedAt: String(data.get("contactedAt") ?? ""),
           followUpDate: String(data.get("followUpDate") ?? "") || undefined,
@@ -1809,7 +1815,14 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
                   </div>
                   {showTouchpointForm ? (
                     <form onSubmit={submitCompanyCommunication} className="mt-4 grid min-w-0 gap-3 rounded-md border border-white/8 bg-[#111113] p-3">
-                      <Field label="Subject"><input name="subject" required className={inputClass()} /></Field>
+                      <Field label="Subject">
+                        <select name="subject" required defaultValue="" className={inputClass()}>
+                          <option value="" disabled>Select a stage…</option>
+                          {TOUCHPOINT_SUBJECT_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                          ))}
+                        </select>
+                      </Field>
                       <div className="grid min-w-0 gap-3 sm:grid-cols-2">
                         <Field label="Date"><input name="contactedAt" type="date" required className={inputClass()} /></Field>
                         <Field label="Next outreach"><input name="followUpDate" type="date" className={inputClass()} /></Field>
@@ -1864,7 +1877,7 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
                     ))}
                     {selected.communications.map((communication) => (
                       <div key={communication.id} className="py-2.5">
-                        <p className="truncate text-[13px] font-medium text-zinc-100">{communication.subject || titleStatus(communication.type)}</p>
+                        <p className="truncate text-[13px] font-medium text-zinc-100">{formatSubjectDisplay(communication.subject) || titleStatus(communication.type)}</p>
                         <div className="mt-1 flex min-w-0 items-center justify-between gap-3">
                           <p className="truncate text-[12px] text-zinc-500">
                             {[formatDateTime(communication.contactedAtIso), communication.partnerName || "Company-level contact", communication.userName, communication.followUpDate ? `Next outreach ${communication.followUpDate}` : null].filter(Boolean).join(" · ")}
@@ -2265,7 +2278,12 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
                     <form onSubmit={submitCompanyCommunication} className="mt-4 grid min-w-0 gap-3">
                       <div className="grid min-w-0 gap-3">
                         <Field label="Subject">
-                          <input name="subject" required className={inputClass()} />
+                          <select name="subject" required defaultValue="" className={inputClass()}>
+                            <option value="" disabled>Select a stage…</option>
+                            {TOUCHPOINT_SUBJECT_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                          </select>
                         </Field>
                         <Field label="Date">
                           <input name="contactedAt" type="date" required className={inputClass()} />
@@ -2330,7 +2348,7 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
                           <div key={communication.id} className="flex items-start justify-between gap-3 rounded-md bg-white/[0.035] px-3 py-2 text-[13px]">
                             <span className="min-w-0">
                               <span className="block truncate font-medium text-zinc-100">
-                                {communication.subject || titleStatus(communication.type)}
+                                {formatSubjectDisplay(communication.subject) || titleStatus(communication.type)}
                               </span>
                               <span className="block truncate text-[12px] text-zinc-500">
                                 {[
@@ -2342,7 +2360,7 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
                               </span>
                             </span>
                             <span className="inline-flex shrink-0 items-center gap-1">
-                              <a href={contactHistoryActivityHref("touchpoint", communication.id)} className="grid size-8 place-items-center rounded-md text-zinc-500 transition hover:bg-white/5.5 hover:text-white" aria-label={`Open ${communication.subject || titleStatus(communication.type)}`}>
+                              <a href={contactHistoryActivityHref("touchpoint", communication.id)} className="grid size-8 place-items-center rounded-md text-zinc-500 transition hover:bg-white/5.5 hover:text-white" aria-label={`Open ${formatSubjectDisplay(communication.subject) || titleStatus(communication.type)}`}>
                                 <ExternalLink className="size-4" strokeWidth={1.8} />
                               </a>
                               <button
@@ -2354,7 +2372,7 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
                                     router.refresh();
                                   });
                                 }}
-                                aria-label={`Remove ${communication.subject || titleStatus(communication.type)}`}
+                                aria-label={`Remove ${formatSubjectDisplay(communication.subject) || titleStatus(communication.type)}`}
                                 className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-zinc-500 transition hover:bg-red-500/10 hover:text-red-200 cursor-pointer"
                               >
                                 <Trash2 className="size-4" strokeWidth={1.8} />

@@ -122,12 +122,15 @@ export async function POST(request: NextRequest) {
     const occurredAtValue = normalize(message.occurredAt);
     const occurredAt = occurredAtValue ? new Date(occurredAtValue) : new Date();
 
+    const summary = normalize(message.summary);
+    const notes = [summary || null, `Gmail subject: ${subject}`].filter(Boolean).join("\n\n") || null;
+
     await db.transaction(async (tx) => {
       const [activity] = await tx.insert(contactActivities).values({
         type: "email",
         direction: message.direction === "inbound" ? "inbound" : "outbound",
-        subject,
-        notes: normalize(message.summary) || null,
+        subject: "initial_interest",
+        notes,
         occurredAt: Number.isNaN(occurredAt.getTime()) ? new Date() : occurredAt,
         source: "gmail_sync",
         externalMessageId: externalMessageId || null,
