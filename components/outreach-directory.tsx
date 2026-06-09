@@ -20,6 +20,7 @@ import type {
   PaginatedResult,
 } from "@/lib/partnerships/types";
 import { Pagination } from "@/components/pagination";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type OutreachDirectoryProps = {
   templates: EmailTemplateRecord[];
@@ -568,27 +569,20 @@ function syncPartnershipEmails() {
           </a>
         </div>
         <div className="-mx-3 mt-3 overflow-x-auto px-3 [-ms-overflow-style:none] [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
-          <div className="flex min-w-max items-center gap-1 sm:gap-2">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={["inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[12px] font-medium transition sm:gap-2 sm:px-3 cursor-pointer",
-                activeTab === tab.id
-                  ? "bg-white/9 text-zinc-100"
-                  : "text-zinc-500 hover:bg-white/4.5 hover:text-zinc-200",
-              ].join(" ")}
-            >
-              {tab.label}
-              {typeof tab.count === "number" && (
-                <span className="rounded bg-black/25 px-1 py-0.5 text-[11px] text-zinc-400 sm:px-1.5">
-                  {tab.count}
-                </span>
-              )}
-            </button>
-          ))}
-          </div>
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as OutreachTab)} className="min-w-max">
+            <TabsList variant="row">
+              {tabs.map((tab) => (
+                <TabsTrigger key={tab.id} value={tab.id} className="cursor-pointer">
+                  {tab.label}
+                  {typeof tab.count === "number" && (
+                    <span className="rounded bg-black/25 px-1 py-0.5 text-[11px] text-zinc-400 sm:px-1.5">
+                      {tab.count}
+                    </span>
+                  )}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
         </div>
       </div>
 

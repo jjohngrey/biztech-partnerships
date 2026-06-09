@@ -50,6 +50,7 @@ import {
   eventSummary,
 } from "@/components/event-attendance";
 import { downloadCsv, sanitizeCsvFilename } from "@/lib/csv";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type CompaniesPageProps = {
   companies: CompanyDirectoryRecord[];
@@ -1395,34 +1396,31 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
       <section className={["min-w-0 bg-[#0d0d0f] px-3 py-4 sm:px-5 sm:py-5 xl:overflow-hidden", panelOpen ? "hidden xl:block" : ""].join(" ")}>
         <h2 className="text-[15px] font-medium text-zinc-100">Companies</h2>
 
-        <div className="mt-4 inline-flex rounded-md border border-white/9 bg-[#111113] p-0.5 text-[13px]">
-          {([
-            { value: "sponsors" as const, label: "Sponsors", count: sponsorCount },
-            { value: "in_kind" as const, label: "In-kind", count: inKindCount },
-            { value: "previous" as const, label: "Previous", count: previousCount },
-          ]).map((tab) => (
-            <button
-              key={tab.value}
-              type="button"
-              onClick={() => {
-                setKind(tab.value);
-                const url = new URL(window.location.href);
-                url.searchParams.set("kind", tab.value);
-                url.searchParams.set("page", "1");
-                router.push(url.pathname + url.search);
-              }}
-              className={[
-                "h-7 rounded px-3 transition cursor-pointer",
-                kind === tab.value
-                  ? "bg-white/8 text-zinc-100"
-                  : "text-zinc-400 hover:text-zinc-200",
-              ].join(" ")}
-            >
-              <span>{tab.label}</span>
-              <span className="ml-1.5 text-[12px] text-zinc-500">{tab.count}</span>
-            </button>
-          ))}
-        </div>
+        <Tabs
+          value={kind}
+          onValueChange={(value) => {
+            const next = value as CompanyKind;
+            setKind(next);
+            const url = new URL(window.location.href);
+            url.searchParams.set("kind", next);
+            url.searchParams.set("page", "1");
+            router.push(url.pathname + url.search);
+          }}
+          className="mt-4"
+        >
+          <TabsList variant="pill">
+            {([
+              { value: "sponsors" as const, label: "Sponsors", count: sponsorCount },
+              { value: "in_kind" as const, label: "In-kind", count: inKindCount },
+              { value: "previous" as const, label: "Previous", count: previousCount },
+            ]).map((tab) => (
+              <TabsTrigger key={tab.value} value={tab.value} className="cursor-pointer">
+                <span>{tab.label}</span>
+                <span className="ml-1.5 text-[12px] text-zinc-500">{tab.count}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
 
         <div className="mt-3 grid max-w-190 grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
           <input

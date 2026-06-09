@@ -28,8 +28,10 @@ import type {
 import {
   TOUCHPOINT_SUBJECT_LABELS,
   TOUCHPOINT_SUBJECT_OPTIONS,
+  TOUCHPOINT_TABS,
   isTouchpointSubject,
 } from "@/lib/partnerships/types";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type TouchpointsDirectoryProps = {
   touchpoints: TouchpointRecord[];
@@ -435,6 +437,7 @@ export function TouchpointsDirectory({
   ]);
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [subjectFilter, setSubjectFilter] = useState<string>("all");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -460,9 +463,32 @@ export function TouchpointsDirectory({
     setContactRows((rows) => (rows.length === 1 ? [emptyContactRow()] : rows.filter((row) => row.rowId !== rowId)));
   }
 
+  const tabCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const tab of TOUCHPOINT_TABS) {
+      if (!tab.subjects) {
+        counts[tab.value] = touchpoints.length + meetings.length;
+        continue;
+      }
+      counts[tab.value] = touchpoints.filter((touchpoint) =>
+        tab.subjects?.includes(touchpoint.subject),
+      ).length;
+    }
+    return counts;
+  }, [meetings, touchpoints]);
+
+  const activeTabSubjects = useMemo(
+    () => TOUCHPOINT_TABS.find((tab) => tab.value === subjectFilter)?.subjects,
+    [subjectFilter],
+  );
+
   const activities = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     const filtered = toActivities(touchpoints, meetings).filter((activity) => {
+      if (activeTabSubjects) {
+        if (activity.kind !== "touchpoint" || !activity.touchpoint) return false;
+        if (!activeTabSubjects.includes(activity.touchpoint.subject)) return false;
+      }
       if (!normalizedQuery) return true;
       return [
         activity.title,
@@ -489,7 +515,7 @@ export function TouchpointsDirectory({
               : compareText(left.typeLabel, right.typeLabel);
       return sortValue(result, sortDirection);
     });
-  }, [meetings, query, sortDirection, sortKey, touchpoints]);
+  }, [activeTabSubjects, meetings, query, sortDirection, sortKey, touchpoints]);
 
   const selected = activities.find((activity) => activity.key === selectedKey) ?? null;
   const panelOpen = mode !== "closed";
@@ -673,6 +699,17 @@ export function TouchpointsDirectory({
     <div className={["grid min-h-[100dvh] w-full max-w-full grid-cols-1 overflow-x-hidden bg-[#0d0d0f] text-zinc-100 xl:overflow-hidden", panelOpen ? "xl:grid-cols-[minmax(0,1fr)_minmax(400px,480px)]" : ""].join(" ")}>
       <section className={["min-w-0 bg-[#0d0d0f] px-3 py-4 sm:px-5 sm:py-5 xl:overflow-hidden", panelOpen ? "hidden xl:block" : ""].join(" ")}>
         <h2 className="text-[15px] font-medium text-zinc-100">Contact History</h2>
+
+        <Tabs value={subjectFilter} onValueChange={setSubjectFilter} className="mt-4">
+          <TabsList variant="pill" className="flex-wrap">
+            {TOUCHPOINT_TABS.map((tab) => (
+              <TabsTrigger key={tab.value} value={tab.value} className="cursor-pointer">
+                <span>{tab.label}</span>
+                <span className="ml-1.5 text-[12px] text-zinc-500">{tabCounts[tab.value]}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
 
         <div className="mt-4 grid w-full max-w-[calc(100dvw-1.5rem)] grid-cols-1 gap-2 md:max-w-[860px] md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
           <input

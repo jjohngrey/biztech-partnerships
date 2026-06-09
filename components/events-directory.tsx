@@ -25,6 +25,7 @@ import type {
   PartnerDirectoryRecord,
 } from "@/lib/partnerships/types";
 import { downloadCsv, sanitizeCsvFilename } from "@/lib/csv";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type PanelMode = "closed" | "create" | "view" | "edit";
 type SortDirection = "asc" | "desc";
@@ -885,23 +886,15 @@ export function EventsDirectory({
       >
         <h2 className="text-[15px] font-medium text-zinc-100">Events</h2>
         <div className="mt-4 flex items-center gap-2">
-          <div className="inline-flex flex-wrap rounded-md border border-white/9 bg-[#111113] p-0.5 text-[13px]">
-            {yearTabs.map((tab) => (
-              <button
-                key={tab.value}
-                type="button"
-                onClick={() => setActiveYearTab(tab.value)}
-                className={[
-                  "h-7 rounded px-3 transition cursor-pointer",
-                  activeYearTab === tab.value
-                    ? "bg-white/8 text-zinc-100"
-                    : "text-zinc-400 hover:text-zinc-200",
-                ].join(" ")}
-              >
-                <span>{tab.label}</span>
-              </button>
-            ))}
-          </div>
+          <Tabs value={activeYearTab} onValueChange={setActiveYearTab}>
+            <TabsList variant="pill" className="flex-wrap">
+              {yearTabs.map((tab) => (
+                <TabsTrigger key={tab.value} value={tab.value} className="cursor-pointer">
+                  <span>{tab.label}</span>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
           <button
             type="button"
             onClick={() => {

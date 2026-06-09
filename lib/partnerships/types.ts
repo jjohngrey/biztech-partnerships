@@ -38,6 +38,23 @@ export type TouchpointSubject =
   | "closed_success"
   | "closed_reject";
 
+export const TOUCHPOINT_TABS: ReadonlyArray<{
+  value: string;
+  label: string;
+  // Subjects this tab matches. Omit for the "all" tab.
+  subjects?: ReadonlyArray<TouchpointSubject>;
+}> = [
+  { value: "all", label: "All" },
+  { value: "initial_interest", label: "Initial Interest", subjects: ["initial_interest"] },
+  { value: "deferred", label: "Deferred", subjects: ["deferred"] },
+  { value: "ghosted", label: "Ghosted", subjects: ["ghosted"] },
+  {
+    value: "discovery_call",
+    label: "Discovery Call",
+    subjects: ["discovery_call_scheduled", "discovery_call_completed"],
+  },
+];
+
 export const TOUCHPOINT_SUBJECT_OPTIONS: ReadonlyArray<{
   value: TouchpointSubject;
   label: string;
