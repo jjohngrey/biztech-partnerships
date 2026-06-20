@@ -8,19 +8,17 @@ import {
   listCachedPartnerDirectory,
   listCachedUsers,
 } from "@/lib/partnerships/cached";
-import type { CompanyKind } from "@/lib/partnerships/types";
 
 type CompaniesPageProps = {
-  searchParams?: Promise<{ companyId?: string; page?: string; kind?: string }>;
+  searchParams?: Promise<{ companyId?: string; page?: string }>;
 };
 
 export default async function CompaniesPage({ searchParams }: CompaniesPageProps) {
   const params = await searchParams;
   const page = Math.max(1, Number(params?.page ?? 1));
-  const kind = (params?.kind ?? "sponsors") as CompanyKind;
   const [{ id: currentUserId, displayName, role }, companiesResult, events, users, partners, meetings] = await Promise.all([
     requireDisplayUser(),
-    listCachedCompanyDirectoryPage({ page, kind }),
+    listCachedCompanyDirectoryPage({ page }),
     listCachedEvents(),
     listCachedUsers(),
     listCachedPartnerDirectory(),
@@ -40,7 +38,6 @@ export default async function CompaniesPage({ searchParams }: CompaniesPageProps
         partners={partners}
         meetings={meetings}
         initialCompanyId={params?.companyId}
-        initialKind={kind}
         currentUserId={currentUserId}
       />
     </CrmShell>

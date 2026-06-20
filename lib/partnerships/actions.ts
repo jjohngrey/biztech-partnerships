@@ -4,31 +4,21 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db, contactActivities } from "@/lib/db";
-import { resolveCrmUserForAuthUser } from "@/lib/auth/crm-user";
-import { getAuthedClient } from "@/lib/google/client";
 import { createClient } from "@/lib/supabase/server";
 import {
   addCompanyEventRole,
   addPartnerEventRole,
   archivePartnerAccount,
-  archiveEmailTemplate,
   createCompanyInteraction,
   updateCompanyInteraction,
   createCompany,
   createContact,
   createDirector,
   createCrmEvent,
-  createEmailCampaignDraft,
-  createEmailTemplate,
   createMeetingLog,
   createPartnerAccount,
-  createPartnerDocument,
-  createSponsorship,
   deleteCompanyInteraction,
   deleteMeetingLog,
-  deletePartnerDocument,
-  enqueueEmailCampaign,
-  listEmailCampaigns,
   linkContactToCompany,
   logEventPartnerResponse,
   removeCompanyEventRole,
@@ -38,10 +28,8 @@ import {
   updateContact,
   updateDirector,
   updateCrmEvent,
-  updateEmailTemplate,
   updatePartnerEventStatus,
   updateMeetingLog,
-  updateSponsorship,
   getCompanyByName,
   getCompanyLastContact,
   getPartnerByEmail,
@@ -54,25 +42,19 @@ import type {
   CreateCompanyInput,
   CreateContactInput,
   CreateDirectorInput,
-  CreateEmailCampaignDraftInput,
-  CreateEmailTemplateInput,
   CreateEventInput,
   CreateMeetingLogInput,
-  CreatePartnerDocumentInput,
   CreatePartnerInput,
-  CreateSponsorshipInput,
   LogEventPartnerResponseInput,
   UpdateCompanyInput,
   UpdateContactInput,
   UpdateDirectorInput,
-  UpdateEmailTemplateInput,
   UpdateEventInput,
   UpdateMeetingLogInput,
-  UpdateSponsorshipInput,
 } from "./types";
 import { CRM_DATA_TAG } from "./cached";
 
-const crmDataPaths = ["/", "/dashboard", "/companies", "/partners", "/events", "/meetings", "/contact-log", "/touchpoints", "/pipeline", "/outreach", "/settings"];
+const crmDataPaths = ["/", "/companies", "/partners", "/events", "/contact-log", "/settings"];
 
 function revalidateCrmData(...extraPaths: string[]) {
   revalidateTag(CRM_DATA_TAG);
@@ -129,17 +111,6 @@ export async function updateMeetingLogAction(input: UpdateMeetingLogInput) {
   return note;
 }
 
-export async function createPartnerDocumentAction(input: CreatePartnerDocumentInput) {
-  const document = await createPartnerDocument(input);
-  revalidateCrmData();
-  return document;
-}
-
-export async function deletePartnerDocumentAction(documentId: string) {
-  await deletePartnerDocument(documentId);
-  revalidateCrmData();
-}
-
 export async function createCompanyInteractionAction(input: CreateCompanyInteractionInput) {
   const interaction = await createCompanyInteraction(input);
   revalidateCrmData();
@@ -177,18 +148,6 @@ export async function updateCompanyInteractionAction(input: UpdateCompanyInterac
 export async function deleteMeetingLogAction(meetingLogId: string) {
   await deleteMeetingLog(meetingLogId);
   revalidateCrmData();
-}
-
-export async function createSponsorshipAction(input: CreateSponsorshipInput) {
-  const sponsorship = await createSponsorship(input);
-  revalidateCrmData();
-  return sponsorship;
-}
-
-export async function updateSponsorshipAction(input: UpdateSponsorshipInput) {
-  const sponsorship = await updateSponsorship(input);
-  revalidateCrmData();
-  return sponsorship;
 }
 
 export async function createCompanyAction(input: CreateCompanyInput) {
@@ -275,103 +234,6 @@ export async function updateCompanyEventStatusAction(input: AddCompanyEventRoleI
 export async function removeCompanyEventRoleAction(input: AddCompanyEventRoleInput) {
   await removeCompanyEventRole(input);
   revalidateCrmData();
-}
-
-export async function createEmailTemplateAction(input: CreateEmailTemplateInput) {
-  const template = await createEmailTemplate(input);
-  revalidateCrmData();
-  return template;
-}
-
-export async function updateEmailTemplateAction(input: UpdateEmailTemplateInput) {
-  const template = await updateEmailTemplate(input);
-  revalidateCrmData();
-  return template;
-}
-
-export async function archiveEmailTemplateAction(templateId: string, archived = true) {
-  const template = await archiveEmailTemplate(templateId, archived);
-  revalidateCrmData();
-  return template;
-}
-
-export async function createEmailCampaignDraftAction(input: CreateEmailCampaignDraftInput) {
-  const campaign = await createEmailCampaignDraft(input);
-  revalidateCrmData();
-  return campaign;
-}
-
-/**
- * Hand a campaign off to the background worker. Does not actually call Gmail —
- * the worker drains the queue in BATCH_SIZE chunks (see lib/partnerships/email-
- * worker.ts and the route at /api/partnerships/email/send/process).
- *
- * Verifies the *signed-in user's* Gmail consent up front so the user gets the
- * "needs consent" prompt right when they hit Send instead of the campaign
- * silently failing in the worker. The actual worker uses the campaign's
- * senderUserId, which is normally the same person, but doesn't have to be.
- *
- * `scheduledAtIso` is optional; null/undefined = send as soon as the next
- * worker tick picks up the queue.
- */
-export async function enqueueEmailCampaignAction(input: {
-  campaignId: string;
-  scheduledAtIso?: string | null;
-}) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) throw new Error("You need to sign in before sending email.");
-
-  const crmUser = await resolveCrmUserForAuthUser(user);
-
-  const googleClient = await getAuthedClient(crmUser.id, [
-    "https://www.googleapis.com/auth/gmail.send",
-  ]);
-
-  if ("kind" in googleClient) {
-    return {
-      kind: "needs-consent" as const,
-      consentUrl: googleClient.consentUrl,
-    };
-  }
-
-  const campaigns = await listEmailCampaigns();
-  const campaign = campaigns.find((item) => item.id === input.campaignId);
-  if (!campaign) throw new Error("Outreach draft was not found.");
-
-  const queuedSends = campaign.sends.filter((send) => send.status === "queued");
-  if (!queuedSends.length) {
-    throw new Error("This outreach draft has no queued recipients.");
-  }
-
-  let scheduledAt: Date | null = null;
-  if (input.scheduledAtIso) {
-    const parsed = new Date(input.scheduledAtIso);
-    if (Number.isNaN(parsed.getTime())) {
-      throw new Error("Scheduled send time is not a valid date.");
-    }
-    if (parsed.getTime() < Date.now() - 60_000) {
-      // Allow ~1 minute of clock drift but reject genuinely-past schedules.
-      throw new Error("Scheduled send time must be in the future.");
-    }
-    scheduledAt = parsed;
-  }
-
-  const queued = await enqueueEmailCampaign({
-    campaignId: campaign.id,
-    scheduledAt,
-  });
-  revalidateCrmData();
-
-  return {
-    kind: "queued" as const,
-    campaignId: queued.id,
-    queuedRecipientCount: queuedSends.length,
-    scheduledAtIso: queued.scheduledAt?.toISOString() ?? null,
-  };
 }
 
 export async function getCompanyLastContactAction(companyId: string) {

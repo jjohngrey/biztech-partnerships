@@ -6,10 +6,7 @@ import Link from "next/link";
 import {
   Building2,
   CalendarDays,
-  Gauge,
-  Handshake,
   LogOut,
-  MailPlus,
   MessageSquarePlus,
   Moon,
   Settings,
@@ -20,7 +17,7 @@ import {
 
 type CrmShellProps = {
   displayName: string;
-  activeSection?: "dashboard" | "companies" | "partners" | "events" | "touchpoints" | "pipeline" | "outreach" | "settings" | "home";
+  activeSection?: "companies" | "partners" | "events" | "touchpoints" | "settings" | "home";
   isAdmin?: boolean;
   children?: React.ReactNode;
 };
@@ -37,7 +34,7 @@ const navSections: Array<{ heading: string; items: NavItem[] }> = [
   {
     heading: "MAIN",
     items: [
-      { href: "/dashboard", label: "Dashboard", key: "dashboard", icon: Gauge },
+      { href: "/contact-log", label: "Contact History", key: "touchpoints", icon: MessageSquarePlus },
       { href: "/events", label: "Events", key: "events", icon: CalendarDays },
     ],
   },
@@ -47,16 +44,8 @@ const navSections: Array<{ heading: string; items: NavItem[] }> = [
       { href: "/companies", label: "Companies", key: "companies", icon: Building2 },
       { href: "/partners", label: "Partners", key: "partners", icon: UsersRound },
     ],
-  },
-  {
-    heading: "OUTREACH",
-    items: [
-      { href: "/contact-log", label: "Contact History", key: "touchpoints", icon: MessageSquarePlus },
-      { href: "/pipeline", label: "Pipeline", key: "pipeline", icon: Handshake },
-      { href: "/outreach", label: "Outreach", key: "outreach", icon: MailPlus },
-    ],
-  },
-] ;
+  }
+];
 const primaryNavItems = navSections.flatMap((section) => section.items);
 
 const settingsNavItem = { href: "/settings", label: "Settings", key: "settings", icon: Settings } as const;

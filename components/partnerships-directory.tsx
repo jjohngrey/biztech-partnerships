@@ -10,9 +10,7 @@ import {
   createCompanyAction,
   createContactAction,
   createContactWithEventAction,
-  createPartnerDocumentAction,
   deleteCompanyInteractionAction,
-  deletePartnerDocumentAction,
   getCompanyByNameAction,
   getCompanyLastContactAction,
   getPartnerByEmailAction,
@@ -27,7 +25,6 @@ import {
 import type {
   CompanyDirectoryRecord,
   CompanyInteractionRecord,
-  CompanyKind,
   CrmEventSummary,
   CrmUserSummary,
   EventAttendanceStatus,
@@ -35,7 +32,6 @@ import type {
   MeetingLogRecord,
   PaginationMeta,
   PartnerDirectoryRecord,
-  PartnerEventAttendance,
 } from "@/lib/partnerships/types";
 import { TOUCHPOINT_SUBJECT_OPTIONS, formatSubjectDisplay, isTouchpointSubject } from "@/lib/partnerships/types";
 import { Pagination } from "@/components/pagination";
@@ -55,8 +51,6 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 type CompaniesPageProps = {
   companies: CompanyDirectoryRecord[];
   paginationMeta: PaginationMeta;
-  kindCounts: { sponsors: number; inKind: number; previous: number };
-  initialKind?: CompanyKind;
   events: CrmEventSummary[];
   users: CrmUserSummary[];
   partners: PartnerDirectoryRecord[];
@@ -80,21 +74,11 @@ type SortDirection = "asc" | "desc";
 type PartnerSortKey = "name" | "company" | "role" | "events";
 type CompanySortKey = "name" | "partners" | "events";
 
-const IN_KIND_TAG = "in-kind";
 const PREVIOUS_TAG = "previous-sponsor";
 const PARTNER_EXPORT_HEADERS = ["email", "firstName", "lastName", "linkedin", "position", "company"];
 
-function isInKind(company: Pick<CompanyDirectoryRecord, "tags">) {
-  return company.tags.includes(IN_KIND_TAG);
-}
-
 function isPrevious(company: Pick<CompanyDirectoryRecord, "tags">) {
   return company.tags.includes(PREVIOUS_TAG);
-}
-
-function withInKindTag(existing: string[], inKind: boolean) {
-  const without = existing.filter((tag) => tag !== IN_KIND_TAG);
-  return inKind ? [...without, IN_KIND_TAG] : without;
 }
 
 function withPreviousTag(existing: string[], previous: boolean) {
@@ -102,28 +86,8 @@ function withPreviousTag(existing: string[], previous: boolean) {
   return previous ? [...without, PREVIOUS_TAG] : without;
 }
 
-function kindForCompany(company: Pick<CompanyDirectoryRecord, "tags">): CompanyKind {
-  if (isPrevious(company)) return "previous";
-  return isInKind(company) ? "in_kind" : "sponsors";
-}
-
-function matchesKind(company: Pick<CompanyDirectoryRecord, "tags">, kind: CompanyKind) {
-  if (kind === "previous") return isPrevious(company);
-  if (kind === "in_kind") return isInKind(company);
-  return !isInKind(company);
-}
-
-function dollars(cents: number | null) {
-  if (!cents) return "$0";
-  return new Intl.NumberFormat("en-CA", {
-    style: "currency",
-    currency: "CAD",
-    maximumFractionDigits: 0,
-  }).format(cents / 100);
-}
-
 function titleStatus(status: string | null) {
-  if (!status) return "No sponsorship";
+  if (!status) return "—";
   return status
     .split("_")
     .map((part) => part[0]?.toUpperCase() + part.slice(1))
@@ -153,13 +117,13 @@ function companyWebLine(company: Pick<CompanyDirectoryRecord, "website" | "linke
 function companyContactInfo(company: Pick<CompanyDirectoryRecord, "primaryContact" | "contacts">) {
   const contact = company.primaryContact ?? company.contacts.find((c) => !c.archived) ?? null;
   if (!contact) return null;
-  if (contact.email) return { href: `/outreach?search=${encodeURIComponent(contact.email)}`, label: contact.email, target: "_self" as const };
+  if (contact.email) return { href: `mailto:${contact.email}`, label: contact.email, target: "_self" as const };
   if (contact.linkedin) return { href: contact.linkedin, label: contact.linkedin, target: "_blank" as const };
   return null;
 }
 
 function partnerContactInfo(partner: Pick<PartnerDirectoryRecord, "email" | "linkedin">) {
-  if (partner.email) return { href: `/outreach?search=${encodeURIComponent(partner.email)}`, label: partner.email, target: "_self" as const };
+  if (partner.email) return { href: `mailto:${partner.email}`, label: partner.email, target: "_self" as const };
   if (partner.linkedin) return { href: partner.linkedin, label: partner.linkedin, target: "_blank" as const };
   return null;
 }
@@ -289,26 +253,6 @@ function SortHeader<T extends string>({
       {label}
       {active ? ` ${direction === "asc" ? "↑" : "↓"}` : ""}
     </button>
-  );
-}
-
-function StatusPill({ status }: { status: string | null }) {
-  const label = titleStatus(status);
-  const good = ["confirmed", "paid"].includes(String(status));
-  const active = ["pitched", "reached_out", "shortlist", "in_conversation", "followed_up"].includes(String(status));
-  return (
-    <span
-      className={[
-        "inline-flex h-6 max-w-full items-center rounded-md px-2 text-[12px] font-medium",
-        good
-          ? "bg-zinc-500/14 text-zinc-200"
-          : active
-            ? "bg-zinc-500/12 text-zinc-300"
-            : "bg-zinc-500/12 text-zinc-300",
-      ].join(" ")}
-    >
-      <span className="truncate">{label}</span>
-    </span>
   );
 }
 
@@ -1034,7 +978,7 @@ export function PartnersDirectory({ partners, paginationMeta, companies, events,
   );
 }
 
-export function CompaniesDirectory({ companies, paginationMeta, kindCounts, initialKind, events, users, partners, meetings, initialCompanyId, currentUserId }: CompaniesPageProps) {
+export function CompaniesDirectory({ companies, paginationMeta, events, users, partners, meetings, initialCompanyId, currentUserId }: CompaniesPageProps) {
   const router = useRouter();
   const initialCompany = companies.find((company) => company.id === initialCompanyId) ?? null;
   const [selectedId, setSelectedId] = useState<string | null>(initialCompany?.id ?? null);
@@ -1048,7 +992,6 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
   const [existingPartnerId, setExistingPartnerId] = useState("");
   const [sortKey, setSortKey] = useState<CompanySortKey>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
-  const [kind, setKind] = useState<CompanyKind>(initialKind ?? "sponsors");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [addPartnerEmailWarning, setAddPartnerEmailWarning] = useState<ContactHistoryWarning | null>(null);
@@ -1085,17 +1028,12 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
     lookupCompanyName(name);
   }
 
-  const sponsorCount = kindCounts.sponsors;
-  const inKindCount = kindCounts.inKind;
-  const previousCount = kindCounts.previous;
-
   useEffect(() => {
     const companyId = new URLSearchParams(window.location.search).get("companyId");
     const company = companies.find((item) => item.id === companyId);
     if (!company) return;
     setSelectedId(company.id);
     setMode("view");
-    setKind(kindForCompany(company));
   }, [companies]);
   const linkablePartners = selected
     ? partners.filter((partner) => partner.companyId !== selected.id && !partner.archived)
@@ -1111,7 +1049,6 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
 
   const filteredCompanies = useMemo(() => {
     const filtered = companies.filter((company) => {
-      if (!matchesKind(company, kind)) return false;
       const haystack = [company.name, company.website, company.linkedin]
         .filter(Boolean)
         .join(" ")
@@ -1128,7 +1065,7 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
               : compareText(left.name, right.name);
       return sortValue(result, sortDirection);
     });
-  }, [companies, kind, query, sortDirection, sortKey]);
+  }, [companies, query, sortDirection, sortKey]);
 
   function sortCompanies(key: CompanySortKey) {
     if (sortKey === key) {
@@ -1144,12 +1081,8 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
     setError(null);
     const form = event.currentTarget;
     const data = new FormData(form);
-    const inKind = data.get("isInKind") === "on";
     const previous = data.get("isPrevious") === "on";
-    const tags = [
-      inKind ? IN_KIND_TAG : null,
-      previous ? PREVIOUS_TAG : null,
-    ].filter((tag): tag is string => Boolean(tag));
+    const tags = previous ? [PREVIOUS_TAG] : [];
     startTransition(async () => {
       try {
         const company = await createCompanyAction({
@@ -1164,7 +1097,6 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
         setCompanyNameWarning(null);
         setSelectedId(company.id);
         setMode("view");
-        setKind(kindForCompany({ tags }));
         setCompanyUrl(company.id);
         setShowPartnerForm(false);
         setShowEventForm(false);
@@ -1181,9 +1113,8 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
     if (!selected) return;
     setError(null);
     const data = new FormData(event.currentTarget);
-    const inKind = data.get("isInKind") === "on";
     const previous = data.get("isPrevious") === "on";
-    const nextTags = withPreviousTag(withInKindTag(selected.tags, inKind), previous);
+    const nextTags = withPreviousTag(selected.tags, previous);
     startTransition(async () => {
       try {
         await updateCompanyAction({
@@ -1197,7 +1128,6 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
           tags: nextTags,
         });
         setMode("view");
-        setKind(kindForCompany({ tags: nextTags }));
         router.refresh();
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "Could not update company.");
@@ -1224,34 +1154,6 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
       });
       setEventName("");
       router.refresh();
-    });
-  }
-
-  function submitCompanyDocument(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!selected) return;
-    setError(null);
-    const form = event.currentTarget;
-    const data = new FormData(form);
-    startTransition(async () => {
-      try {
-        await createPartnerDocumentAction({
-          companyId: selected.id,
-          partnerId: String(data.get("partnerId") ?? "") || undefined,
-          eventId: String(data.get("eventId") ?? "") || undefined,
-          title: String(data.get("title") ?? ""),
-          type: String(data.get("type") ?? ""),
-          status: String(data.get("status") ?? ""),
-          url: String(data.get("url") ?? ""),
-          fileName: String(data.get("fileName") ?? ""),
-          notes: String(data.get("notes") ?? ""),
-        });
-        form.reset();
-        setShowTouchpointForm(false);
-        router.refresh();
-      } catch (cause) {
-        setError(cause instanceof Error ? cause.message : "Could not add document.");
-      }
     });
   }
 
@@ -1381,14 +1283,9 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
   }
 
   const panelOpen = mode !== "closed";
-  const showAmount = kind === "sponsors";
   const companyGrid = panelOpen
-    ? showAmount
-      ? "grid-cols-[minmax(140px,1fr)_64px_88px_minmax(120px,1.2fr)]"
-      : "grid-cols-[minmax(140px,1fr)_64px_minmax(120px,1.2fr)]"
-    : showAmount
-      ? "grid-cols-1 md:grid-cols-[minmax(180px,1fr)_88px_96px_minmax(100px,1fr)_minmax(140px,1.2fr)] xl:grid-cols-[minmax(180px,1.4fr)_88px_minmax(140px,1fr)_96px_minmax(100px,1fr)_minmax(160px,1.2fr)]"
-      : "grid-cols-1 md:grid-cols-[minmax(180px,1fr)_88px_minmax(100px,1fr)_minmax(140px,1.2fr)] xl:grid-cols-[minmax(180px,1.4fr)_88px_minmax(140px,1fr)_minmax(100px,1fr)_minmax(160px,1.2fr)]";
+    ? "grid-cols-[minmax(140px,1fr)_64px_minmax(120px,1.2fr)]"
+    : "grid-cols-1 md:grid-cols-[minmax(180px,1fr)_88px_minmax(100px,1fr)_minmax(140px,1.2fr)] xl:grid-cols-[minmax(180px,1.4fr)_88px_minmax(140px,1fr)_minmax(100px,1fr)_minmax(160px,1.2fr)]";
   const companyTableMin = "min-w-0";
 
   return (
@@ -1396,33 +1293,7 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
       <section className={["min-w-0 bg-[#0d0d0f] px-3 py-4 sm:px-5 sm:py-5 xl:overflow-hidden", panelOpen ? "hidden xl:block" : ""].join(" ")}>
         <h2 className="text-[15px] font-medium text-zinc-100">Companies</h2>
 
-        <Tabs
-          value={kind}
-          onValueChange={(value) => {
-            const next = value as CompanyKind;
-            setKind(next);
-            const url = new URL(window.location.href);
-            url.searchParams.set("kind", next);
-            url.searchParams.set("page", "1");
-            router.push(url.pathname + url.search);
-          }}
-          className="mt-4"
-        >
-          <TabsList variant="pill">
-            {([
-              { value: "sponsors" as const, label: "Sponsors", count: sponsorCount },
-              { value: "in_kind" as const, label: "In-kind", count: inKindCount },
-              { value: "previous" as const, label: "Previous", count: previousCount },
-            ]).map((tab) => (
-              <TabsTrigger key={tab.value} value={tab.value} className="cursor-pointer">
-                <span>{tab.label}</span>
-                <span className="ml-1.5 text-[12px] text-zinc-500">{tab.count}</span>
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-
-        <div className="mt-3 grid max-w-190 grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+        <div className="mt-4 grid max-w-190 grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
           <input
             name="companySearch"
             value={query}
@@ -1458,7 +1329,6 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
               <SortHeader label="Partners" sortKey="partners" activeKey={sortKey} direction={sortDirection} onSort={sortCompanies} />
             </span>
             {!panelOpen && <span className="hidden min-w-0 xl:block"><SortHeader label="Events" sortKey="events" activeKey={sortKey} direction={sortDirection} onSort={sortCompanies} /></span>}
-            {showAmount && <span className={panelOpen ? "min-w-0 justify-self-start" : "hidden min-w-0 justify-self-start md:block"}>Amount</span>}
             {!panelOpen && <span className="hidden min-w-0 md:block">Contact</span>}
             <span className={panelOpen ? "min-w-0" : "hidden min-w-0 md:block"}>Notes</span>
           </div>
@@ -1489,11 +1359,6 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
                     <span className="min-w-0">
                       <span className="flex min-w-0 items-center gap-2">
                         <span className="truncate font-medium text-zinc-100">{company.name}</span>
-                        {isInKind(company) ? (
-                          <span className="shrink-0 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-200">
-                            In-kind
-                          </span>
-                        ) : null}
                         {isPrevious(company) ? (
                           <span className="shrink-0 rounded-full border border-amber-400/20 bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-200">
                             Previous
@@ -1512,11 +1377,6 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
                   {!panelOpen && (
                     <span className="hidden min-w-0 truncate text-zinc-400 xl:block">
                       {eventSummary(company.eventAttendances)}
-                    </span>
-                  )}
-                  {showAmount && (
-                    <span className={panelOpen ? "min-w-0 text-left text-zinc-300" : "hidden min-w-0 text-left text-zinc-300 md:block"}>
-                      {company.securedValue ? dollars(company.securedValue) : <span className="text-zinc-600">—</span>}
                     </span>
                   )}
                   {!panelOpen && (() => {
@@ -1547,7 +1407,6 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
             {...paginationMeta}
             onPageChange={(p) => {
               const url = new URL(window.location.href);
-              url.searchParams.set("kind", kind);
               url.searchParams.set("page", String(p));
               router.push(url.pathname + url.search);
             }}
@@ -1642,11 +1501,7 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
                     Alumni-led
                   </label>
                   <label className="flex items-center gap-2 text-[13px] text-zinc-300">
-                    <input name="isInKind" type="checkbox" defaultChecked={kind === "in_kind"} className="size-4 accent-zinc-400" />
-                    In-kind sponsor
-                  </label>
-                  <label className="flex items-center gap-2 text-[13px] text-zinc-300">
-                    <input name="isPrevious" type="checkbox" defaultChecked={kind === "previous"} className="size-4 accent-zinc-400" />
+                    <input name="isPrevious" type="checkbox" className="size-4 accent-zinc-400" />
                     Previous sponsor
                   </label>
                 </div>
@@ -1667,11 +1522,6 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
                     <div className="min-w-0 flex-1">
                       <div className="flex min-w-0 items-center gap-2">
                         <p className="truncate text-[15px] font-medium text-zinc-100">{selected.name}</p>
-                        {isInKind(selected) ? (
-                          <span className="shrink-0 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-200">
-                            In-kind
-                          </span>
-                        ) : null}
                         {isPrevious(selected) ? (
                           <span className="shrink-0 rounded-full border border-amber-400/20 bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-200">
                             Previous
@@ -1679,7 +1529,7 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
                         ) : null}
                       </div>
                       <p className="mt-0.5 truncate text-[12px] text-zinc-500">
-                        {[isPrevious(selected) ? "Previous sponsor" : null, isInKind(selected) ? "In-kind sponsor" : null, selected.isAlumni ? "Alumni-led" : null, selected.archived ? "Archived" : null].filter(Boolean).join(" · ") || "Company profile"}
+                        {[isPrevious(selected) ? "Previous sponsor" : null, selected.isAlumni ? "Alumni-led" : null, selected.archived ? "Archived" : null].filter(Boolean).join(" · ") || "Company profile"}
                       </p>
                     </div>
                   </div>
@@ -1892,32 +1742,6 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
 
                 <section className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/9 bg-[#0d0e11] p-4">
                   <div className="flex min-w-0 flex-col items-start gap-2 lg:flex-row lg:items-center lg:justify-between">
-                    <p className="text-[13px] font-medium text-zinc-200">Pipeline</p>
-                    <a href="/pipeline" className="inline-flex h-7 items-center gap-1.5 rounded-md border border-white/9 px-2.5 text-[12px] text-zinc-300 transition hover:bg-white/5.5 hover:text-white">
-                      Open pipeline
-                      <ExternalLink className="size-3" strokeWidth={1.8} />
-                    </a>
-                  </div>
-                  <div className="mt-3 space-y-2">
-                    {selected.activeDeals.length ? selected.activeDeals.map((deal) => (
-                      <div key={deal.id} className="grid gap-2 rounded-md bg-white/[0.035] px-3 py-2 text-[13px] md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center">
-                        <span className="min-w-0">
-                          <span className="block truncate font-medium text-zinc-100">{deal.eventName ?? "No event"}</span>
-                          <span className="block truncate text-[12px] text-zinc-500">
-                            {[deal.primaryContactName, deal.followUpDate ? `Next outreach ${deal.followUpDate}` : null, dollars(deal.amount)].filter(Boolean).join(" · ")}
-                          </span>
-                        </span>
-                        <StatusPill status={deal.status} />
-                        <a href={`/pipeline?conversationId=${deal.id}`} className="w-fit rounded-md border border-white/9 px-2 py-1 text-[11px] text-zinc-400 transition hover:bg-white/5.5 hover:text-white">
-                          Open
-                        </a>
-                      </div>
-                    )) : <p className="text-[13px] text-zinc-500">No pipeline conversations yet.</p>}
-                  </div>
-                </section>
-
-                <section className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/9 bg-[#0d0e11] p-4">
-                  <div className="flex min-w-0 flex-col items-start gap-2 lg:flex-row lg:items-center lg:justify-between">
                     <p className="text-[13px] font-medium text-zinc-200">Event involvement</p>
                     <button
                       type="button"
@@ -2013,10 +1837,6 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
                     ) : (
                       <p className="text-[13px] text-zinc-500">No event involvement linked yet.</p>
                     )}
-                    <div className="border-t border-white/8 pt-3">
-                      <p className="text-[12px] text-zinc-500">Documents</p>
-                      <p className="mt-1 text-[13px] text-zinc-300">{selected.documents.length ? `${selected.documents.length} linked` : "No documents linked"}</p>
-                    </div>
                   </div>
                 </section>
                 {error && <p className="rounded-md border border-red-400/20 bg-red-400/10 px-3 py-2 text-[13px] text-red-200">{error}</p>}
@@ -2036,10 +1856,6 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
                     <label className="flex items-center gap-2 text-[13px] text-zinc-300">
                       <input name="isAlumni" type="checkbox" defaultChecked={selected.isAlumni} className="size-4 accent-zinc-400" />
                       Alumni-led
-                    </label>
-                    <label className="flex items-center gap-2 text-[13px] text-zinc-300">
-                      <input name="isInKind" type="checkbox" defaultChecked={isInKind(selected)} className="size-4 accent-zinc-400" />
-                      In-kind sponsor
                     </label>
                     <label className="flex items-center gap-2 text-[13px] text-zinc-300">
                       <input name="isPrevious" type="checkbox" defaultChecked={isPrevious(selected)} className="size-4 accent-zinc-400" />
@@ -2122,34 +1938,6 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
                   </div>
 
                   <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/9 bg-[#0d0e11] p-4">
-                    <div className="flex min-w-0 flex-col items-start gap-2 lg:flex-row lg:items-center lg:justify-between">
-                      <p className="text-[13px] font-medium text-zinc-200">Pipeline conversations</p>
-                      <a href="/pipeline" className="text-[12px] text-zinc-500 transition hover:text-zinc-200">
-                        Open pipeline
-                      </a>
-                    </div>
-                    <div className="mt-4 space-y-2">
-                      {selected.activeDeals.length ? (
-                        selected.activeDeals.map((deal) => (
-                          <div key={deal.id} className="grid gap-2 rounded-md bg-white/[0.035] px-3 py-2 text-[13px] md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center">
-                            <span className="min-w-0">
-                              <span className="block truncate font-medium text-zinc-100">{deal.eventName ?? "No event"}</span>
-                              <span className="block truncate text-[12px] text-zinc-500">
-                                {[deal.primaryContactName, deal.followUpDate ? `Next outreach ${deal.followUpDate}` : null, dollars(deal.amount)].filter(Boolean).join(" · ")}
-                              </span>
-                            </span>
-                            <StatusPill status={deal.status} />
-                            <a href={`/pipeline?conversationId=${deal.id}`} className="w-fit rounded-md border border-white/9 px-2 py-1 text-[11px] text-zinc-400 transition hover:bg-white/5.5 hover:text-white">
-                              Open
-                            </a>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-[13px] text-zinc-500">No pipeline conversations yet.</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/9 bg-[#0d0e11] p-4">
                     <EventAttendanceSection
                       events={events}
                       eventName={eventName}
@@ -2173,93 +1961,6 @@ export function CompaniesDirectory({ companies, paginationMeta, kindCounts, init
                       addLabel="Add involvement"
                       emptyLabel="No event involvement linked yet."
                     />
-                  </div>
-
-                  <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/9 bg-[#0d0e11] p-4">
-                    <p className="text-[13px] font-medium text-zinc-200">Documents</p>
-                    <form onSubmit={submitCompanyDocument} className="mt-4 grid min-w-0 gap-3">
-                      <Field label="Title">
-                        <input name="title" required className={inputClass()} />
-                      </Field>
-                      <Field label="URL">
-                        <input name="url" type="url" required className={inputClass()} />
-                      </Field>
-                      <div className="grid min-w-0 gap-3">
-                        <Field label="Type">
-                          <select name="type" defaultValue="deck" className={inputClass("w-full min-w-0")}>
-                            <option value="deck">Deck</option>
-                            <option value="contract">Contract</option>
-                            <option value="invoice">Invoice</option>
-                            <option value="proposal">Proposal</option>
-                            <option value="general">General</option>
-                          </select>
-                        </Field>
-                        <Field label="Status">
-                          <select name="status" defaultValue="draft" className={inputClass("w-full min-w-0")}>
-                            <option value="draft">Draft</option>
-                            <option value="sent">Sent</option>
-                            <option value="signed">Signed</option>
-                            <option value="archived">Archived</option>
-                          </select>
-                        </Field>
-                        <Field label="Event">
-                          <select name="eventId" className={inputClass("w-full min-w-0")}>
-                            <option value="">No event</option>
-                            {events.map((event) => (
-                              <option key={event.id} value={event.id}>{event.name}</option>
-                            ))}
-                          </select>
-                        </Field>
-                      </div>
-                      <Field label="Partner">
-                        <select name="partnerId" className={inputClass("w-full min-w-0")}>
-                          <option value="">Company-level document</option>
-                          {selected.contacts.map((contact) => (
-                            <option key={contact.id} value={contact.id}>{contact.name}</option>
-                          ))}
-                        </select>
-                      </Field>
-                      <Field label="Notes">
-                        <textarea name="notes" rows={2} className={inputClass("h-auto py-2")} />
-                      </Field>
-                      <button
-                        disabled={isPending}
-                        className="h-9 w-fit rounded-md bg-zinc-700 px-4 text-[13px] font-medium text-white transition hover:bg-zinc-600 disabled:opacity-60 cursor-pointer">
-                        Add document
-                      </button>
-                    </form>
-                    <div className="mt-4 space-y-2">
-                      {selected.documents.length ? (
-                        selected.documents.map((document) => (
-                          <div key={document.id} className="flex items-start justify-between gap-3 rounded-md bg-white/[0.035] px-3 py-2 text-[13px]">
-                            <span className="min-w-0">
-                              <a href={document.url} target="_blank" rel="noreferrer" className="block truncate font-medium text-zinc-100 hover:text-white">
-                                {document.title}
-                              </a>
-                              <span className="block truncate text-[12px] text-zinc-500">
-                                {[document.type, document.status, document.eventName, document.partnerName].filter(Boolean).join(" · ")}
-                              </span>
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (!window.confirm("Remove this document link?")) return;
-                                startTransition(async () => {
-                                  await deletePartnerDocumentAction(document.id);
-                                  router.refresh();
-                                });
-                              }}
-                              aria-label={`Remove ${document.title}`}
-                              className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-zinc-500 transition hover:bg-red-500/10 hover:text-red-200 cursor-pointer"
-                            >
-                              <Trash2 className="size-4" strokeWidth={1.8} />
-                            </button>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-[13px] text-zinc-500">No documents linked yet.</p>
-                      )}
-                    </div>
                   </div>
 
                   <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-white/9 bg-[#0d0e11] p-4">

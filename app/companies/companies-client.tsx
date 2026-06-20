@@ -3,7 +3,6 @@
 import { CompaniesDirectory } from "@/components/partnerships-directory";
 import type {
   CompanyDirectoryRecord,
-  CompanyKind,
   CrmEventSummary,
   CrmUserSummary,
   MeetingLogRecord,
@@ -14,24 +13,20 @@ import type {
 type CompaniesClientProps = {
   companiesResult: PaginationMeta & {
     data: CompanyDirectoryRecord[];
-    kindCounts: { sponsors: number; inKind: number; previous: number };
   };
   events: CrmEventSummary[];
   users: CrmUserSummary[];
   partners: PartnerDirectoryRecord[];
   meetings: MeetingLogRecord[];
   initialCompanyId?: string;
-  initialKind?: CompanyKind;
   currentUserId?: string;
 };
 
-export function CompaniesClient({ companiesResult, initialKind, ...props }: CompaniesClientProps) {
+export function CompaniesClient({ companiesResult, ...props }: CompaniesClientProps) {
   return (
     <CompaniesDirectory
       companies={companiesResult.data}
       paginationMeta={companiesResult}
-      kindCounts={companiesResult.kindCounts}
-      initialKind={initialKind}
       {...props}
     />
   );

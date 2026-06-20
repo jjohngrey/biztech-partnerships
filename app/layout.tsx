@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import type React from "react";
 import "./globals.css";
-import { AppShell } from "@/components/app-shell";
 
 export const metadata: Metadata = {
   title: "Hermes",

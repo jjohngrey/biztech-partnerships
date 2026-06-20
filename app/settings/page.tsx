@@ -12,7 +12,7 @@ export default async function SettingsPage() {
   ]);
 
   if (role !== "admin") {
-    redirect("/dashboard");
+    redirect("/contact-log");
   }
 
   return (
